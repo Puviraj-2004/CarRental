@@ -1,0 +1,17 @@
+# Docker files
+.docker/
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+stripe.exe
+
+
+# Do NOT add Car_Rental_Backend or Car_Rental_Frontend here
+# If you add them, they won't be tracked in your main repo.

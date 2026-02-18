@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Prisma generated
+/generated/prisma
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime / uploads
+uploads/
+tmp/
+temp/
+
+# TypeScript build info
+*.tsbuildinfo
+*.d.ts.map
+prisma.config.d.ts.map
+
+# Stripe CLI
+stripe.exe
+
+# Coverage & testing
+coverage/
+.nyc_output/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sw?
