@@ -100,6 +100,8 @@ export interface CarFilterInput {
   fuelTypes?: FuelType[];
   transmissions?: Transmission[];
   statuses?: CarStatus[];
+  minPrice?: number;
+  maxPrice?: number;
   critAirRatings?: CritAirCategory[];
   startDate?: string;
   endDate?: string;
@@ -313,7 +315,6 @@ export interface PlatformSettingsInput {
   stripeSecretKey?: string;
   defaultCurrency?: string;
   timezone?: string;
-  // Additional properties used by platformService
   companyName?: string;
   supportEmail?: string;
   supportPhone?: string;
@@ -476,9 +477,8 @@ export interface OCRResult {
   licenseCategory?: string;
   restrictsToAutomatic?: boolean;
   address?: string;
-  // Additional properties used in OCR processing
-  prenom?: string; // French first name
-  nom?: string;    // French last name
+  prenom?: string; 
+  nom?: string;    
   idNumber?: string;
   documentDate?: string;
   issueDate?: string;

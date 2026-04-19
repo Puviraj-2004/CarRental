@@ -3,7 +3,6 @@ import logger from './logger';
 
 let redis: Redis | null = null;
 
-const isDev = (process.env.NODE_ENV || 'development') === 'development';
 
 const getRedisUrl = () => {
   const url = (process.env.REDIS_URL || '').trim();
@@ -27,22 +26,23 @@ export const getRedisClient = () => {
   if (redis) return redis;
 
   const redisUrl = getRedisUrl();
-  if (!redisUrl) {
-    if (isDev) return null;
-    return null;
-  }
+  if (!redisUrl) return null;
 
   redis = new Redis(redisUrl, {
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: 1, 
     enableReadyCheck: true,
     lazyConnect: true,
+    retryStrategy: (times) => {
+      if (times > 3) {
+        logger.error('Redis: Max retries reached. Moving to fallback mode.');
+        return null; 
+      }
+      return Math.min(times * 100, 2000);
+    }
   });
 
   redis.on('error', (err) => {
-    // Keep process alive; callers decide fallback/behavior
-    if (isDev) {
-      logger.warn('Redis error', { error: err?.message || String(err) });
-    }
+    logger.debug('Redis error', { message: err.message });
   });
 
   return redis;

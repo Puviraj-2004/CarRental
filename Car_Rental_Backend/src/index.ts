@@ -195,10 +195,11 @@ async function startServer() {
   // 3. LOGGING
   app.use((req: Request, _res: Response, next) => {
     if (req.path === '/graphql') {
-      logger.info('Incoming GraphQL Request', {
+      const opName = req.body?.operationName || 'NoOperationName'; // Fix P2
+      logger.info(`GraphQL Request: ${opName}`, {
         method: req.method,
         ip: req.ip,
-        operation: req.body?.operationName || 'unknown'
+        operation: opName
       });
     }
     next();

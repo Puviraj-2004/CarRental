@@ -32,14 +32,13 @@ const extractUserIdFromRequest = (req: Request): string | null => {
   }
 };
 
-// Get client identifier (userId if authenticated, IP as fallback for login/register)
 const getClientIdentifier = (req: Request): string => {
   const userId = extractUserIdFromRequest(req);
-  if (userId) return userId;
+  if (userId) return `user:${userId}`;
   
-  // Fallback to IP for unauthenticated requests (login, register)
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  return `ip:${ip}`;
+  // Improvement: CSRF based on IP with Proxy support
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  return `ip:${Array.isArray(ip) ? ip[0] : ip}`;
 };
 
 export const csrfProtection = async (req: Request, res: Response, next: NextFunction) => {
@@ -87,7 +86,7 @@ export const csrfProtection = async (req: Request, res: Response, next: NextFunc
   }
 
   // CSRF token validation for sensitive operations
-  const operationName = req.body?.operationName;
+  const operationName = req.body?.operationName || 'UnnamedOperation';
   const sensitiveOperations = [
     'login',
     'register',
@@ -119,16 +118,19 @@ export const csrfProtection = async (req: Request, res: Response, next: NextFunc
     const redis = getRedisClient();
     let storedToken: string | null = null;
 
-    if (redis) {
-      storedToken = await redis.get(csrfKey(identifier));
-    } else {
-      // Development fallback
-      const record = csrfStore.get(identifier);
-      if (record && record.expiresAt > Date.now()) {
-        storedToken = record.token;
-      } else if (record) {
-        csrfStore.delete(identifier);
+    try 
+      {
+      if (redis && redis.status === 'ready') {
+        storedToken = await redis.get(csrfKey(identifier));
+      } else {
+        // Fallback Logic
+        const record = csrfStore.get(identifier);
+        if (record && record.expiresAt > Date.now()) {
+          storedToken = record.token;
+        }
       }
+    } catch (err) {
+      logger.warn('CSRF: Redis fetch failed, skipping token check', { operationName });
     }
 
     if (!storedToken || storedToken !== csrfToken) {

@@ -1,132 +1,74 @@
+import { Car, CarImage, Brand, VehicleModel } from '@prisma/client';
 import { isAdmin } from '../../utils/authguard';
 import { carService } from '../../services/carService';
-import {
-  GraphQLContext,
-  CarQueryArgs,
-  CarByIdArgs,
-  ModelsByBrandArgs,
-  AvailableCarsArgs,
-  CreateCarArgs,
-  UpdateCarArgs,
-  DeleteCarArgs,
-  CreateBrandArgs,
-  UpdateBrandArgs,
-  DeleteBrandArgs,
-  CreateModelArgs,
-  UpdateModelArgs,
-  DeleteModelArgs,
-  AddCarImageArgs,
-  DeleteCarImageArgs,
-  SetPrimaryCarImageArgs
+import { 
+  GraphQLContext, 
+  CreateCarInput, 
+  UpdateCarInput, 
+  CarFilterInput, 
+  PaginationInput 
 } from '../../types/graphql';
+
+type CarWithRelations = Car & {
+  brand?: Brand;
+  model?: VehicleModel;
+  images?: CarImage[];
+};
 
 export const carResolvers = {
   Query: {
-    cars: async (_: unknown, args: CarQueryArgs) => {
-      return await carService.getCars(args.filter, (args as any).pagination);
+    cars: async (_: unknown, { filter, pagination }: { filter: CarFilterInput, pagination: PaginationInput }) => {
+      return await carService.getCars(filter, pagination);
     },
-
-    car: async (_: unknown, args: CarByIdArgs) => {
-      return await carService.getCarById(args.id);
-    },
-
-    brands: async () => {
-      return await carService.getBrands();
-    },
-
-    models: async (_: unknown, args: ModelsByBrandArgs) => {
-      return await carService.getModels(args.brandId);
-    },
-
-    availableCars: async (_: unknown, args: AvailableCarsArgs) => {
-      return await carService.getAvailableCars(args.startDate, args.endDate);
+    car: async (_: unknown, { id }: { id: string }) => {
+      return await carService.getCarById(id);
     },
   },
 
   Mutation: {
-    // Brands
-    createBrand: async (_: unknown, args: CreateBrandArgs, context: GraphQLContext) => {
+    createCar: async (_: unknown, { input }: { input: CreateCarInput }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.createBrand(args);
-    },
-    updateBrand: async (_: unknown, args: UpdateBrandArgs, context: GraphQLContext) => {
-      isAdmin(context);
-      return await carService.updateBrand(args.id, args);
-    },
-    deleteBrand: async (_: unknown, args: DeleteBrandArgs, context: GraphQLContext) => {
-      isAdmin(context);
-      return await carService.deleteBrand(args.id);
+      return await carService.createCar(input);
     },
 
-    // Models
-    createModel: async (_: unknown, args: CreateModelArgs, context: GraphQLContext) => {
+    updateCar: async (_: unknown, { id, input }: { id: string, input: UpdateCarInput }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.createModel(args);
-    },
-    updateModel: async (_: unknown, args: UpdateModelArgs, context: GraphQLContext) => {
-      isAdmin(context);
-      return await carService.updateModel(args.id, args);
-    },
-    deleteModel: async (_: unknown, args: DeleteModelArgs, context: GraphQLContext) => {
-      isAdmin(context);
-      return await carService.deleteModel(args.id);
+      return await carService.updateCar(id, input);
     },
 
-    // Cars
-    createCar: async (_: unknown, args: CreateCarArgs, context: GraphQLContext) => {
+    deleteCar: async (_: unknown, { id }: { id: string }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.createCar(args.input);
-    },
-    updateCar: async (_: unknown, args: UpdateCarArgs, context: GraphQLContext) => {
-      isAdmin(context);
-      return await carService.updateCar(args.id, args.input);
-    },
-    deleteCar: async (_: unknown, args: DeleteCarArgs, context: GraphQLContext) => {
-      isAdmin(context);
-      return await carService.deleteCar(args.id);
+      return await carService.deleteCar(id);
     },
 
-    // Images
-    addCarImage: async (_: unknown, args: AddCarImageArgs, context: GraphQLContext) => {
+    // Image Mutations
+    addCarImage: async (_: unknown, { carId, file, isPrimary }: { carId: string, file: any, isPrimary?: boolean }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.addCarImage(args.carId, args.file, args.isPrimary);
+      return await carService.uploadImage(carId, file, isPrimary);
     },
-    deleteCarImage: async (_: unknown, args: DeleteCarImageArgs, context: GraphQLContext) => {
+
+    setPrimaryCarImage: async (_: unknown, { carId, imageId }: { carId: string, imageId: string }, context: GraphQLContext) => {
       isAdmin(context);
-      await carService.deleteCarImage(args.imageId);
-      return true;
+      return await carService.setPrimaryImage(carId, imageId);
     },
-    setPrimaryCarImage: async (_: unknown, args: SetPrimaryCarImageArgs, context: GraphQLContext) => {
+
+    deleteCarImage: async (_: unknown, { imageId }: { imageId: string }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.setPrimaryImage(args.carId, args.imageId);
+      return await carService.deleteImage(imageId);
     }
   },
 
   Car: {
-    brand: async (parent: any, _args: unknown, context: any) => {
-      // If brand was already eagerly loaded by the parent query, return it directly
+    brand: async (parent: CarWithRelations, _: unknown, { loaders }: GraphQLContext) => {
       if (parent.brand) return parent.brand;
-      // If model.brand was eagerly loaded, return it
-      if (parent.model?.brand) return parent.model.brand;
-      // Otherwise batch-load via DataLoader (prevents N+1)
-      if (parent.brandId && context.loaders) {
-        return context.loaders.brandLoader.load(parent.brandId);
-      }
-      return null;
+      return await loaders.brandLoader.load(parent.brandId);
     },
-    model: async (parent: any, _args: unknown, context: any) => {
+    model: async (parent: CarWithRelations, _: unknown, { loaders }: GraphQLContext) => {
       if (parent.model) return parent.model;
-      if (parent.modelId && context.loaders) {
-        return context.loaders.modelLoader.load(parent.modelId);
-      }
-      return null;
+      return await loaders.modelLoader.load(parent.modelId);
     },
-    images: async (parent: any, _args: unknown, context: any) => {
-      if (parent.images) return parent.images;
-      if (context.loaders) {
-        return context.loaders.carImagesLoader.load(parent.id);
-      }
-      return [];
+    images: async (parent: CarWithRelations) => {
+      return parent.images || [];
     }
   }
 };

@@ -1,12 +1,13 @@
-import { PrismaClient, Role} from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { initialBrands, initialPlatformSettings } from '../src/db/data';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // 1. ADMIN USER SEEDING
+  // --- 1. ADMIN USER SEEDING ---
   const adminEmail = 'admin@carrental.com';
   const hashedPassword = await bcrypt.hash('Admin@123456', 10);
 
@@ -29,25 +30,50 @@ async function main() {
   });
   console.log(`✅ Admin user ready: ${admin.email}`);
 
-  // 2. PLATFORM SETTINGS SEEDING
+  // --- 2. PLATFORM SETTINGS SEEDING (Using data.ts) ---
   const settings = await prisma.platformSettings.findFirst();
   if (!settings) {
     await prisma.platformSettings.create({
       data: {
-        companyName: 'RentCar Premium France',
-        supportEmail: 'support@rentcar.com',
-        supportPhone: '+33 1 23 45 67 89',
-        address: '123 Avenue des Champs-Élysées, Paris',
-        taxPercentage: 20.0,
-        currency: 'EUR',
+        ...initialPlatformSettings,
         youngDriverMinAge: 25,
         youngDriverFee: 30.0,
       },
     });
-    console.log('✅ Platform Settings seeded!');
+    console.log('✅ Platform Settings seeded from data.ts!');
   }
 
-  console.log('🎉 Seeding completed!');
+  // --- 3. BRANDS & MODELS SEEDING (The Logic) ---
+  console.log('📦 Seeding Brands and Models...');
+
+  for (const item of initialBrands) {
+    const brand = await prisma.brand.upsert({
+      where: { name: item.name },
+      update: {}, 
+      create: {
+        name: item.name,
+      },
+    });
+
+    for (const modelName of item.models) {
+      await prisma.vehicleModel.upsert({
+        where: {
+          name_brandId: {
+            name: modelName,
+            brandId: brand.id,
+          },
+        },
+        update: {},
+        create: {
+          name: modelName,
+          brandId: brand.id,
+        },
+      });
+    }
+  }
+  console.log('✅ Brands and Models seeded successfully!');
+
+  console.log('🎉 All seeding completed!');
 }
 
 main()

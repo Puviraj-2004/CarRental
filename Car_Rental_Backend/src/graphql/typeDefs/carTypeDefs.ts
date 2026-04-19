@@ -1,10 +1,8 @@
 import { gql } from 'graphql-tag';
 
 export const carTypeDefs = gql`
-  # 🚀 Important: required for image upload support
   scalar Upload
 
-  # --- Enums ---
   enum CritAirCategory {
     CRIT_AIR_0
     CRIT_AIR_1
@@ -30,6 +28,7 @@ export const carTypeDefs = gql`
     CVT
     DCT
   }
+
   enum CarStatus { 
     AVAILABLE 
     RENTED 
@@ -37,27 +36,16 @@ export const carTypeDefs = gql`
     OUT_OF_SERVICE 
   }
 
-  # --- Types ---
-  type Brand {
-    id: ID!
-    name: String!
-    logoUrl: String
-    models: [VehicleModel!]
-    cars: [Car!]
-  }
-
-  type VehicleModel {
-    id: ID!
-    name: String!
-    brandId: ID!
-    brand: Brand!
-    cars: [Car!]
+  enum LicenseCategory {
+    A
+    B
+    C
+    D
   }
 
   type CarImage {
     id: ID!
     carId: ID!
-    car: Car!
     url: String!
     isPrimary: Boolean!
   }
@@ -67,7 +55,7 @@ export const carTypeDefs = gql`
     modelId: ID!
     brandId: ID!
     model: VehicleModel!
-    brand: Brand!
+    brand: Brand!        
     year: Int!
     plateNumber: String!
     transmission: Transmission!
@@ -75,19 +63,39 @@ export const carTypeDefs = gql`
     seats: Int!
     requiredLicense: LicenseCategory!
     pricePerDay: Float!
-    depositAmount: Float
+    depositAmount: Float!
     dailyKmLimit: Float
     extraKmCharge: Float!
     currentOdometer: Float!
     critAirRating: CritAirCategory!
     status: CarStatus!
     images: [CarImage!]!
-    bookings: [Booking!]!
     createdAt: String!
     updatedAt: String!
   }
 
+  type PaginatedCars {
+    cars: [Car!]!
+    totalCount: Int!
+    hasMore: Boolean!
+  }
+
   # --- Inputs ---
+  input PaginationInput {
+    page: Int
+    limit: Int
+  }
+
+  input CarFilterInput {
+    brandIds: [ID!]
+    modelIds: [ID!]
+    fuelTypes: [FuelType!]
+    transmissions: [Transmission!]
+    statuses: [CarStatus!]
+    minPrice: Float
+    maxPrice: Float
+  }
+
   input CreateCarInput {
     modelId: ID!
     brandId: ID!
@@ -102,64 +110,37 @@ export const carTypeDefs = gql`
     dailyKmLimit: Float
     extraKmCharge: Float
     currentOdometer: Float
-    critAirRating: CritAirCategory!
+    critAirRating: CritAirCategory
     status: CarStatus
   }
 
   input UpdateCarInput {
-    modelId: ID
-    brandId: ID
     year: Int
-    plateNumber: String
     transmission: Transmission
     fuelType: FuelType
     seats: Int
-    requiredLicense: LicenseCategory
     pricePerDay: Float
     depositAmount: Float
     dailyKmLimit: Float
     extraKmCharge: Float
     currentOdometer: Float
-    critAirRating: CritAirCategory
     status: CarStatus
   }
 
-  input CarFilterInput {
-    brandIds: [ID!]
-    modelIds: [ID!]
-    fuelTypes: [FuelType!]
-    transmissions: [Transmission!]
-    statuses: [CarStatus!]
-    critAirRatings: [CritAirCategory!]
-    startDate: String  # Date only (YYYY-MM-DD format)
-    endDate: String    # Date only (YYYY-MM-DD format)
-    includeOutOfService: Boolean
-  }
-
   # --- Queries ---
-  type Query {
+  extend type Query {
     cars(filter: CarFilterInput, pagination: PaginationInput): PaginatedCars!
     car(id: ID!): Car
-    brands: [Brand!]!
-    models(brandId: ID): [VehicleModel!]!
   }
 
   # --- Mutations ---
-  type Mutation {
+  extend type Mutation {
     createCar(input: CreateCarInput!): Car!
     updateCar(id: ID!, input: UpdateCarInput!): Car!
     deleteCar(id: ID!): Boolean!
     
-    createBrand(name: String!, logoUrl: String): Brand!
-    updateBrand(id: ID!, name: String!, logoUrl: String): Brand!
-    deleteBrand(id: ID!): Boolean!
-    
-    createModel(name: String!, brandId: ID!): VehicleModel!
-    updateModel(id: ID!, name: String!): VehicleModel!
-    deleteModel(id: ID!): Boolean!
-    
+    # Image Management
     addCarImage(carId: ID!, file: Upload!, isPrimary: Boolean): CarImage!
-    
     deleteCarImage(imageId: ID!): Boolean!
     setPrimaryCarImage(carId: ID!, imageId: ID!): Boolean!
   }
