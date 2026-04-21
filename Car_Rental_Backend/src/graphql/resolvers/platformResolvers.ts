@@ -1,6 +1,9 @@
 import { isAdmin } from '../../utils/authguard';
 import { platformService } from '../../services/platformService';
 import { cleanupService } from '../../services/cleanupService';
+import { generateCloudinarySignature } from '../../utils/cloudinary';
+import { ErrorCode } from '../../errors/AppError';
+import { AppError } from '../../errors/AppError';
 
 export const platformResolvers = {
   Query: {
@@ -13,10 +16,18 @@ export const platformResolvers = {
       return [];
     },
 
-    dashboardStats: async (_: any, __: any, context: any) => {
-      isAdmin(context);
+    dashboardStats: async (_: any, __: any, _context: any) => { 
+      isAdmin(_context);
       return await platformService.getDashboardStats();
-    }
+    },
+
+    getCloudinarySignature: async (_: any, { folderType }: { folderType: string }) => {
+      try {
+        return generateCloudinarySignature(folderType);
+      } catch (error) {
+        throw new AppError("Failed to generate upload signature", ErrorCode.INTERNAL_SERVER_ERROR);
+      }
+    },
   },
 
   Mutation: {

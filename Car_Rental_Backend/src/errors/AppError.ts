@@ -9,6 +9,7 @@ export enum ErrorCode {
   UPLOAD_ERROR = 'UPLOAD_ERROR',
   CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+  
 }
 
 export class AppError extends Error {

@@ -112,6 +112,8 @@ export const carTypeDefs = gql`
     currentOdometer: Float
     critAirRating: CritAirCategory
     status: CarStatus
+    primaryimageURL: String!
+    primaryimagePublicId: String!
   }
 
   input UpdateCarInput {
@@ -125,6 +127,8 @@ export const carTypeDefs = gql`
     extraKmCharge: Float
     currentOdometer: Float
     status: CarStatus
+    primaryimageURL: String
+    primaryimagePublicId: String
   }
 
   # --- Queries ---
@@ -140,7 +144,7 @@ export const carTypeDefs = gql`
     deleteCar(id: ID!): Boolean!
     
     # Image Management
-    addCarImage(carId: ID!, file: Upload!, isPrimary: Boolean): CarImage!
+    addCarImage(carId: ID!, url: String!, publicId: String!, isPrimary: Boolean): CarImage!
     deleteCarImage(imageId: ID!): Boolean!
     setPrimaryCarImage(carId: ID!, imageId: ID!): Boolean!
   }

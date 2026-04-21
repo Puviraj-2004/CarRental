@@ -1,6 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
 import { AppError, ErrorCode } from '../errors/AppError';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -35,8 +37,6 @@ if (cloudName && !/^[a-z0-9\-]+$/.test(cloudName.toLowerCase())) {
   // Invalid cloud name format
 }
 
-import fs from 'fs';
-import path from 'path';
 
 const normalizeBackendBaseUrl = (raw: string | undefined) => {
   const val = (raw || '').trim().replace(/\/+$/, '');
@@ -94,9 +94,6 @@ export function getCloudinaryDiagnostics() {
   };
 }
 
-/**
- * Upload with fallback to local disk when Cloudinary is unavailable
- */
 export const uploadToCloudinary = async (
   fileInput: Buffer | any,
   folder: string,
@@ -235,6 +232,27 @@ export const deleteFromCloudinary = async (publicId: string): Promise<void> => {
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
   }
+};
+
+export const generateCloudinarySignature = (folder: string) => {
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const folderPath = `car_rental_industrial/${folder}`;
+
+  const signature = cloudinary.utils.api_sign_request(
+    {
+      timestamp: timestamp,
+      folder: folderPath,
+    },
+    apiSecret
+  );
+
+  return {
+    signature,
+    timestamp,
+    cloudName,
+    apiKey,
+    folder: folderPath
+  };
 };
 
 export default cloudinary;

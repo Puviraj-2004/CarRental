@@ -17,8 +17,8 @@ export const brandTypeDefs = gql`
 
   # --- Mutations ---
   extend type Mutation {
-    createBrand(name: String!, logoUrl: String): Brand!
-    updateBrand(id: ID!, name: String!, logoUrl: String): Brand!
+    createBrand(name: String!, logoUrl: String, logoPublicId: String): Brand!
+    updateBrand(id: ID!, name: String!, logoUrl: String, logoPublicId: String ): Brand!
     deleteBrand(id: ID!): Boolean!
   }
 `;

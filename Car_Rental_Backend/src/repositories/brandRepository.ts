@@ -27,11 +27,12 @@ export class BrandRepository {
   /**
    * Create a new brand in the database
    */
-  async create(data: { name: string; logoUrl?: string | null }) {
+  async create(data: { name: string; logoUrl?: string | null; logoPublicId?: string | null }) {
     return await prisma.brand.create({
       data: {
         name: data.name,
         logoUrl: data.logoUrl,
+        logoPublicId: data.logoPublicId,
       },
     });
   }
@@ -39,12 +40,13 @@ export class BrandRepository {
   /**
    * Update an existing brand record
    */
-  async update(id: string, data: { name?: string; logoUrl?: string | null }) {
+  async update(id: string, data: { name?: string; logoUrl?: string | null; logoPublicId?: string | null }) {
     return await prisma.brand.update({
       where: { id },
       data: {
         name: data.name,
         logoUrl: data.logoUrl,
+        logoPublicId: data.logoPublicId,
       },
     });
   }

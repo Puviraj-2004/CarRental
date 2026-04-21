@@ -42,9 +42,9 @@ export const carResolvers = {
     },
 
     // Image Mutations
-    addCarImage: async (_: unknown, { carId, file, isPrimary }: { carId: string, file: any, isPrimary?: boolean }, context: GraphQLContext) => {
+    addCarImage: async (_: unknown, { carId, url, publicId, isPrimary }: { carId: string, url: string, publicId: string, isPrimary?: boolean }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.uploadImage(carId, file, isPrimary);
+      return await carService.addCarImage(carId, url, publicId, isPrimary);
     },
 
     setPrimaryCarImage: async (_: unknown, { carId, imageId }: { carId: string, imageId: string }, context: GraphQLContext) => {

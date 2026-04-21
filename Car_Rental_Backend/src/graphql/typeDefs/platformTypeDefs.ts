@@ -15,6 +15,14 @@ export const platformTypeDefs = gql`
     updatedAt: String!
   }
 
+  type CloudinarySignature {
+    signature: String!
+    timestamp: Int!
+    cloudName: String!
+    apiKey: String!
+    folder: String!
+  }
+
   # --- Inputs ---
   input UpdatePlatformSettingsInput {
     companyName: String
@@ -32,6 +40,7 @@ export const platformTypeDefs = gql`
     platformSettings: PlatformSettings!
     auditLogs(userId: ID, limit: Int, offset: Int): [JSON!]!
     dashboardStats: DashboardStats!
+    getCloudinarySignature(folderType: String!): CloudinarySignature!
   }
 
   # --- Mutations ---

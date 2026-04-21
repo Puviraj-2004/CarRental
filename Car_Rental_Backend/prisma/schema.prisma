@@ -183,6 +183,7 @@ model Brand {
   id        String   @id @default(uuid())
   name      String   @unique
   logoUrl   String?
+  logoPublicId String?
   models    VehicleModel[]
   cars      Car[]
 }
@@ -216,6 +217,7 @@ model Car {
   currentOdometer Float            @default(0)
   critAirRating   CritAirCategory  @default(CRIT_AIR_1)
   status          CarStatus        @default(AVAILABLE)
+  primaryimageURL String
   images          CarImage[]
   bookings        Booking[]
   createdAt       DateTime         @default(now())
@@ -230,6 +232,7 @@ model Car {
 model CarImage {
   id        String   @id @default(uuid())
   carId     String
+  publicId  String?
   car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
   url       String
   isPrimary Boolean  @default(false)

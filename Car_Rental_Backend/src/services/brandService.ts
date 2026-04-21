@@ -11,13 +11,11 @@ export class BrandService {
     try {
       return await brandRepository.findAll();
     } catch (error) {
-      handleDatabaseError(error);
+      throw handleDatabaseError(error);
+
     }
   }
 
-  /**
-   * Create a new brand with basic validation
-   */
   async createBrand(data: CreateBrandArgs) {
     if (!data.name?.trim()) {
       throw new AppError('Brand name cannot be empty', ErrorCode.BAD_USER_INPUT);
@@ -26,10 +24,11 @@ export class BrandService {
     try {
       return await brandRepository.create({
         name: data.name.trim(),
-        logoUrl: data.logoUrl
+        logoUrl: data.logoUrl,
+        logoPublicId: data.logoPublicId
       });
     } catch (error) {
-      handleDatabaseError(error);
+      throw handleDatabaseError(error);
     }
   }
 
@@ -40,10 +39,11 @@ export class BrandService {
     try {
       return await brandRepository.update(id, {
         name: data.name?.trim(),
-        logoUrl: data.logoUrl
+        logoUrl: data.logoUrl,
+        logoPublicId: data.logoPublicId
       });
     } catch (error) {
-      handleDatabaseError(error);
+      throw handleDatabaseError(error);
     }
   }
 
@@ -65,7 +65,7 @@ export class BrandService {
       await brandRepository.delete(id);
       return true;
     } catch (error) {
-      handleDatabaseError(error);
+      throw handleDatabaseError(error);
     }
   }
 }

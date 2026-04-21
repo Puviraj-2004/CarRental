@@ -1,12 +1,9 @@
 import { carRepository } from '../repositories/carRepository';
-import { uploadToCloudinary } from '../utils/cloudinary';
 import { validateCarData } from '../utils/validation';
-import { validateFileMime, validateFileExtension } from '../utils/fileValidation';
 import { AppError, ErrorCode } from '../errors/AppError';
 import { Prisma, CarStatus, BookingStatus } from '@prisma/client';
 import { PaginationInput, normalizePagination } from '../utils/pagination';
 import {
-  FileUpload,
   CarFilterInput,
   CreateCarInput,
   UpdateCarInput
@@ -132,26 +129,24 @@ async createCar(data: CreateCarInput) {
     return await carRepository.deleteCar(id);
   }
 
-  async uploadImage(carId: string, file: FileUpload, isPrimary?: boolean) {
-    const { filename, mimetype, createReadStream } = await file;
-    
-    validateFileMime(mimetype, 'car_image');
-    validateFileExtension(filename, 'car_image');
-
-    const uploadResult = await uploadToCloudinary(createReadStream(), 'cars', false, filename);
-
+  async addCarImage(carId: string, url: string, publicId: string, isPrimary?: boolean) {
     if (isPrimary) {
       await carRepository.updateManyImages({ carId }, { isPrimary: false });
     }
 
     return await carRepository.createImage({
       car: { connect: { id: carId } },
-      url: uploadResult.secure_url,
+      url: url,
+      publicId: publicId,
       isPrimary: !!isPrimary
     });
   }
 
-  async setPrimaryImage(carId: string, imageId: string) {
+  async finishMaintenance(carId: string) {
+    return await carRepository.updateCar(carId, { status: CarStatus.AVAILABLE });
+  }
+
+async setPrimaryImage(carId: string, imageId: string) {
     await carRepository.updateManyImages({ carId }, { isPrimary: false });
     return await carRepository.updateImage(imageId, { isPrimary: true });
   }
