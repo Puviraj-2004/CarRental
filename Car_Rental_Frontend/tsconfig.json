@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "lib": ["dom", "dom.iterable", "es6"],
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "ES2017"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,10 +19,9 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
-      "paths": {
+    "paths": {
       "@/*": ["./src/*"],
-      "apollo-upload-client": ["node_modules/apollo-upload-client/public/index.mjs"]
+      "apollo-upload-client": ["./node_modules/apollo-upload-client/public/index.mjs"]
     }
   },
   "include": [

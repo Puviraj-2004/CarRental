@@ -45,6 +45,10 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma/
 # Copy compiled JS
 COPY --from=builder /app/dist ./dist/
 
+# Copy & permission the entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Create logs directory
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs
 
@@ -52,7 +56,8 @@ USER appuser
 
 EXPOSE 4000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health/live || exit 1
 
-CMD ["node", "dist/src/index.js"]
+# Entrypoint runs migrations first, then starts the app
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

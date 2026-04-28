@@ -6,12 +6,8 @@ export class BrandRepository {
    */
   async findAll() {
     return await prisma.brand.findMany({
-      include: {
-        models: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
+      include: { models: true },
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -21,6 +17,21 @@ export class BrandRepository {
   async findById(id: string) {
     return await prisma.brand.findUnique({
       where: { id },
+    });
+  }
+
+  /**
+   * Find a brand by name (case-insensitive).
+   * Used for duplicate detection before create.
+   */
+  async findByName(name: string) {
+    return await prisma.brand.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: 'insensitive',
+        },
+      },
     });
   }
 
@@ -61,8 +72,8 @@ export class BrandRepository {
   }
 
   /**
-   * Count how many models are linked to this brand
-   * Used for safety check before deletion
+   * Count how many models are linked to this brand.
+   * Used for safety check before deletion.
    */
   async countModelsByBrand(brandId: string) {
     return await prisma.vehicleModel.count({
