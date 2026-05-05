@@ -5,6 +5,8 @@ import { carResolvers } from './carResolvers';
 import { bookingResolvers } from './bookingResolvers';
 import { paymentResolvers } from './paymentResolvers';
 import { platformResolvers } from './platformResolvers';
+import { brandResolvers } from './brandResolvers';
+import { modelResolvers } from './modelResolvers';
 
 const scalarResolvers = {
   Upload: GraphQLUpload,
@@ -40,7 +42,9 @@ const resolvers = mergeResolvers([
   carResolvers,
   bookingResolvers,
   paymentResolvers,
-  platformResolvers
+  platformResolvers,
+  brandResolvers,
+  modelResolvers,
 ]);
 
 export default resolvers;
