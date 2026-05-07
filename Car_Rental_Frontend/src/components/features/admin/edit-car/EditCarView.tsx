@@ -13,9 +13,9 @@ import {
 
 export const EditCarView = ({
   activeTab, setActiveTab, formData, setFormData,
-  brandData, modelData, enumData,
-  onInputChange, onImageSelect, existingImages, imagePreviews, primaryImageIndex,
-  setPrimaryImageIndex, onRemoveExistingImage, onRemoveNewImage, onSetPrimaryExisting,
+  brandData, modelData, enums,
+  onInputChange, onImageSelect, existingImages, selectedImages, primaryImageIndex,
+  setPrimaryImageIndex, onRemoveExistingImage, onRemoveNewImage, onSetPrimaryExisting, onSetPrimaryNew,
   onSubmit, onCancel, isUpdating, t
 }: any) => {
 
@@ -103,7 +103,7 @@ export const EditCarView = ({
               <FormControl fullWidth size="small">
                 <InputLabel>{t('admin.critAir')}</InputLabel>
                 <Select name="critAirRating" value={formData.critAirRating} label={t('admin.critAir')} onChange={onInputChange as any}>
-                  {enumData?.critAirEnum?.enumValues.map((e: any) => <MenuItem key={e.name} value={e.name}>{e.name}</MenuItem>)}
+                  {enums?.critAirCategories?.map((value: string) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -116,7 +116,7 @@ export const EditCarView = ({
               <FormControl fullWidth size="small">
                 <InputLabel>{t('admin.fuelType')}</InputLabel>
                 <Select name="fuelType" value={formData.fuelType} label={t('admin.fuelType')} onChange={onInputChange as any}>
-                  {enumData?.fuelTypeEnum?.enumValues.map((e: any) => <MenuItem key={e.name} value={e.name}>{e.name}</MenuItem>)}
+                  {enums?.fuelTypes?.map((value: string) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -125,7 +125,7 @@ export const EditCarView = ({
               <FormControl fullWidth size="small">
                 <InputLabel>{t('admin.transmission')}</InputLabel>
                 <Select name="transmission" value={formData.transmission} label={t('admin.transmission')} onChange={onInputChange as any}>
-                  {enumData?.transmissionEnum?.enumValues.map((e: any) => <MenuItem key={e.name} value={e.name}>{e.name}</MenuItem>)}
+                  {enums?.transmissions?.map((value: string) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -138,7 +138,7 @@ export const EditCarView = ({
               <FormControl fullWidth size="small">
                 <InputLabel>{t('admin.status')}</InputLabel>
                 <Select name="status" value={formData.status} label={t('admin.status')} onChange={onInputChange as any}>
-                  {enumData?.carStatusEnum?.enumValues.map((e: any) => <MenuItem key={e.name} value={e.name}>{e.name}</MenuItem>)}
+                  {enums?.carStatuses?.map((value: string) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -193,13 +193,14 @@ export const EditCarView = ({
                   </Box>
                 </Grid>
               ))}
-              {imagePreviews.map((p: string, i: number) => (
-                <Grid item xs={4} sm={3} md={2} key={i}>
+              {selectedImages.map((image: any, i: number) => (
+                <Grid item xs={4} sm={3} md={2} key={image.id}>
                   <Box sx={{ 
                     position: 'relative', height: 100, borderRadius: 3, overflow: 'hidden', 
                     border: i === primaryImageIndex ? '3px solid #10B981' : '1px solid #E2E8F0', cursor: 'pointer' 
-                  }} onClick={() => setPrimaryImageIndex(i)}>
-                    <img src={p} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="preview" />
+                  }} onClick={() => onSetPrimaryNew(i)}>
+                    <img src={image.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="preview" />
+                    {i === primaryImageIndex && <Chip label={t('admin.main')} size="small" sx={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', height: 16, fontSize: 9, bgcolor: '#10B981', color: 'white' }} />}
                     <IconButton onClick={(e) => { e.stopPropagation(); onRemoveNewImage(i); }} size="small" sx={{ position: 'absolute', top: 4, right: 4, bgcolor: alpha('#EF4444', 0.9), color: 'white' }}>
                       <DeleteIcon sx={{ fontSize: 14 }} />
                     </IconButton>

@@ -118,6 +118,11 @@ export const AdminCarsView = ({
     filters.fuelTypes.length > 0 || 
     filters.statuses.length > 0;
 
+  const selectedBrandId = filters.brandIds[0] || '';
+  const filteredModels = selectedBrandId
+    ? models.filter((m: any) => m.brandId === selectedBrandId)
+    : [];
+
   return (
     <Box sx={{ pb: 5 }}>
       {/* 🔝 HEADER SECTION */}
@@ -190,9 +195,9 @@ export const AdminCarsView = ({
             <Autocomplete
               size="small"
               disabled={filters.brandIds.length === 0}
-              options={models}
+              options={filteredModels}
               getOptionLabel={(option: any) => option.name}
-              value={models.find((m: any) => filters.modelIds.includes(m.id)) || null}
+              value={filteredModels.find((m: any) => filters.modelIds.includes(m.id)) || null}
               onChange={(_, newValue) => {
                 setFilters({ ...filters, modelIds: newValue ? [newValue.id] : [] });
               }}
@@ -212,8 +217,8 @@ export const AdminCarsView = ({
               onChange={(e) => setFilters({ ...filters, fuelTypes: e.target.value ? [e.target.value] : [] })}
             >
               <MenuItem value="">{t('admin.anyFuel')}</MenuItem>
-              {enums.fuelTypeEnum?.enumValues.map((f: any) => (
-                <MenuItem key={f.name} value={f.name}>{formatEnum(f.name)}</MenuItem>
+              {enums.fuelTypes?.map((fuelType: string) => (
+                <MenuItem key={fuelType} value={fuelType}>{formatEnum(fuelType)}</MenuItem>
               ))}
             </TextField>
           </Grid>
@@ -228,8 +233,8 @@ export const AdminCarsView = ({
               onChange={(e) => setFilters({ ...filters, statuses: e.target.value ? [e.target.value] : [] })}
             >
               <MenuItem value="">{t('admin.anyStatus')}</MenuItem>
-              {enums.carStatusEnum?.enumValues.map((s: any) => (
-                <MenuItem key={s.name} value={s.name}>{formatEnum(s.name)}</MenuItem>
+              {enums.carStatuses?.map((status: string) => (
+                <MenuItem key={status} value={status}>{formatEnum(status)}</MenuItem>
               ))}
             </TextField>
           </Grid>

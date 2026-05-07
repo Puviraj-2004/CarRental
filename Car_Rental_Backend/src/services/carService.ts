@@ -2,30 +2,30 @@ import { carRepository } from '../repositories/carRepository';
 import { validateCarData } from '../utils/validation';
 import { AppError, ErrorCode } from '../errors/AppError';
 import { Prisma, CarStatus, BookingStatus } from '@prisma/client';
-import { PaginationInput, normalizePagination } from '../utils/pagination';
+import { PaginationInput, normalizePagination, buildPaginatedResult } from '../utils/pagination';
 import {
   CarFilterInput,
   CreateCarInput,
-  UpdateCarInput
+  UpdateCarInput,
 } from '../types/graphql';
 
 export class CarService {
   private buildBookingAvailabilityFilter(startDateTime: Date, endDateTime: Date) {
     const bufferMs = 24 * 60 * 60 * 1000;
 
-    const overlapNoBuffer = { 
-      AND: [{ startDate: { lt: endDateTime } }, { endDate: { gt: startDateTime } }] 
+    const overlapNoBuffer = {
+      AND: [{ startDate: { lt: endDateTime } }, { endDate: { gt: startDateTime } }],
     };
-    
+
     const overlapWithBuffer = {
       OR: [
-        { 
+        {
           AND: [
-            { startDate: { lt: new Date(endDateTime.getTime() + bufferMs) } }, 
-            { endDate: { gt: new Date(startDateTime.getTime() - bufferMs) } }
-          ] 
-        }
-      ]
+            { startDate: { lt: new Date(endDateTime.getTime() + bufferMs) } },
+            { endDate: { gt: new Date(startDateTime.getTime() - bufferMs) } },
+          ],
+        },
+      ],
     };
 
     return {
@@ -34,17 +34,17 @@ export class CarService {
           {
             AND: [
               { status: { in: [BookingStatus.PENDING, BookingStatus.VERIFIED] } },
-              overlapNoBuffer
-            ]
+              overlapNoBuffer,
+            ],
           },
           {
             AND: [
               { status: { in: [BookingStatus.CONFIRMED, BookingStatus.ONGOING] } },
-              overlapWithBuffer
-            ]
-          }
-        ]
-      }
+              overlapWithBuffer,
+            ],
+          },
+        ],
+      },
     };
   }
 
@@ -60,31 +60,39 @@ export class CarService {
       if (filter.modelIds?.length) where.modelId = { in: filter.modelIds };
       if (filter.fuelTypes?.length) where.fuelType = { in: filter.fuelTypes };
       if (filter.transmissions?.length) where.transmission = { in: filter.transmissions };
-      if (filter.statuses?.length) where.status = { in: filter.statuses };
-      
-      // விலை ஃபில்டர் (Price Range)
+      if (filter.critAirRatings?.length) where.critAirRating = { in: filter.critAirRatings };
+
+      // statuses filter — only apply if no date-based availability search
+      // (date search overrides status with its own availability logic below)
+      if (filter.statuses?.length && !filter.startDate && !filter.endDate) {
+        where.status = { in: filter.statuses };
+      }
+
       if (filter.minPrice !== undefined || filter.maxPrice !== undefined) {
         where.pricePerDay = {
           gte: filter.minPrice,
-          lte: filter.maxPrice
+          lte: filter.maxPrice,
         };
       }
 
-      // Availability Search Logic
       if (filter.startDate && filter.endDate) {
         const start = new Date(filter.startDate);
         const end = new Date(filter.endDate);
         where.status = { in: [CarStatus.AVAILABLE, CarStatus.RENTED] };
         where.bookings = this.buildBookingAvailabilityFilter(start, end);
       } else {
-        Object.assign(where, this.buildStatusFilter(false));
+        // includeOutOfService from filter overrides the default exclusion.
+        // When true, OUT_OF_SERVICE cars are included in results.
+        Object.assign(where, this.buildStatusFilter(filter.includeOutOfService ?? false));
       }
     } else {
       Object.assign(where, this.buildStatusFilter(false));
     }
 
     const normalized = normalizePagination(pagination);
-    return await carRepository.findPaginated(normalized, where);
+    const { cars, totalCount } = await carRepository.findPaginated(normalized, where);
+
+    return buildPaginatedResult(cars, totalCount, normalized.page, normalized.pageSize);
   }
 
   async getCarById(id: string) {
@@ -93,7 +101,7 @@ export class CarService {
     return car;
   }
 
-async createCar(data: CreateCarInput) {
+  async createCar(data: CreateCarInput) {
     const validation = validateCarData(data);
     if (!validation.isValid) {
       throw new AppError(validation.errors[0], ErrorCode.BAD_USER_INPUT);
@@ -101,24 +109,37 @@ async createCar(data: CreateCarInput) {
 
     try {
       const { modelId, brandId, ...rest } = data;
-      
+
       return await carRepository.createCar({
         ...rest,
+        primaryimageURL: '',
         model: { connect: { id: modelId } },
         brand: { connect: { id: brandId } },
         requiredLicense: data.requiredLicense || 'B',
-        status: data.status || CarStatus.AVAILABLE
-      } as any); 
+        status: data.status || CarStatus.AVAILABLE,
+      } as any);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new AppError('A car with this plate number already exists', ErrorCode.ALREADY_EXISTS);
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new AppError(
+          'A car with this plate number already exists',
+          ErrorCode.ALREADY_EXISTS,
+        );
       }
       throw error;
     }
   }
 
   async updateCar(id: string, data: UpdateCarInput) {
-    return await carRepository.updateCar(id, data);
+    const { modelId, brandId, ...rest } = data;
+
+    return await carRepository.updateCar(id, {
+      ...rest,
+      ...(modelId ? { model: { connect: { id: modelId } } } : {}),
+      ...(brandId ? { brand: { connect: { id: brandId } } } : {}),
+    } as Prisma.CarUpdateInput);
   }
 
   async deleteCar(id: string) {
@@ -130,25 +151,36 @@ async createCar(data: CreateCarInput) {
   }
 
   async addCarImage(carId: string, url: string, publicId: string, isPrimary?: boolean) {
+    const existingCar = await carRepository.findUnique(carId);
+    if (!existingCar) throw new AppError('Car not found', ErrorCode.NOT_FOUND);
+
     if (isPrimary) {
       await carRepository.updateManyImages({ carId }, { isPrimary: false });
     }
 
-    return await carRepository.createImage({
+    const image = await carRepository.createImage({
       car: { connect: { id: carId } },
-      url: url,
-      publicId: publicId,
-      isPrimary: !!isPrimary
+      url,
+      publicId,
+      isPrimary: !!isPrimary,
     });
+
+    if (isPrimary || !existingCar.primaryimageURL) {
+      await carRepository.updateCar(carId, { primaryimageURL: url });
+    }
+
+    return image;
   }
 
   async finishMaintenance(carId: string) {
     return await carRepository.updateCar(carId, { status: CarStatus.AVAILABLE });
   }
 
-async setPrimaryImage(carId: string, imageId: string) {
+  async setPrimaryImage(carId: string, imageId: string): Promise<boolean> {
     await carRepository.updateManyImages({ carId }, { isPrimary: false });
-    return await carRepository.updateImage(imageId, { isPrimary: true });
+    const image = await carRepository.updateImage(imageId, { isPrimary: true });
+    await carRepository.updateCar(carId, { primaryimageURL: image.url });
+    return true;
   }
 
   async deleteImage(imageId: string) {

@@ -6,6 +6,14 @@
 #    cp Car_Rental_Frontend/.env.example Car_Rental_Frontend/.env.local
 #    docker compose up -d
 # ================================================================
+#
+#  Migration strategy:
+#    Migrations are run once by the backend container's entrypoint
+#    script (docker-entrypoint.sh) before the Node process starts.
+#    The separate `migrate` service has been removed — it caused
+#    duplicate migration execution and race conditions when both
+#    the migrate service and the backend entrypoint ran concurrently.
+# ================================================================
 
 services:
   # ── PostgreSQL ─────────────────────────────────────────────
@@ -41,6 +49,9 @@ services:
       retries: 5
 
   # ── Backend (GraphQL API) ─────────────────────────────────
+  # Migrations run inside docker-entrypoint.sh before the app starts.
+  # postgres must be healthy before this container starts so the
+  # migration step has a live database to connect to.
   backend:
     build:
       context: ./Car_Rental_Backend
@@ -65,23 +76,8 @@ services:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health/live"]
       interval: 30s
       timeout: 5s
-      start_period: 15s
+      start_period: 60s
       retries: 3
-
-  # ── Run Prisma migrations (one-off init container) ────────
-  migrate:
-    build:
-      context: ./Car_Rental_Backend
-      dockerfile: Dockerfile
-    command: sh -c "npx prisma migrate deploy && node dist/prisma/seed.js"
-    env_file:
-      - ./Car_Rental_Backend/.env
-    environment:
-      DATABASE_URL: postgresql://car_rental:car_rental_pass@postgres:5432/car_rental_db?schema=public
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
 
   # ── Frontend (Next.js) ────────────────────────────────────
   frontend:

@@ -12,7 +12,6 @@ export const GET_ME_QUERY = gql`
       dateOfBirth
       fullAddress
       role
-      
     }
   }
 `;
@@ -26,15 +25,9 @@ export const GET_MY_BOOKINGS_QUERY = gql`
       endDate
       pickupTime
       returnTime
-
-      # Meter Tracking
       startOdometer
       endOdometer
-      
-      # Corrected Field Name
-      extraKmFee 
-
-      # Financials
+      extraKmFee
       totalPrice
       basePrice
       taxAmount
@@ -180,12 +173,9 @@ export const GET_CARS_QUERY = gql`
         transmission
         seats
         requiredLicense
-
-        # Car Specs
         dailyKmLimit
         extraKmCharge
         currentOdometer
-
         depositAmount
         pricePerDay
         critAirRating
@@ -226,11 +216,9 @@ export const GET_CAR_QUERY = gql`
       transmission
       seats
       requiredLicense
-
       dailyKmLimit
       extraKmCharge
       currentOdometer
-
       depositAmount
       pricePerDay
       critAirRating
@@ -265,27 +253,10 @@ export const GET_AVAILABLE_CARS_QUERY = gql`
   }
 `;
 
-// --- ⚙️ UTILS (ENUMS & SETTINGS) ---
-
-export const GET_CAR_ENUMS = gql`
-  query GetCarEnums {
-    fuelTypeEnum: __type(name: "FuelType") {
-      enumValues { name }
-    }
-    transmissionEnum: __type(name: "Transmission") {
-      enumValues { name }
-    }
-    critAirEnum: __type(name: "CritAirCategory") {
-      enumValues { name }
-    }
-    carStatusEnum: __type(name: "CarStatus") {
-      enumValues { name }
-    }
-    licenseCategoryEnum: __type(name: "LicenseCategory") {
-      enumValues { name }
-    }
-  }
-`;
+// --- ⚙️ PLATFORM SETTINGS ---
+// NOTE: GET_CAR_ENUMS has been removed.
+// Enum values are now static constants in src/lib/constants/enums.ts.
+// Reason: Apollo disables introspection in production, causing empty dropdowns.
 
 export const GET_PLATFORM_SETTINGS_QUERY = gql`
   query GetPlatformSettings {
@@ -342,7 +313,6 @@ export const GET_BOOKING_QUERY = gql`
       pickupTime
       returnTime
       createdAt
-
       verification {
         id
         token
@@ -350,7 +320,6 @@ export const GET_BOOKING_QUERY = gql`
         isVerified
         verifiedAt
       }
-
       user {
         id
         fullName
@@ -359,7 +328,6 @@ export const GET_BOOKING_QUERY = gql`
         dateOfBirth
         fullAddress
       }
-
       startOdometer
       endOdometer
       extraKmFee
@@ -460,7 +428,6 @@ export const GET_BOOKING_BY_TOKEN_QUERY = gql`
       startOdometer
       endOdometer
       extraKmFee
-      
       totalPrice
       basePrice
       taxAmount
@@ -511,7 +478,8 @@ export const GET_BOOKING_BY_TOKEN_QUERY = gql`
   }
 `;
 
-// --- � ADMIN USER MANAGEMENT ---
+// --- 👥 ADMIN USER MANAGEMENT ---
+
 export const GET_USERS_QUERY = gql`
   query GetUsers($pagination: PaginationInput) {
     users(pagination: $pagination) {
@@ -551,13 +519,16 @@ export const GET_USER_QUERY = gql`
   }
 `;
 
-// --- �🔐 AUTH UTILS ---
+// --- 🔐 AUTH UTILS ---
+
 export const IS_EMAIL_AVAILABLE_QUERY = gql`
   query IsEmailAvailable($email: String!) {
     isEmailAvailable(email: $email)
   }
 `;
+
 // --- 📊 DASHBOARD STATS ---
+
 export const GET_DASHBOARD_STATS_QUERY = gql`
   query GetDashboardStats {
     dashboardStats {

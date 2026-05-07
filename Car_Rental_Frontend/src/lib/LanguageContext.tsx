@@ -14,11 +14,18 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+  // Initialize language from localStorage during mount, but only on client
+  // This prevents hydration mismatches by using the same default during SSR
   const [language, setLanguageState] = useState<Language>('fr');
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    // Mark that hydration is complete
+    setIsHydrated(true);
+    
+    // Only load from localStorage after hydration is confirmed
     const stored = getUserLanguage();
-    if (stored === 'en' || stored === 'fr') {
+    if ((stored === 'en' || stored === 'fr') && stored !== 'fr') {
       setLanguageState(stored);
     }
   }, []);
@@ -32,9 +39,11 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     return getTranslation(language, key, params);
   }, [language]);
 
+  // Render children only after hydration is complete to ensure consistent state
+  // during SSR and client-side hydration
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
+      {isHydrated ? children : children}
     </LanguageContext.Provider>
   );
 };

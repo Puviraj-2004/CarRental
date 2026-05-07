@@ -1,6 +1,7 @@
 import { Car, CarImage, Brand, VehicleModel } from '@prisma/client';
 import { isAdmin } from '../../utils/authguard';
 import { carService } from '../../services/carService';
+import { uploadToCloudinary } from '../../utils/cloudinary';
 import { 
   GraphQLContext, 
   CreateCarInput, 
@@ -42,9 +43,18 @@ export const carResolvers = {
     },
 
     // Image Mutations
-    addCarImage: async (_: unknown, { carId, url, publicId, isPrimary }: { carId: string, url: string, publicId: string, isPrimary?: boolean }, context: GraphQLContext) => {
+    addCarImage: async (_: unknown, { carId, file, isPrimary }: { carId: string, file: any, isPrimary?: boolean }, context: GraphQLContext) => {
       isAdmin(context);
-      return await carService.addCarImage(carId, url, publicId, isPrimary);
+
+      const { createReadStream, filename } = await file;
+      const upload = await uploadToCloudinary(createReadStream(), 'cars', false, filename);
+
+      return await carService.addCarImage(
+        carId,
+        upload.secure_url || upload.url,
+        upload.public_id,
+        isPrimary,
+      );
     },
 
     setPrimaryCarImage: async (_: unknown, { carId, imageId }: { carId: string, imageId: string }, context: GraphQLContext) => {

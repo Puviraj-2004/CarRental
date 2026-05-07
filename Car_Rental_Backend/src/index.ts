@@ -196,11 +196,13 @@ async function startServer() {
   // 2. RATE LIMITING
   app.use('/graphql', apiLimiter);
 
-  // 3. LOGGING — operationName always populated (P2 fix already present)
+  // 3. LOGGING
   app.use((req: Request, _res: Response, next) => {
     if (req.path === '/graphql') {
       const opName = req.body?.operationName || 'UnnamedOperation';
-      logger.info(`GraphQL Request: ${opName}`, {
+      // debug level: suppressed in production unless LOG_LEVEL=debug is set.
+      // Prevents thousands of per-request log lines in production.
+      logger.debug(`GraphQL Request: ${opName}`, {
         method: req.method,
         ip: req.ip,
         operation: opName,

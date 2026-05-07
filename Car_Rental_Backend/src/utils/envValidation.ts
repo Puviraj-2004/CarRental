@@ -9,34 +9,37 @@
 
 interface EnvRule {
   key: string;
-  required: boolean;          // true = always required
-  requiredInProd?: boolean;   // true = required only in production
+  required: boolean;        // true = always required, crashes if missing
+  requiredInProd?: boolean; // true = required only in production, crashes if missing
+  warnIfMissing?: boolean;  // true = print a warning but never crash (opt-in noise)
   description: string;
 }
 
 const rules: EnvRule[] = [
-  // ── Always required ──────────────────────────────────────
-  { key: 'DATABASE_URL',       required: true,  description: 'PostgreSQL connection string' },
-  { key: 'JWT_SECRET',         required: true,  description: 'JWT signing secret (min 32 chars)' },
+  // ── Always required — crash if missing ───────────────────
+  { key: 'DATABASE_URL', required: true,  description: 'PostgreSQL connection string' },
+  { key: 'JWT_SECRET',   required: true,  description: 'JWT signing secret (min 32 chars)' },
 
-  // ── Required in production ───────────────────────────────
-  { key: 'FRONTEND_URL',      required: false, requiredInProd: true, description: 'Frontend origin for CORS' },
-  { key: 'EMAIL_USER',        required: false, requiredInProd: true, description: 'SMTP sender email' },
-  { key: 'EMAIL_PASS',        required: false, requiredInProd: true, description: 'SMTP sender password' },
+  // ── Required in production — crash if missing ────────────
+  { key: 'FRONTEND_URL', required: false, requiredInProd: true, description: 'Frontend origin for CORS' },
+  { key: 'EMAIL_USER',   required: false, requiredInProd: true, description: 'SMTP sender email' },
+  { key: 'EMAIL_PASS',   required: false, requiredInProd: true, description: 'SMTP sender password' },
 
-  // ── Redis (required in production for OTP/CSRF/rate-limiting) ─
-  // At least REDIS_URL or REDIS_HOST must be set in production
-  { key: 'REDIS_URL',         required: false, description: 'Redis connection URL (alternative to REDIS_HOST)' },
-  { key: 'REDIS_HOST',        required: false, description: 'Redis host (alternative to REDIS_URL)' },
+  // ── Redis — crash in production if neither is set ────────
+  // Checked separately below; individual keys are silent when absent
+  { key: 'REDIS_URL',  required: false, description: 'Redis connection URL (alternative to REDIS_HOST)' },
+  { key: 'REDIS_HOST', required: false, description: 'Redis host (alternative to REDIS_URL)' },
 
-  // ── Optional (gracefully degrade) ────────────────────────
-  { key: 'GEMINI_API_KEY',        required: false, description: 'Google Gemini API key for OCR' },
-  { key: 'GOOGLE_CLIENT_ID',      required: false, description: 'Google OAuth client ID' },
-  { key: 'STRIPE_SECRET_KEY',     required: false, description: 'Stripe secret key' },
-  { key: 'STRIPE_WEBHOOK_SECRET', required: false, description: 'Stripe webhook signing secret' },
-  { key: 'CLOUDINARY_CLOUD_NAME', required: false, description: 'Cloudinary cloud name' },
-  { key: 'CLOUDINARY_API_KEY',    required: false, description: 'Cloudinary API key' },
-  { key: 'CLOUDINARY_API_SECRET', required: false, description: 'Cloudinary API secret' },
+  // ── Truly optional — warn only in development ────────────
+  // In production these are silently absent when the feature is disabled.
+  // They produce no output unless NODE_ENV !== 'production'.
+  { key: 'GEMINI_API_KEY',        required: false, warnIfMissing: true, description: 'Google Gemini API key (OCR disabled if absent)' },
+  { key: 'GOOGLE_CLIENT_ID',      required: false, warnIfMissing: true, description: 'Google OAuth client ID (Google login disabled if absent)' },
+  { key: 'STRIPE_SECRET_KEY',     required: false, warnIfMissing: true, description: 'Stripe secret key (payments disabled if absent)' },
+  { key: 'STRIPE_WEBHOOK_SECRET', required: false, warnIfMissing: true, description: 'Stripe webhook secret (webhook disabled if absent)' },
+  { key: 'CLOUDINARY_CLOUD_NAME', required: false, warnIfMissing: true, description: 'Cloudinary cloud name (image uploads disabled if absent)' },
+  { key: 'CLOUDINARY_API_KEY',    required: false, warnIfMissing: true, description: 'Cloudinary API key (image uploads disabled if absent)' },
+  { key: 'CLOUDINARY_API_SECRET', required: false, warnIfMissing: true, description: 'Cloudinary API secret (image uploads disabled if absent)' },
 ];
 
 export function validateEnv(): void {
@@ -52,35 +55,41 @@ export function validateEnv(): void {
       errors.push(`  ✖ ${rule.key} — ${rule.description}`);
     } else if (rule.requiredInProd && isProduction && isMissing) {
       errors.push(`  ✖ ${rule.key} — ${rule.description} (required in production)`);
-    } else if (isMissing) {
-      warnings.push(`  ⚠ ${rule.key} — ${rule.description} (not set, feature may be disabled)`);
+    } else if (rule.warnIfMissing && !isProduction && isMissing) {
+      // Only warn about optional features in development.
+      // In production, intentionally-disabled features produce no log noise.
+      warnings.push(`  ⚠ ${rule.key} — ${rule.description}`);
     }
   }
 
   // Special: In production, at least one Redis config must be present
   if (isProduction) {
-    const hasRedis = (process.env.REDIS_URL || '').trim() || (process.env.REDIS_HOST || '').trim();
+    const hasRedis =
+      (process.env.REDIS_URL || '').trim() ||
+      (process.env.REDIS_HOST || '').trim();
     if (!hasRedis) {
-      errors.push('  ✖ REDIS_URL or REDIS_HOST — Redis is required in production for OTP, CSRF, and rate limiting');
+      errors.push(
+        '  ✖ REDIS_URL or REDIS_HOST — Redis is required in production for OTP, CSRF, and rate limiting',
+      );
     }
   }
 
-  // Special: JWT_SECRET minimum length check
+  // Special: JWT_SECRET minimum length
   const jwtSecret = (process.env.JWT_SECRET || '').trim();
   if (jwtSecret && jwtSecret.length < 32) {
     errors.push('  ✖ JWT_SECRET — Must be at least 32 characters for security');
   }
 
-  // Print warnings (non-fatal)
+  // Print warnings — dev only, non-fatal
   if (warnings.length > 0) {
     console.warn('┌─────────────────────────────────────────────┐');
-    console.warn('│  ENV WARNINGS (non-fatal)                   │');
+    console.warn('│  ENV WARNINGS — optional features not set   │');
     console.warn('└─────────────────────────────────────────────┘');
     warnings.forEach((w) => console.warn(w));
     console.warn('');
   }
 
-  // Print errors and crash
+  // Print errors and crash — all environments
   if (errors.length > 0) {
     console.error('┌─────────────────────────────────────────────┐');
     console.error('│  FATAL: Missing required environment vars   │');

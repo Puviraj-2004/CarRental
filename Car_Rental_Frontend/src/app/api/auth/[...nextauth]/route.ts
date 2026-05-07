@@ -12,18 +12,22 @@ const handler = NextAuth({
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
-          // Server-side calls use INTERNAL_API_URL (Docker service name) if available,
-          // falling back to NEXT_PUBLIC_API_URL for non-Docker environments
-          const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/graphql";
-          
+          const apiUrl =
+            process.env.INTERNAL_API_URL ||
+            process.env.NEXT_PUBLIC_API_URL ||
+            "http://localhost:4000/graphql";
+
           const res = await fetch(apiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              // operationName added — backend logs will show "Login"
+              // instead of "UnnamedOperation" / "unknown"
+              operationName: "Login",
               query: `
                 mutation Login($input: LoginInput!) {
                   login(input: $input) {
@@ -33,9 +37,12 @@ const handler = NextAuth({
                 }
               `,
               variables: {
-                input: { email: credentials?.email, password: credentials?.password }
-              }
-            })
+                input: {
+                  email: credentials?.email,
+                  password: credentials?.password,
+                },
+              },
+            }),
           });
 
           const responseData = await res.json();
@@ -49,29 +56,33 @@ const handler = NextAuth({
           const token = responseData.data?.login?.token;
 
           if (user && token) {
-            return {
-              ...user,
-              accessToken: token
-            };
+            return { ...user, accessToken: token };
           }
-          
+
           return null;
         } catch (error: any) {
           console.error("Authorize function error:", error.message);
           return null;
         }
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user, account }: any) {
       if (account && account.provider === "google") {
         try {
-          const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/graphql";
+          const apiUrl =
+            process.env.INTERNAL_API_URL ||
+            process.env.NEXT_PUBLIC_API_URL ||
+            "http://localhost:4000/graphql";
+
           const res = await fetch(apiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              // operationName added — backend logs will show "GoogleLogin"
+              // instead of "UnnamedOperation" / "unknown"
+              operationName: "GoogleLogin",
               query: `
                 mutation GoogleLogin($idToken: String!) {
                   googleLogin(idToken: $idToken) {
@@ -80,8 +91,8 @@ const handler = NextAuth({
                   }
                 }
               `,
-              variables: { idToken: account.id_token }
-            })
+              variables: { idToken: account.id_token },
+            }),
           });
 
           const { data } = await res.json();
@@ -98,19 +109,10 @@ const handler = NextAuth({
       }
 
       if (user) {
-        // Only set values if not already set (e.g., from Google/Email login backend response)
-        if (!token.accessToken && user.accessToken) {
-          token.accessToken = user.accessToken;
-        }
-        if (!token.role && user.role) {
-          token.role = user.role;
-        }
-        if (!token.fullName && user.fullName) {
-          token.fullName = user.fullName;
-        }
-        if (!token.id && user.id) {
-          token.id = user.id;
-        }
+        if (!token.accessToken && user.accessToken) token.accessToken = user.accessToken;
+        if (!token.role && user.role) token.role = user.role;
+        if (!token.fullName && user.fullName) token.fullName = user.fullName;
+        if (!token.id && user.id) token.id = user.id;
       }
 
       return token;
@@ -120,10 +122,10 @@ const handler = NextAuth({
         session.accessToken = token.accessToken;
         session.user.role = token.role;
         session.user.fullName = token.fullName;
-        session.user.id = token.id || token.sub; // Use sub for Google users if id not set
+        session.user.id = token.id || token.sub;
       }
       return session;
-    }
+    },
   },
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },

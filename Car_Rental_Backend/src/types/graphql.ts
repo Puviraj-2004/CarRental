@@ -9,6 +9,7 @@ import { DataLoaders } from '../utils/dataLoaders';
 // GraphQL Context Type
 export interface GraphQLContext {
   prisma: PrismaClient;
+  brandId: string;
   req: Request & { ip?: string };
   userId?: string;
   role?: Role;

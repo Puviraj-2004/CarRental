@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { 
-  GET_CARS_QUERY, 
-  GET_BRANDS_QUERY, 
-  GET_MODELS_QUERY, 
-  GET_CAR_ENUMS 
+import {
+  GET_CARS_QUERY,
+  GET_BRANDS_QUERY,
+  GET_MODELS_BY_BRAND_QUERY,
 } from '@/lib/graphql/queries';
 import { DELETE_CAR_MUTATION } from '@/lib/graphql/mutations';
+import { CAR_ENUMS } from '@/hooks/graphql/useAddCar';
 
 export interface AdminCarsFilter {
   brandIds: string[];
@@ -28,7 +28,7 @@ export const useAdminCars = () => {
     transmissions: [],
     statuses: [],
     critAirRatings: [],
-    includeOutOfService: true
+    includeOutOfService: true,
   });
 
   const [page, setPage] = useState(1);
@@ -37,7 +37,6 @@ export const useAdminCars = () => {
 
   const selectedBrandForModels = filters.brandIds.length > 0 ? filters.brandIds[0] : '';
 
-  // Main Data Query with pagination
   const { loading, error, data, refetch } = useQuery(GET_CARS_QUERY, {
     variables: {
       filter: { ...filters, includeOutOfService: true },
@@ -47,18 +46,16 @@ export const useAdminCars = () => {
         search: searchQuery || undefined,
       },
     },
-    fetchPolicy: 'cache-and-network'
+    fetchPolicy: 'cache-and-network',
   });
 
-  // Supporting Metadata Queries
   const { data: brandData } = useQuery(GET_BRANDS_QUERY);
-  const { data: enumData } = useQuery(GET_CAR_ENUMS);
-  const { data: modelData } = useQuery(GET_MODELS_QUERY, {
+
+  const { data: modelData } = useQuery(GET_MODELS_BY_BRAND_QUERY, {
     variables: { brandId: selectedBrandForModels },
     skip: !selectedBrandForModels,
   });
 
-  // Mutation
   const [deleteCar, { loading: isDeleting }] = useMutation(DELETE_CAR_MUTATION, {
     onCompleted: () => refetch(),
   });
@@ -71,7 +68,7 @@ export const useAdminCars = () => {
       transmissions: [],
       statuses: [],
       critAirRatings: [],
-      includeOutOfService: true
+      includeOutOfService: true,
     });
     setPage(1);
     setSearchQuery('');
@@ -89,7 +86,8 @@ export const useAdminCars = () => {
     pageInfo: paginatedResult?.pageInfo,
     brands: brandData?.brands || [],
     models: modelData?.models || [],
-    enums: enumData || {},
+    // Static enums — no network request, no introspection dependency
+    enums: CAR_ENUMS,
     filters,
     setFilters,
     resetFilters,
@@ -101,6 +99,6 @@ export const useAdminCars = () => {
     searchQuery,
     setSearchQuery: handleSearchChange,
     loading: loading || isDeleting,
-    error
+    error,
   };
 };
