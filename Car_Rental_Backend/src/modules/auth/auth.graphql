@@ -1,0 +1,45 @@
+type AuthPayload {
+  accessToken:  String!
+  refreshToken: String!
+  user:         User!
+}
+
+type RefreshPayload {
+  accessToken:  String!
+  refreshToken: String!
+}
+
+type RegisterPayload {
+  message: String!
+  email:   String!
+}
+
+type VerifyOTPPayload {
+  success: Boolean!
+  message: String!
+}
+
+type ResendOTPPayload {
+  success:   Boolean!
+  message:   String!
+  expiresAt: String
+}
+
+input RegisterInput {
+  email:    String!
+  password: String!
+}
+
+input LoginInput {
+  email:    String!
+  password: String!
+}
+
+extend type Mutation {
+  register(input: RegisterInput!): RegisterPayload!
+  verifyOTP(email: String!, otp: String!): VerifyOTPPayload!
+  resendOTP(email: String!): ResendOTPPayload!
+  login(input: LoginInput!): AuthPayload!
+  refreshTokens(refreshToken: String!): RefreshPayload!
+  logout(refreshToken: String!): Boolean!
+}

@@ -8,10 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --------------------------------------
-// 1. ENUMS
-// --------------------------------------
-
 enum Role {
   USER
   ADMIN
@@ -19,277 +15,169 @@ enum Role {
 
 enum CarStatus {
   AVAILABLE
+  RESERVED
   RENTED
-  MAINTENANCE
-  OUT_OF_SERVICE
+  UNAVAILABLE
 }
 
 enum BookingStatus {
-  DRAFT
-  PENDING
-  VERIFIED
+  RESERVED
   CONFIRMED
   ONGOING
   COMPLETED
   CANCELLED
   REJECTED
-  EXPIRED
-}
-
-enum BookingType {
-  RENTAL
-  REPLACEMENT
 }
 
 enum VerificationStatus {
-  NOT_UPLOADED
   PENDING
   APPROVED
   REJECTED
 }
 
-enum LicenseCategory {
-  AM // Mopeds
-  A1 // Light Motorcycles
-  A2 // Medium Motorcycles
-  A  // Motorcycles
-  B1 // Light vehicles / quadricycles
-  B  // Cars (Standard)
-  BE // Cars + trailer
-  C1 // Medium trucks
-  C  // Heavy Vehicles
-  C1E // C1 + trailer
-  CE  // C + trailer
-  D1 // Minibus
-  D  // Buses
-  D1E // D1 + trailer
-  DE  // D + trailer
-}
-
-enum CritAirCategory {
-  CRIT_AIR_0
-  CRIT_AIR_1
-  CRIT_AIR_2
-  CRIT_AIR_3
-  CRIT_AIR_4
-  CRIT_AIR_5
-  NO_STICKER
-}
-
-enum FuelType {
-  PETROL
-  DIESEL
-  ELECTRIC
-  HYBRID
-  LPG
-  CNG
-}
-
-enum Transmission {
-  MANUAL
-  AUTOMATIC
-  CVT
-  DCT
+enum BookingType {
+  RENTAL
+  COURTESY
 }
 
 enum PaymentStatus {
   PENDING
-  SUCCEEDED
+  PAID
   FAILED
   REFUNDED
 }
 
-// --------------------------------------
-// 2. CONFIGURATION & USER MODELS
-// --------------------------------------
-
-model PlatformSettings {
-  id                 String   @id @default(uuid())
-  companyName        String   @default("Car Rental France")
-  supportEmail       String?
-  supportPhone       String?
-  address            String?
-  taxPercentage      Float    @default(20.0)
-  currency           String   @default("EUR")
-  youngDriverMinAge  Int      @default(25)
-  youngDriverFee     Float    @default(0)
-  updatedAt          DateTime @updatedAt
+model PaymentMethod {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  payments Payment[]
 }
 
 model User {
-  id              String                @id @default(uuid())
-  email           String                @unique
-  fullName        String?
-  password        String?               
-  phoneNumber     String?
-  avatarUrl       String?               
-  dateOfBirth     DateTime?             
-  fullAddress     String?               
-  emailVerified   Boolean               @default(false)
-  role            Role                  @default(USER)
-  facebookId      String?               @unique
-  appleId         String?               @unique
-  googleId        String?               @unique
-  bookings        Booking[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id            String      @id @default(uuid())
+  email         String      @unique
+  password      String?
+  emailVerified Boolean     @default(false)
+  role          Role        @default(USER)
+  documents     Documents?
+  bookings      Booking[]
+
   @@index([email])
 }
 
+model Documents {
+  id              String             @id @default(uuid())
+  userId          String?            @unique
+  user            User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookingId       String?            @unique
+  booking         Booking?           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-model DocumentVerification {
-  id                 String             @id @default(uuid())
-  bookingId          String             @unique
-  booking            Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  licenseFrontUrl    String?
-  licenseBackUrl     String?
-  idCardUrl          String?
-  idCardBackUrl      String?
-  addressProofUrl    String?
-  licenseNumber      String?
-  licenseExpiry      DateTime?
-  licenseIssueDate   DateTime?
-  driverDob          DateTime?
-  licenseCategories  LicenseCategory[]
-  idNumber           String?
-  idExpiry           DateTime?
-  verifiedAddress    String?
-  status             VerificationStatus @default(NOT_UPLOADED)
-  aiMetadata         Json?
-  rejectionReason    String?
-  verifiedAt         DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  licenseFrontUrl String?
+  licenseBackUrl  String?
+  idCardFrontUrl  String?
+  idCardBackUrl   String?
+  addressProofUrl String?
+
+  licenseNumber   String?
+  licenseExpiry   DateTime?
+  age             Int?
+  idNumber        String?
+  idExpiry        DateTime?
+  address         String?
+
+  status          VerificationStatus @default(PENDING)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([userId])
   @@index([bookingId])
+  @@index([status])
 }
 
-model BookingVerification {
-  id          String      @id @default(uuid())
-  bookingId   String      @unique
-  booking     Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  token       String      @unique
-  expiresAt   DateTime
-  isVerified  Boolean     @default(false)
-  verifiedAt  DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+model FuelType {
+  id   String @id @default(uuid())
+  name String @unique
+  cars Car[]
 }
-
-// --------------------------------------
-// 3. VEHICLE MODELS
-// --------------------------------------
 
 model Brand {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  logoUrl   String?
-  logoPublicId String?
-  models    VehicleModel[]
-  cars      Car[]
+  id     String         @id @default(uuid())
+  name   String         @unique
+  models VehicleModel[]
 }
 
 model VehicleModel {
-  id        String   @id @default(uuid())
-  name      String
-  brandId   String
-  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  cars      Car[]
+  id      String @id @default(uuid())
+  name    String
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  cars    Car[]
 
   @@unique([name, brandId])
 }
 
 model Car {
-  id              String           @id @default(uuid())
+  id              String       @id @default(uuid())
   modelId         String
-  brandId         String
-  model           VehicleModel     @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  brand           Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  year            Int
-  plateNumber     String           @unique
-  transmission    Transmission
-  fuelType        FuelType?
-  seats           Int
-  requiredLicense LicenseCategory  @default(B)
-  pricePerDay     Float
-  depositAmount   Float            @default(0)
-  dailyKmLimit    Float?
-  extraKmCharge   Float            @default(0)
-  currentOdometer Float            @default(0)
-  critAirRating   CritAirCategory  @default(CRIT_AIR_1)
-  status          CarStatus        @default(AVAILABLE)
-  primaryimageURL String
+  model           VehicleModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  plateNumber     String       @unique
+  fuelTypeId      String?
+  fuelType        FuelType?    @relation(fields: [fuelTypeId], references: [id], onDelete: SetNull)
+  basePrice       Decimal @db.Decimal(10,2)
+  status          CarStatus    @default(AVAILABLE)
+  primaryImageUrl String       @default("")
   images          CarImage[]
   bookings        Booking[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
 
   @@index([status])
   @@index([modelId])
-  @@index([brandId])
-  @@index([pricePerDay])
+  @@index([fuelTypeId])
+  @@index([basePrice])
 }
 
 model CarImage {
-  id        String   @id @default(uuid())
-  carId     String
-  publicId  String?
-  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
-  url       String
-  isPrimary Boolean  @default(false)
+  id    String @id @default(uuid())
+  carId String
+  car   Car    @relation(fields: [carId], references: [id], onDelete: Cascade)
+  url   String
 }
 
-// --------------------------------------
-// 4. BOOKING & PAYMENT MODELS
-// --------------------------------------
-
 model Booking {
-  id              String        @id @default(uuid())
-  userId          String?
-  carId           String
-  startDate       DateTime
-  endDate         DateTime
-  pickupTime      String?       // Time of pickup (e.g., "10:00")
-  returnTime      String?       // Time of return (e.g., "17:00")
-  basePrice       Float         @default(0)
-  taxAmount       Float         @default(0)
-  depositAmount   Float         @default(0) 
-  startOdometer   Float?        
-  endOdometer     Float?        
-  pickupNotes     String?       // Admin notes during pickup
-  damageFee       Float         @default(0)    
-  extraKmFee      Float         @default(0)    
-  returnNotes     String?                      
-  totalPrice      Float         @default(0)    
-  bookingType     BookingType   @default(RENTAL)
-  repairOrderId   String?
-  createdByAdmin  Boolean       @default(false)
-  isWalkIn        Boolean       @default(false)
-  guestName       String?
-  guestPhone      String?
-  guestEmail      String?
-  status          BookingStatus @default(PENDING)
-  user            User?         @relation(fields: [userId], references: [id])
-  car             Car           @relation(fields: [carId], references: [id])
-  payment         Payment?
-  verification    BookingVerification?
-  documentVerification DocumentVerification?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id           String        @id @default(uuid())
+  userId       String?
+  carId        String
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  car          Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+  startDate    DateTime
+  endDate      DateTime
+  numberOfDays Int
+  basePrice    Decimal       @default(0) @db.Decimal(10, 2)
+  totalPrice   Decimal       @default(0) @db.Decimal(10, 2)
+  guestName    String?
+  guestPhone   String?
+  notes        String?
+  status       BookingStatus @default(RESERVED)
+  type         BookingType   @default(RENTAL)
+  documents    Documents?
+  payment      Payment?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([userId])
   @@index([carId])
   @@index([status])
   @@index([startDate])
-  @@index([bookingType])
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  bookingId     String        @unique
-  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  amount        Float
-  status        PaymentStatus @default(PENDING)
-  stripeId      String?       @unique
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String        @id @default(uuid())
+  bookingId       String        @unique
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount          Decimal @db.Decimal(10,2)
+  paymentMethodId String?
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  status          PaymentStatus  @default(PENDING)
+  stripeId        String?        @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }

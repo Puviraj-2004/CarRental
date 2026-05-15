@@ -1,0 +1,25 @@
+scalar JSON
+scalar DateTime
+scalar Upload
+
+type Query
+type Mutation
+
+input PaginationInput {
+  page:     Int
+  pageSize: Int
+  search:   String
+}
+
+type PageInfo {
+  totalCount:      Int!
+  totalPages:      Int!
+  currentPage:     Int!
+  hasNextPage:     Boolean!
+  hasPreviousPage: Boolean!
+}
+
+type PaginatedUsers {
+  items:    [User!]!
+  pageInfo: PageInfo!
+}

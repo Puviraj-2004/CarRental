@@ -1,0 +1,95 @@
+enum CarStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  UNAVAILABLE
+}
+
+type Brand {
+  id:   ID!
+  name: String!
+}
+
+type VehicleModel {
+  id:    ID!
+  name:  String!
+  brand: Brand!
+}
+
+type FuelType {
+  id:   ID!
+  name: String!
+}
+
+type CarImage {
+  id:  ID!
+  url: String!
+}
+
+type Car {
+  id:              ID!
+  plateNumber:     String!
+  basePrice:       Float!
+  status:          CarStatus!
+  primaryImageUrl: String!
+  model:           VehicleModel!
+  fuelType:        FuelType
+  images:          [CarImage!]!
+}
+
+type PaginatedCars {
+  items:    [Car!]!
+  pageInfo: PageInfo!
+}
+
+type CalendarDay {
+  date:      String!
+  available: Boolean!
+  bookingId: String
+}
+
+input AddCarInput {
+  modelId:      ID!
+  plateNumber:  String!
+  fuelTypeId:   ID
+  basePrice:    Float!
+  status:       CarStatus
+  primaryImage: Upload
+}
+
+input UpdateCarInput {
+  plateNumber:  String
+  fuelTypeId:   ID
+  basePrice:    Float
+  primaryImage: Upload
+}
+
+input CarFilterInput {
+  status:     CarStatus
+  brandId:    ID
+  modelId:    ID
+  fuelTypeId: ID
+  minPrice:   Float
+  maxPrice:   Float
+  search:     String
+}
+
+extend type Query {
+  car(id: ID!): Car
+  cars(pagination: PaginationInput, filter: CarFilterInput): PaginatedCars!
+  availableCars(startDate: String!, endDate: String!, pagination: PaginationInput): PaginatedCars!
+  carsByStatus(status: CarStatus!, pagination: PaginationInput): PaginatedCars!
+  carAvailabilityCalendar(carId: ID!, month: Int!, year: Int!): [CalendarDay!]!
+}
+
+extend type Mutation {
+  addCar(input: AddCarInput!): Car!
+  updateCar(id: ID!, input: UpdateCarInput!): Car!
+  deleteCar(id: ID!): Boolean!
+  uploadCarImages(carId: ID!, images: [Upload!]!, setPrimary: Boolean): Car!
+  deleteCarImage(imageId: ID!): Boolean!
+  setPrimaryImage(carId: ID!, imageId: ID!): Car!
+  updateCarStatus(id: ID!, status: CarStatus!): Car!
+  updateCarPricing(id: ID!, basePrice: Float!): Car!
+  scheduleCarMaintenance(id: ID!): Car!
+}

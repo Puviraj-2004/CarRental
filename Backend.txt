@@ -1,0 +1,152 @@
+src/
+│
+├── app.ts
+├── server.ts
+│
+├── config/
+│   ├── env.ts
+│   ├── database.ts
+│   ├── redis.ts
+│   ├── stripe.ts
+│   ├── cloudinary.ts
+│   ├── mail.ts
+│   └── logger.ts
+│
+├── core/
+│   ├── errors/
+│   │   ├── AppError.ts
+│   │   ├── GraphQLError.ts
+│   │   └── errorHandler.ts
+│   │
+│   ├── middleware/
+│   │   ├── auth.middleware.ts
+│   │   ├── admin.middleware.ts
+│   │   ├── rateLimit.middleware.ts
+│   │   ├── csrf.middleware.ts
+│   │   └── upload.middleware.ts
+│   │
+│   ├── utils/
+│   │   ├── jwt.ts
+│   │   ├── otp.ts
+│   │   ├── pagination.ts
+│   │   ├── date.ts
+│   │   ├── money.ts
+│   │   └── validators.ts
+│   │
+│   ├── constants/
+│   │   ├── roles.ts
+│   │   ├── booking.ts
+│   │   └── payment.ts
+│   │
+│   └── types/
+│       ├── context.ts
+│       ├── auth.ts
+│       └── global.ts
+│
+├── graphql/
+│   ├── schema.ts
+│   ├── context.ts
+│   ├── loaders/
+│   │   ├── user.loader.ts
+│   │   ├── booking.loader.ts
+│   │   └── car.loader.ts
+│   │
+│   └── scalars/
+│       └── date.scalar.ts
+│
+├── modules/
+│   │
+│   ├── auth/
+│   │   ├── auth.typeDefs.ts
+│   │   ├── auth.resolvers.ts
+│   │   ├── auth.service.ts
+│   │   ├── auth.repository.ts
+│   │   ├── auth.validation.ts
+│   │   ├── auth.types.ts
+│   │   └── auth.utils.ts
+│   │
+│   ├── users/
+│   │   ├── user.typeDefs.ts
+│   │   ├── user.resolvers.ts
+│   │   ├── user.service.ts
+│   │   ├── user.repository.ts
+│   │   ├── user.validation.ts
+│   │   └── user.mapper.ts
+│   │
+│   ├── cars/
+│   │   ├── car.typeDefs.ts
+│   │   ├── car.resolvers.ts
+│   │   ├── car.service.ts
+│   │   ├── car.repository.ts
+│   │   ├── car.validation.ts
+│   │   ├── car.mapper.ts
+│   │   ├── car.helpers.ts
+│   │   │
+│   │   ├── brand/
+│   │   ├── model/
+│   │   ├── fuel/
+│   │   └── image/
+│   │
+│   ├── bookings/
+│   │   ├── booking.typeDefs.ts
+│   │   ├── booking.resolvers.ts
+│   │   ├── booking.service.ts
+│   │   ├── booking.repository.ts
+│   │   ├── booking.validation.ts
+│   │   ├── booking.mapper.ts
+│   │   ├── booking.pricing.ts
+│   │   ├── booking.availability.ts
+│   │   └── booking.status.ts
+│   │
+│   ├── payments/
+│   │   ├── payment.typeDefs.ts
+│   │   ├── payment.resolvers.ts
+│   │   ├── payment.service.ts
+│   │   ├── payment.repository.ts
+│   │   ├── stripe.service.ts
+│   │   ├── webhook.handler.ts
+│   │   └── refund.service.ts
+│   │
+│   ├── documents/
+│   │   ├── document.typeDefs.ts
+│   │   ├── document.resolvers.ts
+│   │   ├── document.service.ts
+│   │   ├── document.repository.ts
+│   │   ├── gemini.service.ts
+│   │   ├── ocr.parser.ts
+│   │   └── document.validation.ts
+│   │
+│   ├── uploads/
+│   │   ├── upload.service.ts
+│   │   ├── cloudinary.service.ts
+│   │   └── multer.config.ts
+│   │
+│   ├── admin/
+│   │   ├── dashboard/
+│   │   ├── analytics/
+│   │   ├── reports/
+│   │   └── management/
+│   │
+│   └── notifications/
+│       ├── email.service.ts
+│       ├── templates/
+│       └── notification.service.ts
+│
+├── prisma/
+│   ├── client.ts
+│   └── seed/
+│       ├── fuel.seed.ts
+│       ├── payment.seed.ts
+│       └── admin.seed.ts
+│
+├── jobs/
+│   ├── bookingExpiration.job.ts
+│   ├── paymentCleanup.job.ts
+│   └── reminder.job.ts
+│
+├── logs/
+│
+└── tests/
+    ├── unit/
+    ├── integration/
+    └── e2e/

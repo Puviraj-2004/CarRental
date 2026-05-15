@@ -1,0 +1,110 @@
+enum Role {
+  USER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DocumentType {
+  LICENSE
+  ID_CARD
+  ADDRESS_PROOF
+}
+
+enum DocumentSide {
+  FRONT
+  BACK
+}
+
+type User {
+  id:            ID!
+  email:         String!
+  emailVerified: Boolean!
+  role:          Role!
+  documents:     Documents
+  bookings:      [Booking!]!
+}
+
+type Documents {
+  id:              ID!
+  userId:          ID
+  bookingId:       ID
+  licenseFrontUrl: String
+  licenseBackUrl:  String
+  idCardFrontUrl:  String
+  idCardBackUrl:   String
+  addressProofUrl: String
+  licenseNumber:   String
+  licenseExpiry:   String
+  age:             Int
+  idNumber:        String
+  idExpiry:        String
+  address:         String
+  status:    VerificationStatus!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type OCRResult {
+  licenseNumber:   String
+  licenseExpiry:   String
+  age:             Int
+  idNumber:        String
+  idExpiry:        String
+  address:         String
+  fallbackUsed:    Boolean
+  isQuotaExceeded: Boolean
+}
+
+type Booking {
+  id:         ID!
+  status:     String!
+  startDate:  String!
+  endDate:    String!
+  totalPrice: String!
+  createdAt:  String!
+}
+
+input DocumentsInput {
+  licenseFrontFile: Upload
+  licenseBackFile:  Upload
+  idCardFrontFile:  Upload
+  idCardBackFile:   Upload
+  addressProofFile: Upload
+  licenseNumber: String
+  licenseExpiry: String
+  age:           Int
+  idNumber:      String
+  idExpiry:      String
+  address:       String
+}
+
+extend type Query {
+  me: User
+  user(id: ID!): User
+  users(pagination: PaginationInput): PaginatedUsers!
+  myDocuments: Documents
+  isEmailAvailable(email: String!): Boolean!
+}
+
+extend type Mutation {
+  changePassword(currentPassword: String!, newPassword: String!): Boolean!
+
+  updateUserRole(id: ID!, role: Role!): User!
+
+  deleteUser(id: ID!): Boolean!
+
+  saveDocuments(input: DocumentsInput!): Documents!
+
+  adminVerifyDocuments(userId: ID!, status: VerificationStatus!): Documents!
+
+  processDocumentOCR(
+    file:         Upload!
+    documentType: DocumentType!
+    side:         DocumentSide!
+  ): OCRResult!
+}
