@@ -1,0 +1,279 @@
+import { BookingStatus, BookingType, CarStatus } from '@prisma/client';
+
+import { AppError, ErrorCode } from '../../core/errors/AppError';
+import { normalizePagination } from '../../core/utils/pagination';
+import { daysBetween } from '../../core/utils/date';
+import { multiplyMoney } from '../../core/utils/money';
+import {
+  MIN_BOOKING_DAYS,
+  MAX_BOOKING_DAYS,
+  CANCELLATION_WINDOW_HOURS,
+} from '../../core/constants/booking';
+import { bookingRepository } from './booking.repository';
+import { carRepository }     from '../cars/car.repository';
+import type { BookingWithRelations } from '../../prisma/types';
+import type { PaginatedResult } from '../../core/utils/pagination';
+
+// ─── Statuses that block a new booking on the same car ────────────────────────
+
+// ─── Statuses from which a user may cancel ────────────────────────────────────
+const CANCELLABLE_STATUSES: BookingStatus[] = [
+  BookingStatus.RESERVED,
+  BookingStatus.CONFIRMED,
+];
+
+export class BookingService {
+  // ── Queries ────────────────────────────────────────────────────────────────
+
+  async getBookingById(id: string): Promise<BookingWithRelations | null> {
+    return bookingRepository.findById(id);
+  }
+
+  async getMyBookings(
+    userId: string,
+    pagination?: { page?: number; pageSize?: number },
+  ): Promise<PaginatedResult<BookingWithRelations>> {
+    return bookingRepository.findPaginatedByUser(
+      userId,
+      normalizePagination(pagination),
+    );
+  }
+
+  async getAllBookings(
+    pagination?: { page?: number; pageSize?: number },
+    filter?: {
+      status?:    BookingStatus;
+      type?:      BookingType;
+      userId?:    string;
+      carId?:     string;
+      startDate?: string;
+      endDate?:   string;
+    },
+  ): Promise<PaginatedResult<BookingWithRelations>> {
+    return bookingRepository.findPaginated(
+      normalizePagination(pagination),
+      {
+        status:    filter?.status,
+        type:      filter?.type,
+        userId:    filter?.userId,
+        carId:     filter?.carId,
+        startDate: filter?.startDate ? new Date(filter.startDate) : undefined,
+        endDate:   filter?.endDate   ? new Date(filter.endDate)   : undefined,
+      },
+    );
+  }
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
+  async createBooking(input: {
+    carId:      string;
+    userId?:    string;
+    startDate:  string;
+    endDate:    string;
+    guestName?:  string;
+    guestPhone?: string;
+    notes?:      string;
+    type?:       BookingType;
+  }): Promise<BookingWithRelations> {
+    // ── 1. Parse & validate dates ──────────────────────────────────────────
+    const start = new Date(input.startDate);
+    const end   = new Date(input.endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new AppError('Invalid date format.', ErrorCode.BAD_USER_INPUT);
+    }
+    if (start < new Date()) {
+      throw new AppError('Start date cannot be in the past.', ErrorCode.BAD_USER_INPUT);
+    }
+    if (start >= end) {
+      throw new AppError('Start date must be before end date.', ErrorCode.BAD_USER_INPUT);
+    }
+
+    const numberOfDays = daysBetween(start, end);
+
+    if (numberOfDays < MIN_BOOKING_DAYS) {
+      throw new AppError(
+        `Minimum booking duration is ${MIN_BOOKING_DAYS} day(s).`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+    if (numberOfDays > MAX_BOOKING_DAYS) {
+      throw new AppError(
+        `Maximum booking duration is ${MAX_BOOKING_DAYS} days.`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    // ── 2. Guest validation for COURTESY type ─────────────────────────────
+    const bookingType = input.type ?? BookingType.RENTAL;
+    if (bookingType === BookingType.COURTESY && !input.userId) {
+      if (!input.guestName || !input.guestPhone) {
+        throw new AppError(
+          'Guest name and phone are required for courtesy bookings without a user account.',
+          ErrorCode.BAD_USER_INPUT,
+        );
+      }
+    }
+
+    // ── 3. Car availability ────────────────────────────────────────────────
+    const car = await carRepository.findById(input.carId);
+    if (!car) {
+      throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
+    }
+    if (car.status !== CarStatus.AVAILABLE) {
+      throw new AppError(
+        'This car is not available for booking.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    const conflict = await bookingRepository.hasConflict(input.carId, start, end);
+    if (conflict) {
+      throw new AppError(
+        'This car is already booked for the selected dates.',
+        ErrorCode.ALREADY_EXISTS,
+      );
+    }
+
+    // ── 4. Price calculation ───────────────────────────────────────────────
+    const basePrice  = Number(car.basePrice);
+    const totalPrice = multiplyMoney(basePrice, numberOfDays).toNumber();
+
+    // ── 5. Create booking ─────────────────────────────────────────────────
+    return bookingRepository.create({
+      carId:       input.carId,
+      userId:      input.userId,
+      startDate:   start,
+      endDate:     end,
+      numberOfDays,
+      basePrice,
+      totalPrice,
+      guestName:   input.guestName,
+      guestPhone:  input.guestPhone,
+      notes:       input.notes,
+      type:        bookingType,
+    });
+  }
+
+  async cancelBooking(
+    id:     string,
+    userId: string,
+    isAdmin: boolean,
+  ): Promise<BookingWithRelations> {
+    const booking = await bookingRepository.findById(id);
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+
+    // Ownership check (admin bypasses)
+    if (!isAdmin && booking.userId !== userId) {
+      throw new AppError(
+        'Access denied. You do not own this booking.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+
+    if (!CANCELLABLE_STATUSES.includes(booking.status)) {
+      throw new AppError(
+        `Cannot cancel a booking with status "${booking.status}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    // Non-admins must cancel within the cancellation window
+    if (!isAdmin) {
+      const hoursUntilStart =
+        (booking.startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursUntilStart < CANCELLATION_WINDOW_HOURS) {
+        throw new AppError(
+          `Cancellations must be made at least ${CANCELLATION_WINDOW_HOURS} hours before pickup.`,
+          ErrorCode.BAD_USER_INPUT,
+        );
+      }
+    }
+
+    return bookingRepository.update(id, { status: BookingStatus.CANCELLED });
+  }
+
+  async updateBooking(
+    id:      string,
+    userId:  string,
+    isAdmin: boolean,
+    input: {
+      notes?:      string;
+      guestName?:  string;
+      guestPhone?: string;
+    },
+  ): Promise<BookingWithRelations> {
+    const booking = await bookingRepository.findById(id);
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+
+    if (!isAdmin && booking.userId !== userId) {
+      throw new AppError(
+        'Access denied. You do not own this booking.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+
+    // Only allow edits on non-terminal bookings
+    const editableStatuses: BookingStatus[] = [
+      BookingStatus.RESERVED,
+      BookingStatus.CONFIRMED,
+    ];
+    if (!editableStatuses.includes(booking.status)) {
+      throw new AppError(
+        `Cannot edit a booking with status "${booking.status}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    const data: Record<string, unknown> = {};
+    if (input.notes      !== undefined) data.notes      = input.notes;
+    if (input.guestName  !== undefined) data.guestName  = input.guestName;
+    if (input.guestPhone !== undefined) data.guestPhone = input.guestPhone;
+
+    return bookingRepository.update(id, data);
+  }
+
+  async adminUpdateBookingStatus(
+    id:     string,
+    status: BookingStatus,
+  ): Promise<BookingWithRelations> {
+    const booking = await bookingRepository.findById(id);
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+
+    // Guard against invalid transitions
+    this.assertValidTransition(booking.status, status);
+
+    return bookingRepository.update(id, { status });
+  }
+
+  // ── Status transition guard ────────────────────────────────────────────────
+
+  private assertValidTransition(
+    from: BookingStatus,
+    to:   BookingStatus,
+  ): void {
+    const ALLOWED: Partial<Record<BookingStatus, BookingStatus[]>> = {
+      [BookingStatus.RESERVED]:  [BookingStatus.CONFIRMED, BookingStatus.CANCELLED, BookingStatus.REJECTED],
+      [BookingStatus.CONFIRMED]: [BookingStatus.ONGOING,   BookingStatus.CANCELLED],
+      [BookingStatus.ONGOING]:   [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+      [BookingStatus.COMPLETED]: [],
+      [BookingStatus.CANCELLED]: [],
+      [BookingStatus.REJECTED]:  [],
+    };
+
+    if (!ALLOWED[from]?.includes(to)) {
+      throw new AppError(
+        `Invalid status transition: "${from}" → "${to}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+  }
+}
+
+export const bookingService = new BookingService();

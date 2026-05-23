@@ -1,10 +1,7 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { gql } from 'graphql-tag';
 
-export const paymentTypeDefs = gql`
-  extend type Query {
-    _paymentPlaceholder: Boolean
-  }
-  extend type Mutation {
-    _paymentMutationPlaceholder: Boolean
-  }
-`;
+export const paymentTypeDefs = gql(
+  readFileSync(join(__dirname, 'payment.graphql'), 'utf8'),
+);

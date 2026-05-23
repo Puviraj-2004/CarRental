@@ -1,4 +1,6 @@
 import DataLoader from 'dataloader';
+import { createBookingLoader } from './booking.loader';
+import type { BookingWithRelations } from '../../prisma/types';
 
 import { createUserLoader }                                        from './user.loader';
 import { createBrandLoader, createCarLoader,
@@ -19,6 +21,7 @@ export interface DataLoaders {
   carImagesLoader:         DataLoader<string, CarImage[]>;
   paymentByBookingLoader:  DataLoader<string, Payment | null>;
   docsByBookingLoader:     DataLoader<string, Documents | null>;
+  bookingLoader: DataLoader<string, BookingWithRelations | null>;
 }
 
 export function createDataLoaders(): DataLoaders {
@@ -30,10 +33,11 @@ export function createDataLoaders(): DataLoaders {
     carImagesLoader:         createCarImagesLoader(),
     paymentByBookingLoader:  createPaymentByBookingLoader(),
     docsByBookingLoader:     createDocsByBookingLoader(),
+    bookingLoader:           createBookingLoader(),
   };
 }
 
 // Re-export payload types so callers can import from one place
 export type { UserWithRelations, CarWithRelations,
               ModelWithBrand, PaymentWithMethod,
-              Brand, CarImage, Documents };
+              Brand, CarImage, Documents, BookingWithRelations };

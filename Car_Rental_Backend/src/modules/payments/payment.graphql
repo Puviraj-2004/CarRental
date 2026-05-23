@@ -1,0 +1,22 @@
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+type PaymentMethod {
+  id:   ID!
+  name: String!
+}
+
+type Payment {
+  id:            ID!
+  bookingId:     ID!
+  amount:        Float!
+  status:        PaymentStatus!
+  stripeId:      String
+  paymentMethod: PaymentMethod
+  createdAt:     DateTime!
+  updatedAt:     DateTime!
+}

@@ -1,0 +1,78 @@
+enum BookingStatus {
+  RESERVED
+  CONFIRMED
+  ONGOING
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum BookingType {
+  RENTAL
+  COURTESY
+}
+
+type Booking {
+  id:           ID!
+  carId:        String!
+  userId:       String
+  startDate:    DateTime!
+  endDate:      DateTime!
+  numberOfDays: Int!
+  basePrice:    Float!
+  totalPrice:   Float!
+  guestName:    String
+  guestPhone:   String
+  notes:        String
+  status:       BookingStatus!
+  type:         BookingType!
+  car:          Car!
+  user:         User
+  payment:      Payment
+  documents:    Documents
+  createdAt:    DateTime!
+  updatedAt:    DateTime!
+}
+
+type PaginatedBookings {
+  items:    [Booking!]!
+  pageInfo: PageInfo!
+}
+
+input CreateBookingInput {
+  carId:      ID!
+  startDate:  String!
+  endDate:    String!
+  guestName:  String
+  guestPhone: String
+  notes:      String
+  type:       BookingType
+}
+
+input UpdateBookingInput {
+  notes:      String
+  guestName:  String
+  guestPhone: String
+}
+
+input BookingFilterInput {
+  status:    BookingStatus
+  type:      BookingType
+  userId:    ID
+  carId:     ID
+  startDate: String
+  endDate:   String
+}
+
+extend type Query {
+  booking(id: ID!):                                                  Booking
+  myBookings(pagination: PaginationInput):                           PaginatedBookings!
+  bookings(pagination: PaginationInput, filter: BookingFilterInput): PaginatedBookings!
+}
+
+extend type Mutation {
+  createBooking(input: CreateBookingInput!):                  Booking!
+  cancelBooking(id: ID!):                                     Booking!
+  updateBooking(id: ID!, input: UpdateBookingInput!):         Booking!
+  adminUpdateBookingStatus(id: ID!, status: BookingStatus!):  Booking!
+}
