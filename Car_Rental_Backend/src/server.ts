@@ -2,9 +2,13 @@ import { buildApp } from './app';
 import { env } from './config/env';
 import { prisma } from './config/database';
 import logger from './config/logger';
+import { startScheduler } from './jobs/scheduler';
+
 
 export async function startServer(): Promise<void> {
   logger.info('Initialising Car Rental Backend');
+  
+  await startScheduler();
 
   const { httpServer, apollo } = await buildApp();
 
@@ -38,6 +42,7 @@ export async function startServer(): Promise<void> {
       process.exit(1);
     }, 10_000);
   };
+
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT',  () => gracefulShutdown('SIGINT'));

@@ -29,6 +29,7 @@ const config: CodegenConfig = {
           Booking:      '../../prisma/types#BookingWithRelations',
           Car:          '../../prisma/types#CarWithRelations',
           VehicleModel: '../../prisma/types#ModelWithBrand',
+          Payment:      '../../prisma/types#PaymentWithMethod',
         },
       },
     },

@@ -13,7 +13,6 @@ const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.ONGOING,
 ] as const;
 
-/** Shared include shape — keeps all queries consistent. */
 const USER_INCLUDE = { documents: true, bookings: true } as const;
 
 export class UserRepository {
@@ -33,7 +32,9 @@ export class UserRepository {
     });
   }
 
-  async findPaginated(p: NormalizedPagination): Promise<PaginatedResult<UserWithRelations>> {
+  async findPaginated(
+    p: NormalizedPagination,
+  ): Promise<PaginatedResult<UserWithRelations>> {
     const where = p.search
       ? { email: { contains: p.search, mode: 'insensitive' as const } }
       : {};
@@ -55,9 +56,18 @@ export class UserRepository {
 
   updateUser(
     id:   string,
-    data: { email?: string; password?: string; emailVerified?: boolean; role?: Role },
+    data: {
+      email?:         string;
+      password?:      string;
+      emailVerified?: boolean;
+      role?:          Role;
+    },
   ): Promise<UserWithRelations> {
-    return prisma.user.update({ where: { id }, data, include: USER_INCLUDE });
+    return prisma.user.update({
+      where:   { id },
+      data,
+      include: USER_INCLUDE,
+    });
   }
 
   deleteUser(id: string) {
@@ -72,7 +82,7 @@ export class UserRepository {
     });
   }
 
-  // ── Documents ─────────────────────────────────────────────────────────────
+  // ── User-level documents ──────────────────────────────────────────────────
 
   findDocumentsByUserId(userId: string) {
     return prisma.documents.findUnique({ where: { userId } });
@@ -105,6 +115,40 @@ export class UserRepository {
     return prisma.documents.update({
       where: { userId },
       data:  { status },
+    });
+  }
+
+  // ── Booking-level documents ───────────────────────────────────────────────
+
+  findDocumentsByBookingId(bookingId: string) {
+    return prisma.documents.findUnique({ where: { bookingId } });
+  }
+
+  upsertBookingDocuments(
+    bookingId: string,
+    data: {
+      licenseFrontUrl?: string;
+      licenseBackUrl?:  string;
+      idCardFrontUrl?:  string;
+      idCardBackUrl?:   string;
+      addressProofUrl?: string;
+      licenseNumber?:   string;
+      licenseExpiry?:   Date;
+      age?:             number;
+      idNumber?:        string;
+      idExpiry?:        Date;
+      address?:         string;
+      status?:          VerificationStatus;
+    },
+  ) {
+    return prisma.documents.upsert({
+      where:  { bookingId },
+      update: { ...data },
+      create: {
+        bookingId,
+        ...data,
+        status: data.status ?? VerificationStatus.PENDING,
+      },
     });
   }
 }

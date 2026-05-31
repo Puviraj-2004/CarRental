@@ -1,5 +1,6 @@
+import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
+import RedisStore, { RedisReply } from 'rate-limit-redis';
 import { getRedisClient, isRedisConfigured } from '../../config/redis';
 import { env } from '../../config/env';
 
@@ -14,16 +15,18 @@ const createStore = () => {
     const redis = getRedisClient();
     if (redis) {
       return new RedisStore({
-        // rate-limit-redis 3.x requires a sendCommand function
-        // @ts-ignore — ioredis uses .call() instead of .sendCommand()
-        sendCommand: (...args: string[]) => (redis as any).call(...args),
+        sendCommand: async (...args: string[]): Promise<RedisReply> => {
+          const command = args[0];
+          const commandArgs = args.slice(1);
+          return redis.call(command, ...commandArgs) as Promise<RedisReply>;
+        },
       });
     }
   }
   return undefined; // express-rate-limit falls back to in-memory
 };
 
-const keyFromRequest = (req: any): string =>
+const keyFromRequest = (req: Request): string =>
   req.ip || req.socket?.remoteAddress || 'unknown';
 
 // ─── General API limiter ──────────────────────────────────────────────────────
@@ -43,9 +46,6 @@ export const apiLimiter = rateLimit({
 });
 
 // ─── Auth limiter (login / verify-otp) ───────────────────────────────────────
-// NOTE: The old implementation had a `skip` callback that checked res.statusCode === 200,
-// which is always true at the time `skip` is evaluated — meaning the limiter never
-// actually enforced the limit. That bug is fixed here by removing `skip` entirely.
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isProd ? 5 : 10,

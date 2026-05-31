@@ -1,10 +1,15 @@
 import { VerificationStatus, Role } from '@prisma/client';
-import type { FileUpload } from 'graphql-upload-ts';
+import type { FileUpload }          from 'graphql-upload-ts';
 
 import { isAuthenticated } from '../../core/middleware/auth.middleware';
-import { isAdmin } from '../../core/middleware/admin.middleware';
-import { GraphQLContext } from '../../graphql/context';
-import { userService, DocumentsInput, OcrDocumentType, OcrDocumentSide } from './user.service';
+import { isAdmin }         from '../../core/middleware/admin.middleware';
+import { GraphQLContext }  from '../../graphql/context';
+import {
+  userService,
+  DocumentsInput,
+  OcrDocumentType,
+  OcrDocumentSide,
+} from './user.service';
 import type { Resolvers, QueryUsersArgs } from '../../graphql/__generated__/types';
 
 export const userResolvers: Partial<Resolvers> = {
@@ -39,21 +44,33 @@ export const userResolvers: Partial<Resolvers> = {
 
     isEmailAvailable: (_: unknown, { email }: { email: string }) =>
       userService.isEmailAvailable(email),
-  },
 
-  Mutation: {
-    // ── Account ──────────────────────────────────────────────────────────────
-
-    changePassword: (
+    hasApprovedDocuments: (
       _: unknown,
-      { currentPassword, newPassword }: { currentPassword: string; newPassword: string },
+      __: Record<string, never>,
       ctx: GraphQLContext,
     ) => {
       isAuthenticated(ctx);
-      return userService.changePassword(ctx.userId!, currentPassword, newPassword);
+      return userService.hasApprovedDocuments(ctx.userId!);
     },
+  },
 
-    // ── Admin: user management ────────────────────────────────────────────────
+  Mutation: {
+    changePassword: (
+      _: unknown,
+      { currentPassword, newPassword }: {
+        currentPassword: string;
+        newPassword:     string;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      isAuthenticated(ctx);
+      return userService.changePassword(
+        ctx.userId!,
+        currentPassword,
+        newPassword,
+      );
+    },
 
     updateUserRole: (
       _: unknown,
@@ -74,15 +91,12 @@ export const userResolvers: Partial<Resolvers> = {
       return true;
     },
 
-    // ── Documents ─────────────────────────────────────────────────────────────
-
     saveDocuments: (
       _: unknown,
       { input }: { input: { [K in keyof DocumentsInput]: DocumentsInput[K] | null } },
       ctx: GraphQLContext,
     ) => {
       isAuthenticated(ctx);
-      // Convert InputMaybe (null | undefined) to undefined for service layer
       const normalized: DocumentsInput = {
         licenseFrontFile: input.licenseFrontFile ?? undefined,
         licenseBackFile:  input.licenseBackFile  ?? undefined,
@@ -108,7 +122,45 @@ export const userResolvers: Partial<Resolvers> = {
       return userService.adminVerifyDocuments(userId, status);
     },
 
-    // ── OCR ───────────────────────────────────────────────────────────────────
+    reuseDocumentsForBooking: (
+      _: unknown,
+      { bookingId }: { bookingId: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAuthenticated(ctx);
+      return userService.reuseDocumentsForBooking(ctx.userId!, bookingId);
+    },
+
+    saveBookingDocuments: (
+      _: unknown,
+      { bookingId, input, saveToProfile }: {
+        bookingId: string;
+        input: { [K in keyof DocumentsInput]: DocumentsInput[K] | null };
+        saveToProfile?: boolean | null;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      isAuthenticated(ctx);
+      const normalized: DocumentsInput = {
+        licenseFrontFile: input.licenseFrontFile ?? undefined,
+        licenseBackFile:  input.licenseBackFile  ?? undefined,
+        idCardFrontFile:  input.idCardFrontFile  ?? undefined,
+        idCardBackFile:   input.idCardBackFile   ?? undefined,
+        addressProofFile: input.addressProofFile ?? undefined,
+        licenseNumber:    input.licenseNumber    ?? undefined,
+        licenseExpiry:    input.licenseExpiry    ?? undefined,
+        age:              input.age              ?? undefined,
+        idNumber:         input.idNumber         ?? undefined,
+        idExpiry:         input.idExpiry         ?? undefined,
+        address:          input.address          ?? undefined,
+      };
+      return userService.saveBookingDocuments(
+        ctx.userId!,
+        bookingId,
+        normalized,
+        saveToProfile ?? undefined,
+      );
+    },
 
     processDocumentOCR: (
       _: unknown,

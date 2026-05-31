@@ -20,3 +20,25 @@ type Payment {
   createdAt:     DateTime!
   updatedAt:     DateTime!
 }
+
+type CheckoutSession {
+  url:       String!
+  sessionId: String!
+}
+
+type PaginatedPayments {
+  items:    [Payment!]!
+  pageInfo: PageInfo!
+}
+
+extend type Query {
+  payment(id: ID!):                        Payment
+  paymentByBooking(bookingId: ID!):        Payment
+  myPayments(pagination: PaginationInput): PaginatedPayments!
+  payments(pagination: PaginationInput):   PaginatedPayments!
+}
+
+extend type Mutation {
+  createCheckoutSession(bookingId: ID!): CheckoutSession!
+  refundPayment(paymentId: ID!):         Payment!
+}

@@ -14,8 +14,6 @@ const rules: EnvRule[] = [
 
   { key: 'COMPANY_NAME',    required: true, description: 'Company display name' },
   { key: 'COMPANY_EMAIL',   required: true, description: 'Company contact email' },
-  { key: 'COMPANY_PHONE',   required: true, description: 'Company contact phone number' },
-  { key: 'COMPANY_ADDRESS', required: true, description: 'Company physical address' },
 
   { key: 'FRONTEND_URL', required: false, requiredInProd: true, description: 'Frontend origin for CORS' },
   { key: 'RESEND_API_KEY', required: false, requiredInProd: true, description: 'Resend API key for transactional email' },
@@ -27,9 +25,7 @@ const rules: EnvRule[] = [
   { key: 'GOOGLE_CLIENT_ID',      required: false, warnIfMissing: true, description: 'Google OAuth client ID (Google login disabled if absent)' },
   { key: 'STRIPE_SECRET_KEY',     required: false, warnIfMissing: true, description: 'Stripe secret key (payments disabled if absent)' },
   { key: 'STRIPE_WEBHOOK_SECRET', required: false, warnIfMissing: true, description: 'Stripe webhook secret (webhook disabled if absent)' },
-  { key: 'CLOUDINARY_CLOUD_NAME', required: false, warnIfMissing: true, description: 'Cloudinary cloud name (uploads disabled if absent)' },
-  { key: 'CLOUDINARY_API_KEY',    required: false, warnIfMissing: true, description: 'Cloudinary API key (uploads disabled if absent)' },
-  { key: 'CLOUDINARY_API_SECRET', required: false, warnIfMissing: true, description: 'Cloudinary API secret (uploads disabled if absent)' },
+  { key: 'CLOUDINARY_URL', required: false, warnIfMissing: true, description: 'Cloudinary URL (uploads disabled if absent)' },
 ];
 
 export function validateEnv(): void {
@@ -97,10 +93,6 @@ export const env = {
 
   companyName:    (process.env.COMPANY_NAME    || '').trim(),
   companyEmail:   (process.env.COMPANY_EMAIL   || '').trim(),
-  companyPhone:   (process.env.COMPANY_PHONE   || '').trim(),
-  companyAddress: (process.env.COMPANY_ADDRESS || '').trim(),
-
-  bookingCancellationWindowHours: parseInt(process.env.BOOKING_CANCELLATION_WINDOW_HOURS || '24', 10),
 
   databaseUrl: process.env.DATABASE_URL || '',
   seedAdminEmail:    (process.env.SEED_ADMIN_EMAIL    || '').trim(),
@@ -128,6 +120,16 @@ export const env = {
   resendFrom:   (process.env.RESEND_FROM || 'onboarding@resend.dev').trim(),
 
   geminiApiKey: (process.env.GEMINI_API_KEY || '').trim(),
+    // Booking timing
+  reservationHoldMinutes:         parseInt(process.env.RESERVATION_HOLD_MINUTES          || '60',   10),
+  paymentExpiryHours:             parseInt(process.env.PAYMENT_EXPIRY_HOURS              || '24',   10),
+  cancellationWindowHours:        parseInt(process.env.CANCELLATION_WINDOW_HOURS         || '24',   10),
+
+  // Refund policy
+  fullRefundMinHours:             parseInt(process.env.FULL_REFUND_MIN_HOURS             || '72',   10),
+  partialRefundMinHours:          parseInt(process.env.PARTIAL_REFUND_MIN_HOURS          || '24',   10),
+  partialRefundPct:               parseFloat(process.env.PARTIAL_REFUND_PCT              || '0.80'),
+
 } as const;
 
 export type Env = typeof env;

@@ -1,5 +1,5 @@
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { UserWithRelations, PrismaDocuments, BookingWithRelations, CarWithRelations, ModelWithBrand } from '../../prisma/types';
+import { UserWithRelations, PrismaDocuments, BookingWithRelations, CarWithRelations, ModelWithBrand, PaymentWithMethod } from '../../prisma/types';
 import { GraphQLContext } from '../context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -124,6 +124,12 @@ export type CarStatus =
   | 'RESERVED'
   | 'UNAVAILABLE';
 
+export type CheckoutSession = {
+  __typename?: 'CheckoutSession';
+  sessionId: Scalars['String']['output'];
+  url: Scalars['String']['output'];
+};
+
 export type CreateBookingInput = {
   carId: Scalars['ID']['input'];
   endDate: Scalars['String']['input'];
@@ -132,6 +138,12 @@ export type CreateBookingInput = {
   notes?: InputMaybe<Scalars['String']['input']>;
   startDate: Scalars['String']['input'];
   type?: InputMaybe<BookingType>;
+};
+
+export type DocumentReuseStatus = {
+  __typename?: 'DocumentReuseStatus';
+  documents?: Maybe<Documents>;
+  hasApprovedDocuments: Scalars['Boolean']['output'];
 };
 
 export type DocumentSide =
@@ -197,6 +209,7 @@ export type Mutation = {
   cancelBooking: Booking;
   changePassword: Scalars['Boolean']['output'];
   createBooking: Booking;
+  createCheckoutSession: CheckoutSession;
   deleteCar: Scalars['Boolean']['output'];
   deleteCarImage: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
@@ -204,8 +217,11 @@ export type Mutation = {
   logout: Scalars['Boolean']['output'];
   processDocumentOCR: OcrResult;
   refreshTokens: RefreshPayload;
+  refundPayment: Payment;
   register: RegisterPayload;
   resendOTP: ResendOtpPayload;
+  reuseDocumentsForBooking: Documents;
+  saveBookingDocuments: Documents;
   saveDocuments: Documents;
   scheduleCarMaintenance: Car;
   setPrimaryImage: Car;
@@ -252,6 +268,11 @@ export type MutationCreateBookingArgs = {
 };
 
 
+export type MutationCreateCheckoutSessionArgs = {
+  bookingId: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteCarArgs = {
   id: Scalars['ID']['input'];
 };
@@ -289,6 +310,11 @@ export type MutationRefreshTokensArgs = {
 };
 
 
+export type MutationRefundPaymentArgs = {
+  paymentId: Scalars['ID']['input'];
+};
+
+
 export type MutationRegisterArgs = {
   input: RegisterInput;
 };
@@ -296,6 +322,18 @@ export type MutationRegisterArgs = {
 
 export type MutationResendOtpArgs = {
   email: Scalars['String']['input'];
+};
+
+
+export type MutationReuseDocumentsForBookingArgs = {
+  bookingId: Scalars['ID']['input'];
+};
+
+
+export type MutationSaveBookingDocumentsArgs = {
+  bookingId: Scalars['ID']['input'];
+  input: DocumentsInput;
+  saveToProfile?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -390,6 +428,12 @@ export type PaginatedCars = {
   pageInfo: PageInfo;
 };
 
+export type PaginatedPayments = {
+  __typename?: 'PaginatedPayments';
+  items: Array<Payment>;
+  pageInfo: PageInfo;
+};
+
 export type PaginatedUsers = {
   __typename?: 'PaginatedUsers';
   items: Array<User>;
@@ -435,10 +479,15 @@ export type Query = {
   carAvailabilityCalendar: Array<CalendarDay>;
   cars: PaginatedCars;
   carsByStatus: PaginatedCars;
+  hasApprovedDocuments: DocumentReuseStatus;
   isEmailAvailable: Scalars['Boolean']['output'];
   me?: Maybe<User>;
   myBookings: PaginatedBookings;
   myDocuments?: Maybe<Documents>;
+  myPayments: PaginatedPayments;
+  payment?: Maybe<Payment>;
+  paymentByBooking?: Maybe<Payment>;
+  payments: PaginatedPayments;
   user?: Maybe<User>;
   users: PaginatedUsers;
 };
@@ -492,6 +541,26 @@ export type QueryIsEmailAvailableArgs = {
 
 
 export type QueryMyBookingsArgs = {
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryMyPaymentsArgs = {
+  pagination?: InputMaybe<PaginationInput>;
+};
+
+
+export type QueryPaymentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryPaymentByBookingArgs = {
+  bookingId: Scalars['ID']['input'];
+};
+
+
+export type QueryPaymentsArgs = {
   pagination?: InputMaybe<PaginationInput>;
 };
 
@@ -661,8 +730,10 @@ export type ResolversTypes = ResolversObject<{
   CarFilterInput: CarFilterInput;
   CarImage: ResolverTypeWrapper<CarImage>;
   CarStatus: CarStatus;
+  CheckoutSession: ResolverTypeWrapper<CheckoutSession>;
   CreateBookingInput: CreateBookingInput;
   DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
+  DocumentReuseStatus: ResolverTypeWrapper<Omit<DocumentReuseStatus, 'documents'> & { documents?: Maybe<ResolversTypes['Documents']> }>;
   DocumentSide: DocumentSide;
   DocumentType: DocumentType;
   Documents: ResolverTypeWrapper<PrismaDocuments>;
@@ -678,9 +749,10 @@ export type ResolversTypes = ResolversObject<{
   PageInfo: ResolverTypeWrapper<PageInfo>;
   PaginatedBookings: ResolverTypeWrapper<Omit<PaginatedBookings, 'items'> & { items: Array<ResolversTypes['Booking']> }>;
   PaginatedCars: ResolverTypeWrapper<Omit<PaginatedCars, 'items'> & { items: Array<ResolversTypes['Car']> }>;
+  PaginatedPayments: ResolverTypeWrapper<Omit<PaginatedPayments, 'items'> & { items: Array<ResolversTypes['Payment']> }>;
   PaginatedUsers: ResolverTypeWrapper<Omit<PaginatedUsers, 'items'> & { items: Array<ResolversTypes['User']> }>;
   PaginationInput: PaginationInput;
-  Payment: ResolverTypeWrapper<Payment>;
+  Payment: ResolverTypeWrapper<PaymentWithMethod>;
   PaymentMethod: ResolverTypeWrapper<PaymentMethod>;
   PaymentStatus: PaymentStatus;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
@@ -711,8 +783,10 @@ export type ResolversParentTypes = ResolversObject<{
   Car: CarWithRelations;
   CarFilterInput: CarFilterInput;
   CarImage: CarImage;
+  CheckoutSession: CheckoutSession;
   CreateBookingInput: CreateBookingInput;
   DateTime: Scalars['DateTime']['output'];
+  DocumentReuseStatus: Omit<DocumentReuseStatus, 'documents'> & { documents?: Maybe<ResolversParentTypes['Documents']> };
   Documents: PrismaDocuments;
   DocumentsInput: DocumentsInput;
   Float: Scalars['Float']['output'];
@@ -726,9 +800,10 @@ export type ResolversParentTypes = ResolversObject<{
   PageInfo: PageInfo;
   PaginatedBookings: Omit<PaginatedBookings, 'items'> & { items: Array<ResolversParentTypes['Booking']> };
   PaginatedCars: Omit<PaginatedCars, 'items'> & { items: Array<ResolversParentTypes['Car']> };
+  PaginatedPayments: Omit<PaginatedPayments, 'items'> & { items: Array<ResolversParentTypes['Payment']> };
   PaginatedUsers: Omit<PaginatedUsers, 'items'> & { items: Array<ResolversParentTypes['User']> };
   PaginationInput: PaginationInput;
-  Payment: Payment;
+  Payment: PaymentWithMethod;
   PaymentMethod: PaymentMethod;
   Query: Record<PropertyKey, never>;
   RefreshPayload: RefreshPayload;
@@ -799,9 +874,19 @@ export type CarImageResolvers<ContextType = GraphQLContext, ParentType extends R
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
+export type CheckoutSessionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CheckoutSession'] = ResolversParentTypes['CheckoutSession']> = ResolversObject<{
+  sessionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+}>;
+
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
   name: 'DateTime';
 }
+
+export type DocumentReuseStatusResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DocumentReuseStatus'] = ResolversParentTypes['DocumentReuseStatus']> = ResolversObject<{
+  documents?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType>;
+  hasApprovedDocuments?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+}>;
 
 export type DocumentsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Documents'] = ResolversParentTypes['Documents']> = ResolversObject<{
   address?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -839,6 +924,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   cancelBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationCancelBookingArgs, 'id'>>;
   changePassword?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationChangePasswordArgs, 'currentPassword' | 'newPassword'>>;
   createBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationCreateBookingArgs, 'input'>>;
+  createCheckoutSession?: Resolver<ResolversTypes['CheckoutSession'], ParentType, ContextType, RequireFields<MutationCreateCheckoutSessionArgs, 'bookingId'>>;
   deleteCar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarArgs, 'id'>>;
   deleteCarImage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarImageArgs, 'imageId'>>;
   deleteUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserArgs, 'id'>>;
@@ -846,8 +932,11 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
   processDocumentOCR?: Resolver<ResolversTypes['OCRResult'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'documentType' | 'file' | 'side'>>;
   refreshTokens?: Resolver<ResolversTypes['RefreshPayload'], ParentType, ContextType, RequireFields<MutationRefreshTokensArgs, 'refreshToken'>>;
+  refundPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationRefundPaymentArgs, 'paymentId'>>;
   register?: Resolver<ResolversTypes['RegisterPayload'], ParentType, ContextType, RequireFields<MutationRegisterArgs, 'input'>>;
   resendOTP?: Resolver<ResolversTypes['ResendOTPPayload'], ParentType, ContextType, RequireFields<MutationResendOtpArgs, 'email'>>;
+  reuseDocumentsForBooking?: Resolver<ResolversTypes['Documents'], ParentType, ContextType, RequireFields<MutationReuseDocumentsForBookingArgs, 'bookingId'>>;
+  saveBookingDocuments?: Resolver<ResolversTypes['Documents'], ParentType, ContextType, RequireFields<MutationSaveBookingDocumentsArgs, 'bookingId' | 'input'>>;
   saveDocuments?: Resolver<ResolversTypes['Documents'], ParentType, ContextType, RequireFields<MutationSaveDocumentsArgs, 'input'>>;
   scheduleCarMaintenance?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationScheduleCarMaintenanceArgs, 'id'>>;
   setPrimaryImage?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationSetPrimaryImageArgs, 'carId' | 'imageId'>>;
@@ -889,6 +978,11 @@ export type PaginatedCarsResolvers<ContextType = GraphQLContext, ParentType exte
   pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
 }>;
 
+export type PaginatedPaymentsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PaginatedPayments'] = ResolversParentTypes['PaginatedPayments']> = ResolversObject<{
+  items?: Resolver<Array<ResolversTypes['Payment']>, ParentType, ContextType>;
+  pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
+}>;
+
 export type PaginatedUsersResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PaginatedUsers'] = ResolversParentTypes['PaginatedUsers']> = ResolversObject<{
   items?: Resolver<Array<ResolversTypes['User']>, ParentType, ContextType>;
   pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
@@ -918,10 +1012,15 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   carAvailabilityCalendar?: Resolver<Array<ResolversTypes['CalendarDay']>, ParentType, ContextType, RequireFields<QueryCarAvailabilityCalendarArgs, 'carId' | 'month' | 'year'>>;
   cars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, Partial<QueryCarsArgs>>;
   carsByStatus?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryCarsByStatusArgs, 'status'>>;
+  hasApprovedDocuments?: Resolver<ResolversTypes['DocumentReuseStatus'], ParentType, ContextType>;
   isEmailAvailable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsEmailAvailableArgs, 'email'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   myBookings?: Resolver<ResolversTypes['PaginatedBookings'], ParentType, ContextType, Partial<QueryMyBookingsArgs>>;
   myDocuments?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType>;
+  myPayments?: Resolver<ResolversTypes['PaginatedPayments'], ParentType, ContextType, Partial<QueryMyPaymentsArgs>>;
+  payment?: Resolver<Maybe<ResolversTypes['Payment']>, ParentType, ContextType, RequireFields<QueryPaymentArgs, 'id'>>;
+  paymentByBooking?: Resolver<Maybe<ResolversTypes['Payment']>, ParentType, ContextType, RequireFields<QueryPaymentByBookingArgs, 'bookingId'>>;
+  payments?: Resolver<ResolversTypes['PaginatedPayments'], ParentType, ContextType, Partial<QueryPaymentsArgs>>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'id'>>;
   users?: Resolver<ResolversTypes['PaginatedUsers'], ParentType, ContextType, Partial<QueryUsersArgs>>;
 }>;
@@ -973,7 +1072,9 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   CalendarDay?: CalendarDayResolvers<ContextType>;
   Car?: CarResolvers<ContextType>;
   CarImage?: CarImageResolvers<ContextType>;
+  CheckoutSession?: CheckoutSessionResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
+  DocumentReuseStatus?: DocumentReuseStatusResolvers<ContextType>;
   Documents?: DocumentsResolvers<ContextType>;
   FuelType?: FuelTypeResolvers<ContextType>;
   JSON?: GraphQLScalarType;
@@ -982,6 +1083,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   PageInfo?: PageInfoResolvers<ContextType>;
   PaginatedBookings?: PaginatedBookingsResolvers<ContextType>;
   PaginatedCars?: PaginatedCarsResolvers<ContextType>;
+  PaginatedPayments?: PaginatedPaymentsResolvers<ContextType>;
   PaginatedUsers?: PaginatedUsersResolvers<ContextType>;
   Payment?: PaymentResolvers<ContextType>;
   PaymentMethod?: PaymentMethodResolvers<ContextType>;

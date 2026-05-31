@@ -1,20 +1,21 @@
 import { BookingStatus, BookingType, CarStatus } from '@prisma/client';
 
-import { AppError, ErrorCode } from '../../core/errors/AppError';
-import { normalizePagination } from '../../core/utils/pagination';
-import { daysBetween } from '../../core/utils/date';
-import { multiplyMoney } from '../../core/utils/money';
+import { AppError, ErrorCode }   from '../../core/errors/AppError';
+import { normalizePagination }   from '../../core/utils/pagination';
+import { daysBetween }           from '../../core/utils/date';
+import { multiplyMoney }         from '../../core/utils/money';
+import logger                    from '../../config/logger';
 import {
   MIN_BOOKING_DAYS,
   MAX_BOOKING_DAYS,
   CANCELLATION_WINDOW_HOURS,
 } from '../../core/constants/booking';
-import { bookingRepository } from './booking.repository';
-import { carRepository }     from '../cars/car.repository';
+import { bookingRepository }     from './booking.repository';
+import { carRepository }         from '../cars/car.repository';
+import { paymentService }        from '../payments/payment.service';
+import { notificationService, buildBookingEmailData } from '../notifications/notification.service';
 import type { BookingWithRelations } from '../../prisma/types';
-import type { PaginatedResult } from '../../core/utils/pagination';
-
-// ─── Statuses that block a new booking on the same car ────────────────────────
+import type { PaginatedResult }      from '../../core/utils/pagination';
 
 // ─── Statuses from which a user may cancel ────────────────────────────────────
 const CANCELLABLE_STATUSES: BookingStatus[] = [
@@ -30,7 +31,7 @@ export class BookingService {
   }
 
   async getMyBookings(
-    userId: string,
+    userId:      string,
     pagination?: { page?: number; pageSize?: number },
   ): Promise<PaginatedResult<BookingWithRelations>> {
     return bookingRepository.findPaginatedByUser(
@@ -66,10 +67,10 @@ export class BookingService {
   // ── Mutations ──────────────────────────────────────────────────────────────
 
   async createBooking(input: {
-    carId:      string;
-    userId?:    string;
-    startDate:  string;
-    endDate:    string;
+    carId:       string;
+    userId?:     string;
+    startDate:   string;
+    endDate:     string;
     guestName?:  string;
     guestPhone?: string;
     notes?:      string;
@@ -83,10 +84,16 @@ export class BookingService {
       throw new AppError('Invalid date format.', ErrorCode.BAD_USER_INPUT);
     }
     if (start < new Date()) {
-      throw new AppError('Start date cannot be in the past.', ErrorCode.BAD_USER_INPUT);
+      throw new AppError(
+        'Start date cannot be in the past.',
+        ErrorCode.BAD_USER_INPUT,
+      );
     }
     if (start >= end) {
-      throw new AppError('Start date must be before end date.', ErrorCode.BAD_USER_INPUT);
+      throw new AppError(
+        'Start date must be before end date.',
+        ErrorCode.BAD_USER_INPUT,
+      );
     }
 
     const numberOfDays = daysBetween(start, end);
@@ -127,7 +134,11 @@ export class BookingService {
       );
     }
 
-    const conflict = await bookingRepository.hasConflict(input.carId, start, end);
+    const conflict = await bookingRepository.hasConflict(
+      input.carId,
+      start,
+      end,
+    );
     if (conflict) {
       throw new AppError(
         'This car is already booked for the selected dates.',
@@ -139,7 +150,7 @@ export class BookingService {
     const basePrice  = Number(car.basePrice);
     const totalPrice = multiplyMoney(basePrice, numberOfDays).toNumber();
 
-    // ── 5. Create booking ─────────────────────────────────────────────────
+    // ── 5. Create booking ──────────────────────────────────────────────────
     return bookingRepository.create({
       carId:       input.carId,
       userId:      input.userId,
@@ -156,8 +167,8 @@ export class BookingService {
   }
 
   async cancelBooking(
-    id:     string,
-    userId: string,
+    id:      string,
+    userId:  string,
     isAdmin: boolean,
   ): Promise<BookingWithRelations> {
     const booking = await bookingRepository.findById(id);
@@ -165,7 +176,7 @@ export class BookingService {
       throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
     }
 
-    // Ownership check (admin bypasses)
+    // Ownership check — admin bypasses
     if (!isAdmin && booking.userId !== userId) {
       throw new AppError(
         'Access denied. You do not own this booking.',
@@ -180,7 +191,7 @@ export class BookingService {
       );
     }
 
-    // Non-admins must cancel within the cancellation window
+    // Non-admins must respect the cancellation window
     if (!isAdmin) {
       const hoursUntilStart =
         (booking.startDate.getTime() - Date.now()) / (1000 * 60 * 60);
@@ -192,7 +203,37 @@ export class BookingService {
       }
     }
 
-    return bookingRepository.update(id, { status: BookingStatus.CANCELLED });
+    // ── Cancel the booking ─────────────────────────────────────────────────
+    const updated = await bookingRepository.update(id, {
+      status: BookingStatus.CANCELLED,
+    });
+
+    // ── Process refund based on policy (non-blocking) ──────────────────────
+    void paymentService
+      .cancelAndRefund(id, userId, isAdmin)
+      .catch((err) => {
+        logger.warn('Refund failed after cancellation', {
+          bookingId: id,
+          error:     err instanceof Error ? err.message : String(err),
+        });
+      });
+
+    // ── Send cancellation email (non-blocking) ─────────────────────────────
+    if (updated.user?.email) {
+      void notificationService
+        .sendBookingCancelled(
+          updated.user.email,
+          buildBookingEmailData(updated),
+        )
+        .catch((err) => {
+          logger.warn('Cancellation email failed', {
+            bookingId: id,
+            error:     err instanceof Error ? err.message : String(err),
+          });
+        });
+    }
+
+    return updated;
   }
 
   async updateBooking(
@@ -217,7 +258,6 @@ export class BookingService {
       );
     }
 
-    // Only allow edits on non-terminal bookings
     const editableStatuses: BookingStatus[] = [
       BookingStatus.RESERVED,
       BookingStatus.CONFIRMED,
@@ -237,7 +277,7 @@ export class BookingService {
     return bookingRepository.update(id, data);
   }
 
-  async adminUpdateBookingStatus(
+async adminUpdateBookingStatus(
     id:     string,
     status: BookingStatus,
   ): Promise<BookingWithRelations> {
@@ -246,10 +286,75 @@ export class BookingService {
       throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
     }
 
-    // Guard against invalid transitions
     this.assertValidTransition(booking.status, status);
 
-    return bookingRepository.update(id, { status });
+    const updated = await bookingRepository.update(id, { status });
+
+    // ── Handover: Mark car as RENTED ─────────────────────────────────────────
+    if (status === BookingStatus.ONGOING) {
+      await carRepository.update(booking.carId, { status: CarStatus.RENTED });
+      logger.info('Handover processed: car marked as RENTED', { carId: booking.carId, bookingId: id });
+    }
+
+    // ── Return: Mark car as AVAILABLE ────────────────────────────────────────
+    if (status === BookingStatus.COMPLETED) {
+      await carRepository.update(booking.carId, { status: CarStatus.AVAILABLE });
+      logger.info('Return processed: car marked as AVAILABLE', { carId: booking.carId, bookingId: id });
+    }
+
+    // ── Rejection: always full refund + email ──────────────────────────────
+    if (status === BookingStatus.REJECTED) {
+      void paymentService
+        .refundForRejection(id)
+        .catch((err) => {
+          logger.warn('Refund failed after rejection', {
+            bookingId: id,
+            error:     err instanceof Error ? err.message : String(err),
+          });
+        });
+
+      if (updated.user?.email) {
+        void notificationService
+          .sendBookingRejected(
+            updated.user.email,
+            buildBookingEmailData(updated),
+          )
+          .catch((err) => {
+            logger.warn('Rejection email failed', {
+              bookingId: id,
+              error:     err instanceof Error ? err.message : String(err),
+            });
+          });
+      }
+    }
+
+    // ── Admin cancellation: refund + email ─────────────────────────────────
+    if (status === BookingStatus.CANCELLED) {
+      void paymentService
+        .cancelAndRefund(id, booking.userId ?? '', true)
+        .catch((err) => {
+          logger.warn('Refund failed after admin cancellation', {
+            bookingId: id,
+            error:     err instanceof Error ? err.message : String(err),
+          });
+        });
+
+      if (updated.user?.email) {
+        void notificationService
+          .sendBookingCancelled(
+            updated.user.email,
+            buildBookingEmailData(updated),
+          )
+          .catch((err) => {
+            logger.warn('Cancellation email failed after admin cancel', {
+              bookingId: id,
+              error:     err instanceof Error ? err.message : String(err),
+            });
+          });
+      }
+    }
+
+    return updated;
   }
 
   // ── Status transition guard ────────────────────────────────────────────────
@@ -259,9 +364,19 @@ export class BookingService {
     to:   BookingStatus,
   ): void {
     const ALLOWED: Partial<Record<BookingStatus, BookingStatus[]>> = {
-      [BookingStatus.RESERVED]:  [BookingStatus.CONFIRMED, BookingStatus.CANCELLED, BookingStatus.REJECTED],
-      [BookingStatus.CONFIRMED]: [BookingStatus.ONGOING,   BookingStatus.CANCELLED],
-      [BookingStatus.ONGOING]:   [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+      [BookingStatus.RESERVED]:  [
+        BookingStatus.CONFIRMED,
+        BookingStatus.CANCELLED,
+        BookingStatus.REJECTED,
+      ],
+      [BookingStatus.CONFIRMED]: [
+        BookingStatus.ONGOING,
+        BookingStatus.CANCELLED,
+      ],
+      [BookingStatus.ONGOING]:   [
+        BookingStatus.COMPLETED,
+        BookingStatus.CANCELLED,
+      ],
       [BookingStatus.COMPLETED]: [],
       [BookingStatus.CANCELLED]: [],
       [BookingStatus.REJECTED]:  [],

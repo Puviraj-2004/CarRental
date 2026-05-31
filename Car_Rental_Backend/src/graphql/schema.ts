@@ -9,6 +9,7 @@ import { userResolvers } from '../modules/users/user.resolver';
 import { authResolvers } from '../modules/auth/auth.resolver';
 import { carResolvers }  from '../modules/cars/car.resolver';
 import { bookingResolvers } from '../modules/bookings/booking.resolver';
+import { paymentResolvers } from '../modules/payments/payment.resolver';
 
 function loadSDL(relativePath: string) {
   const content = readFileSync(join(__dirname, relativePath), 'utf8');
@@ -20,6 +21,7 @@ const authTypeDefs   = loadSDL('../modules/auth/auth.graphql');
 const userTypeDefs   = loadSDL('../modules/users/user.graphql');
 const carTypeDefs    = loadSDL('../modules/cars/car.graphql');
 const bookingTypeDefs = loadSDL('../modules/bookings/booking.graphql');
+const paymentTypeDefs = loadSDL('../modules/payments/payment.graphql');
 
 const resolverModules: Resolvers[] = [
   { DateTime: DateTimeResolver } as unknown as Resolvers,
@@ -27,7 +29,8 @@ const resolverModules: Resolvers[] = [
   userResolvers as unknown as Resolvers,
   carResolvers  as unknown as Resolvers,
   bookingResolvers  as unknown as Resolvers,
+  paymentResolvers  as unknown as Resolvers,
 ];
 
-export const typeDefs  = mergeTypeDefs([baseTypeDefs, authTypeDefs, userTypeDefs, carTypeDefs, bookingTypeDefs]);
+export const typeDefs  = mergeTypeDefs([baseTypeDefs, authTypeDefs, userTypeDefs, carTypeDefs, bookingTypeDefs, paymentTypeDefs]);
 export const resolvers = mergeResolvers(resolverModules);

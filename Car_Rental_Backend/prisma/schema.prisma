@@ -159,6 +159,7 @@ model Booking {
   status       BookingStatus @default(RESERVED)
   type         BookingType   @default(RENTAL)
   documents    Documents?
+  reminderSentAt DateTime?                          
   payment      Payment?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

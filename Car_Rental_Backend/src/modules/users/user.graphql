@@ -2,20 +2,24 @@ enum Role {
   USER
   ADMIN
 }
+
 enum VerificationStatus {
   PENDING
   APPROVED
   REJECTED
 }
+
 enum DocumentType {
   LICENSE
   ID_CARD
   ADDRESS_PROOF
 }
+
 enum DocumentSide {
   FRONT
   BACK
 }
+
 type User {
   id:            ID!
   email:         String!
@@ -24,6 +28,7 @@ type User {
   documents:     Documents
   bookings:      [Booking!]!
 }
+
 type Documents {
   id:              ID!
   userId:          ID
@@ -43,6 +48,7 @@ type Documents {
   createdAt:       String!
   updatedAt:       String!
 }
+
 type OCRResult {
   licenseNumber:   String
   licenseExpiry:   String
@@ -53,6 +59,7 @@ type OCRResult {
   fallbackUsed:    Boolean
   isQuotaExceeded: Boolean
 }
+
 input DocumentsInput {
   licenseFrontFile: Upload
   licenseBackFile:  Upload
@@ -66,13 +73,21 @@ input DocumentsInput {
   idExpiry:         String
   address:          String
 }
+
+type DocumentReuseStatus {
+  hasApprovedDocuments: Boolean!
+  documents:            Documents
+}
+
 extend type Query {
   me:                               User
   user(id: ID!):                    User
   users(pagination: PaginationInput): PaginatedUsers!
   myDocuments:                      Documents
   isEmailAvailable(email: String!): Boolean!
+  hasApprovedDocuments: DocumentReuseStatus!
 }
+
 extend type Mutation {
   changePassword(currentPassword: String!, newPassword: String!): Boolean!
   updateUserRole(id: ID!, role: Role!):                           User!
@@ -84,4 +99,7 @@ extend type Mutation {
     documentType: DocumentType!
     side:         DocumentSide!
   ): OCRResult!
+
+  reuseDocumentsForBooking(bookingId: ID!):                    Documents!
+  saveBookingDocuments(bookingId: ID!, input: DocumentsInput!, saveToProfile: Boolean): Documents!
 }

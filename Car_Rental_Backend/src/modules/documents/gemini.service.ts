@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { securityLogger } from '../../config/logger';
-import { AppError, ErrorCode } from '../../core/errors';
+import { AppError, ErrorCode } from '../../core/errors/AppError';
 
 export interface ExtractedDocumentData {
   firstName?: string;
@@ -20,9 +20,26 @@ export interface ExtractedDocumentData {
   isQuotaExceeded?: boolean;
 }
 
+interface RawGeminiOutput {
+  lastName?: string;
+  firstName?: string;
+  prenom?: string; // French license firstName fallback
+  nom?: string;    // French license lastName fallback
+  birthDate?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  licenseNumber?: string;
+  idNumber?: string;
+  documentId?: string;
+  licenseCategories?: string[];
+  address?: string;
+  documentDate?: string;
+  restrictsToAutomatic?: boolean;
+}
+
 export class OCRService {
   private genAI: GoogleGenerativeAI;
-  private model: any;
+  private model: GenerativeModel;
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -57,24 +74,24 @@ export class OCRService {
         return { fallbackUsed: true };
       }
 
-      let extractedData: Partial<ExtractedDocumentData>;
+      let extractedData: RawGeminiOutput;
       try {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         const cleanedJson = jsonMatch ? jsonMatch[0] : text;
-        extractedData = JSON.parse(cleanedJson);
+        extractedData = JSON.parse(cleanedJson) as RawGeminiOutput;
       } catch {
         securityLogger.warn('OCR JSON parse failed', { documentType, side });
         return { fallbackUsed: true };
       }
 
-      const rawLicenseCategories = (extractedData as any)?.licenseCategories;
+      const rawLicenseCategories = extractedData.licenseCategories;
       const mergedLicenseCategories = Array.isArray(rawLicenseCategories) ? rawLicenseCategories : [];
 
       const mapped: ExtractedDocumentData = {
-        firstName: ((extractedData as any).prenom || extractedData.firstName || '').trim(),
-        lastName: ((extractedData as any).nom || extractedData.lastName || '').trim(),
+        firstName: (extractedData.prenom || extractedData.firstName || '').trim(),
+        lastName: (extractedData.nom || extractedData.lastName || '').trim(),
         fullName: this.combineNameFields(extractedData),
-        documentId: ((extractedData as any).idNumber || extractedData.documentId || '').trim(),
+        documentId: (extractedData.idNumber || extractedData.documentId || '').trim(),
         licenseNumber: (extractedData.documentId || extractedData.licenseNumber || '').trim(),
         expiryDate: extractedData.expiryDate || extractedData.documentDate || "",
         birthDate: extractedData.birthDate || "",
@@ -89,8 +106,9 @@ export class OCRService {
       const sanitized = this.sanitizeExtractedData(mapped);
       securityLogger.info('OCR extraction completed', { documentType, side, fallbackUsed: false });
       return sanitized;
-    } catch (error: any) {
-      securityLogger.error('OCR extraction failed', { documentType, side, error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      securityLogger.error('OCR extraction failed', { documentType, side, error: errorMessage });
       return this.handleFallbackSystem(fileBuffer, documentType);
     }
   }

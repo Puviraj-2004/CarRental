@@ -1,0 +1,441 @@
+import { BookingStatus, PaymentStatus } from '@prisma/client';
+
+import { AppError, ErrorCode }    from '../../core/errors/AppError';
+import { normalizePagination }    from '../../core/utils/pagination';
+import type { PaginatedResult }   from '../../core/utils/pagination';
+import { calculateRefund }        from '../../core/utils/refund';
+import { env }                    from '../../config/env';
+import { getStripeClient }        from '../../config/stripe';
+import { securityLogger }         from '../../config/logger';
+import { prisma }                 from '../../config/database';
+import { paymentRepository }      from './payment.repository';
+import type { PaymentWithMethod } from '../../prisma/types';
+
+export class PaymentService {
+  // ── Queries ────────────────────────────────────────────────────────────────
+
+  async getPaymentById(
+    id:      string,
+    userId:  string,
+    isAdmin: boolean,
+  ): Promise<PaymentWithMethod | null> {
+    const payment = await paymentRepository.findById(id);
+    if (!payment) return null;
+
+    if (!isAdmin) {
+      const booking = await prisma.booking.findUnique({
+        where:  { id: payment.bookingId },
+        select: { userId: true },
+      });
+      if (booking?.userId !== userId) {
+        throw new AppError(
+          'Access denied. You do not own this payment.',
+          ErrorCode.FORBIDDEN,
+        );
+      }
+    }
+
+    return payment;
+  }
+
+  async getPaymentByBooking(
+    bookingId: string,
+    userId:    string,
+    isAdmin:   boolean,
+  ): Promise<PaymentWithMethod | null> {
+    const payment = await paymentRepository.findByBookingId(bookingId);
+    if (!payment) return null;
+
+    if (!isAdmin) {
+      const booking = await prisma.booking.findUnique({
+        where:  { id: bookingId },
+        select: { userId: true },
+      });
+      if (booking?.userId !== userId) {
+        throw new AppError(
+          'Access denied. You do not own this booking.',
+          ErrorCode.FORBIDDEN,
+        );
+      }
+    }
+
+    return payment;
+  }
+
+  getMyPayments(
+    userId:      string,
+    pagination?: { page?: number; pageSize?: number },
+  ): Promise<PaginatedResult<PaymentWithMethod>> {
+    return paymentRepository.findPaginatedByUser(
+      userId,
+      normalizePagination(pagination),
+    );
+  }
+
+  getAllPayments(
+    pagination?: { page?: number; pageSize?: number },
+  ): Promise<PaginatedResult<PaymentWithMethod>> {
+    return paymentRepository.findPaginated(normalizePagination(pagination));
+  }
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
+  async createCheckoutSession(
+    bookingId: string,
+    userId:    string,
+    isAdmin:   boolean,
+  ): Promise<{ url: string; sessionId: string }> {
+    // ── 1. Load booking ──────────────────────────────────────────────────────
+    const booking = await prisma.booking.findUnique({
+      where:   { id: bookingId },
+      include: {
+        car:  { include: { model: { include: { brand: true } } } },
+        user: true,
+      },
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+    if (!isAdmin && booking.userId !== userId) {
+      throw new AppError(
+        'Access denied. You do not own this booking.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+    if (booking.status !== BookingStatus.RESERVED) {
+      throw new AppError(
+        `Cannot create a payment for a booking with status "${booking.status}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    // ── 2. Already paid check ────────────────────────────────────────────────
+    const existing = await paymentRepository.findByBookingId(bookingId);
+    if (existing?.status === PaymentStatus.PAID) {
+      throw new AppError(
+        'This booking has already been paid.',
+        ErrorCode.ALREADY_EXISTS,
+      );
+    }
+
+    // ── 3. Strict Document Gate (Rule 5) ─────────────────────────────────────
+    // For every booking, a document record must exist and be linked directly
+    // to that bookingId. Users cannot skip this step and pay directly.
+    if (!isAdmin) {
+      const bookingDocs = await prisma.documents.findUnique({
+        where: { bookingId },
+      });
+
+      if (!bookingDocs) {
+        throw new AppError(
+          'Please attach identity documents to this booking (by uploading new ones or choosing to use your saved profile documents) before proceeding to payment.',
+          ErrorCode.BAD_USER_INPUT,
+        );
+      }
+    }
+
+    const totalPrice = Number(booking.totalPrice);
+    const carLabel   = `${booking.car.model.brand.name} ${booking.car.model.name}`;
+
+    // ── 4. Mock mode ─────────────────────────────────────────────────────────
+    if (env.mockStripe) {
+      securityLogger.info('Mock Stripe: creating fake checkout session', {
+        bookingId,
+      });
+      await paymentRepository.upsertByBookingId(bookingId, {
+        amount:   totalPrice,
+        status:   PaymentStatus.PENDING,
+        stripeId: `mock_session_${bookingId}`,
+      });
+      return {
+        url:       `${env.frontendUrl}/booking/${bookingId}/mock-payment`,
+        sessionId: `mock_session_${bookingId}`,
+      };
+    }
+
+    // ── 5. Real Stripe checkout ───────────────────────────────────────────────
+    const stripe = getStripeClient();
+    if (!stripe) {
+      throw new AppError(
+        'Payment service is not configured.',
+        ErrorCode.CONFIGURATION_ERROR,
+      );
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode:                 'payment',
+      customer_email:       booking.user?.email ?? undefined,
+      line_items: [
+        {
+          price_data: {
+            currency:     env.appCurrency.toLowerCase(),
+            unit_amount:  Math.round(totalPrice * 100),
+            product_data: {
+              name:        `Car rental — ${carLabel}`,
+              description: `${booking.numberOfDays} day(s) · ${booking.startDate.toLocaleDateString('fr-FR')} → ${booking.endDate.toLocaleDateString('fr-FR')}`,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      metadata:    { bookingId },
+      success_url: `${env.frontendUrl}/booking/${bookingId}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${env.frontendUrl}/booking/${bookingId}/cancel`,
+    });
+
+    if (!session.url) {
+      throw new AppError(
+        'Failed to create Stripe checkout session.',
+        ErrorCode.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    await paymentRepository.upsertByBookingId(bookingId, {
+      amount:   totalPrice,
+      status:   PaymentStatus.PENDING,
+      stripeId: session.id,
+    });
+
+    securityLogger.info('Stripe checkout session created', {
+      bookingId,
+      sessionId: session.id,
+    });
+
+    return { url: session.url, sessionId: session.id };
+  }
+
+  // ── Refund (user cancellation — applies refund policy) ────────────────────
+
+  async cancelAndRefund(
+    bookingId: string,
+    userId:    string,
+    isAdmin:   boolean,
+  ): Promise<PaymentWithMethod | null> {
+    const payment = await paymentRepository.findByBookingId(bookingId);
+
+    if (!payment || payment.status !== PaymentStatus.PAID) return null;
+
+    const booking = await prisma.booking.findUnique({
+      where:  { id: bookingId },
+      select: { startDate: true },
+    });
+    if (!booking) return null;
+
+    const { policy, refundAmount } = calculateRefund(
+      Number(payment.amount),
+      booking.startDate,
+    );
+
+    securityLogger.info('Cancellation refund policy applied', {
+      bookingId,
+      policy,
+      refundAmount,
+      userId,
+      isAdmin,
+    });
+
+    if (policy === 'NONE') {
+      return paymentRepository.update(payment.id, {
+        status: PaymentStatus.REFUNDED,
+      });
+    }
+
+    if (env.mockStripe) {
+      securityLogger.info('Mock Stripe: fake cancellation refund', {
+        bookingId,
+        policy,
+        refundAmount,
+        userId,
+        isAdmin,
+      });
+      return paymentRepository.update(payment.id, {
+        status: PaymentStatus.REFUNDED,
+      });
+    }
+
+    const stripe = getStripeClient();
+    if (!stripe) {
+      throw new AppError(
+        'Payment service is not configured.',
+        ErrorCode.CONFIGURATION_ERROR,
+      );
+    }
+
+    let paymentIntentId = payment.stripeId ?? '';
+    if (payment.stripeId?.startsWith('cs_')) {
+      const session = await stripe.checkout.sessions.retrieve(
+        payment.stripeId,
+      );
+      paymentIntentId =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id ?? '';
+    }
+
+    if (!paymentIntentId) {
+      throw new AppError(
+        'Could not resolve PaymentIntent for this payment.',
+        ErrorCode.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      amount:         Math.round(refundAmount * 100),
+      metadata:       { bookingId, policy, initiatedBy: userId, isAdmin: String(isAdmin) },
+    });
+
+    securityLogger.info('Stripe cancellation refund issued', {
+      bookingId,
+      policy,
+      refundAmount,
+      paymentIntentId,
+      userId,
+    });
+
+    return paymentRepository.update(payment.id, {
+      status: PaymentStatus.REFUNDED,
+    });
+  }
+
+  // ── Refund (admin rejection — always full refund) ─────────────────────────
+
+  async refundForRejection(bookingId: string): Promise<PaymentWithMethod | null> {
+    const payment = await paymentRepository.findByBookingId(bookingId);
+    if (!payment || payment.status !== PaymentStatus.PAID) return null;
+
+    if (env.mockStripe) {
+      securityLogger.info('Mock Stripe: fake rejection refund', { bookingId });
+      return paymentRepository.update(payment.id, {
+        status: PaymentStatus.REFUNDED,
+      });
+    }
+
+    const stripe = getStripeClient();
+    if (!stripe) {
+      throw new AppError(
+        'Payment service is not configured.',
+        ErrorCode.CONFIGURATION_ERROR,
+      );
+    }
+
+    if (!payment.stripeId) {
+      throw new AppError(
+        'No Stripe payment ID found for this payment.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    let paymentIntentId = payment.stripeId;
+    if (payment.stripeId.startsWith('cs_')) {
+      const session = await stripe.checkout.sessions.retrieve(
+        payment.stripeId,
+      );
+      paymentIntentId =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id ?? '';
+    }
+
+    if (!paymentIntentId) {
+      throw new AppError(
+        'Could not resolve PaymentIntent for this payment.',
+        ErrorCode.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      metadata:       { bookingId, reason: 'admin_rejection' },
+    });
+
+    securityLogger.info('Stripe rejection refund issued', {
+      bookingId,
+      paymentIntentId,
+    });
+
+    return paymentRepository.update(payment.id, {
+      status: PaymentStatus.REFUNDED,
+    });
+  }
+
+  // ── Manual admin refund (existing endpoint) ───────────────────────────────
+
+  async refundPayment(
+    paymentId: string,
+    isAdmin:   boolean,
+  ): Promise<PaymentWithMethod> {
+    if (!isAdmin) {
+      throw new AppError(
+        'Only admins can issue refunds.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+
+    const payment = await paymentRepository.findById(paymentId);
+    if (!payment) {
+      throw new AppError('Payment not found.', ErrorCode.NOT_FOUND);
+    }
+    if (payment.status !== PaymentStatus.PAID) {
+      throw new AppError(
+        `Cannot refund a payment with status "${payment.status}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    if (env.mockStripe) {
+      securityLogger.info('Mock Stripe: issuing fake refund', { paymentId });
+      return paymentRepository.update(paymentId, {
+        status: PaymentStatus.REFUNDED,
+      });
+    }
+
+    const stripe = getStripeClient();
+    if (!stripe) {
+      throw new AppError(
+        'Payment service is not configured.',
+        ErrorCode.CONFIGURATION_ERROR,
+      );
+    }
+
+    if (!payment.stripeId) {
+      throw new AppError(
+        'No Stripe payment ID found for this payment.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    let paymentIntentId = payment.stripeId;
+    if (payment.stripeId.startsWith('cs_')) {
+      const session = await stripe.checkout.sessions.retrieve(
+        payment.stripeId,
+      );
+      paymentIntentId =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id ?? '';
+    }
+
+    if (!paymentIntentId) {
+      throw new AppError(
+        'Could not resolve PaymentIntent for this payment.',
+        ErrorCode.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      metadata:       { bookingId: payment.bookingId },
+    });
+
+    securityLogger.info('Stripe refund issued', { paymentId, paymentIntentId });
+
+    return paymentRepository.update(paymentId, {
+      status: PaymentStatus.REFUNDED,
+    });
+  }
+}
+
+export const paymentService = new PaymentService();

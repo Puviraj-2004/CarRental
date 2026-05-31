@@ -28,7 +28,22 @@ export type ModelWithBrand = Prisma.VehicleModelGetPayload<typeof modelWithBrand
 // ─── Booking ──────────────────────────────────────────────────────────────────
 
 const bookingWithRelations = Prisma.validator<Prisma.BookingDefaultArgs>()({
-  include: { car: true, user: true, payment: true, documents: true },
+  include: {
+    car: {
+      include: {
+        model: {
+          include: { brand: true },
+        },
+        images: true,
+        fuelType: true,
+      },
+    },
+    user: true,
+    payment: {
+      include: { paymentMethod: true },
+    },
+    documents: true,
+  },
 });
 
 /** Booking row including car, user, payment and documents. */
