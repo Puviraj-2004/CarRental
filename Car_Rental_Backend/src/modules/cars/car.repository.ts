@@ -20,8 +20,8 @@ const BLOCKING_STATUSES = [
 ] as const;
 
 export class CarRepository {
-  // ── Queries ────────────────────────────────────────────────────────────────
-
+  
+  // ... Queries remain identical ...
   findById(id: string): Promise<CarWithRelations | null> {
     return prisma.car.findUnique({ where: { id }, include: CAR_INCLUDE });
   }
@@ -118,15 +118,16 @@ export class CarRepository {
     return buildPaginatedResult(items, totalCount, p.page, p.pageSize);
   }
 
-  // ── Mutations ──────────────────────────────────────────────────────────────
+  // ── Mutations Updated ──────────────────────────────────────────────────────
 
   create(data: {
-    modelId:         string;
-    plateNumber:     string;
-    fuelTypeId?:     string | null;
-    basePrice:       number;
-    status?:         CarStatus;
-    primaryImageUrl?: string;
+    modelId:              string;
+    plateNumber:          string;
+    fuelTypeId?:          string | null;
+    basePrice:            number;
+    status?:              CarStatus;
+    primaryImageUrl?:     string;
+    primaryImagePublicId?: string | null; // <-- Updated: Store tracking identifier
   }): Promise<CarWithRelations> {
     return prisma.car.create({ data, include: CAR_INCLUDE });
   }
@@ -139,12 +140,19 @@ export class CarRepository {
     return prisma.car.delete({ where: { id }, include: CAR_INCLUDE });
   }
 
-  // ── Images ─────────────────────────────────────────────────────────────────
+  // ── Images Updated ─────────────────────────────────────────────────────────
 
-  addImages(carId: string, urls: string[]): Promise<CarWithRelations> {
+  addImages(carId: string, images: { url: string; publicId: string }[]): Promise<CarWithRelations> {
     return prisma.car.update({
       where:   { id: carId },
-      data:    { images: { create: urls.map(url => ({ url })) } },
+      data:    { 
+        images: { 
+          create: images.map(img => ({ 
+            url: img.url, 
+            publicId: img.publicId        // <-- Updated: Save both URL and tracking ID
+          })) 
+        } 
+      },
       include: CAR_INCLUDE,
     });
   }
@@ -157,8 +165,7 @@ export class CarRepository {
     return prisma.carImage.delete({ where: { id: imageId } });
   }
 
-  // ── Calendar ───────────────────────────────────────────────────────────────
-
+  // ... Calendar remains identical ...
   getMonthBookings(carId: string, year: number, month: number) {
     const start = new Date(year, month - 1, 1);
     const end   = new Date(year, month, 1);

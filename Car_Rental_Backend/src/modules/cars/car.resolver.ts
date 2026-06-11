@@ -1,9 +1,9 @@
-import type { FileUpload } from 'graphql-upload-ts';
 import { CarStatus } from '@prisma/client';
 
 import { isAdmin } from '../../core/middleware/admin.middleware';
 import { GraphQLContext } from '../../graphql/context';
 import { carService } from './car.service';
+import { AppError, ErrorCode } from '../../core/errors/AppError';
 import type {
   Resolvers,
   QueryCarsArgs,
@@ -21,7 +21,6 @@ export const carResolvers: Partial<Resolvers> = {
     carId: (parent) => parent.carId,
   },
 
-  // Field resolver to resolve the Brand relation nested inside VehicleModel
   VehicleModel: {
     brand: (parent, _, ctx) => 
       ctx.prisma.brand.findUniqueOrThrow({ where: { id: parent.brandId } }),
@@ -31,15 +30,13 @@ export const carResolvers: Partial<Resolvers> = {
     car: (_: unknown, { id }: { id: string }) =>
       carService.getCarById(id),
 
-    // ─── New dropdown query resolvers (fetches directly from DB) ───────────
     brands: (_: unknown, __: Record<string, never>, ctx: GraphQLContext) =>
       ctx.prisma.brand.findMany({ orderBy: { name: 'asc' } }),
 
     models: async (_: unknown, __: Record<string, never>, ctx: GraphQLContext) => {
-      const models = await ctx.prisma.vehicleModel.findMany({
-        include: { brand: true }   // ← add relation
+      return ctx.prisma.vehicleModel.findMany({
+        include: { brand: true }
       });
-      return models;
     },
 
     fuelTypes: (_: unknown, __: Record<string, never>, ctx: GraphQLContext) =>
@@ -90,6 +87,14 @@ export const carResolvers: Partial<Resolvers> = {
       _: unknown,
       { carId, month, year }: QueryCarAvailabilityCalendarArgs,
     ) => carService.getAvailabilityCalendar(carId, month, year),
+
+    // Resolves secure Cloudinary credentials for the frontend client
+    cloudinarySignature: (_: unknown, { folder }: { folder: string }, ctx: GraphQLContext) => {
+      if (!ctx.userId) {
+        throw new AppError('Authentication required to access upload routes.', ErrorCode.UNAUTHENTICATED);
+      }
+      return carService.getUploadSignature(folder);
+    },
   },
 
   Mutation: {
@@ -99,15 +104,9 @@ export const carResolvers: Partial<Resolvers> = {
       fuelTypeId?:  string | null;
       basePrice:    number;
       status?:      string | null;
-      primaryImage?: Promise<FileUpload> | null;
+      primaryImage?: { url: string; publicId: string } | null; // <-- Updated: Expects metadata object
     }}, ctx: GraphQLContext) => {
       isAdmin(ctx);
-
-        console.log("📂 Backend resolver received input:", {
-        modelId: input.modelId,
-        plateNumber: input.plateNumber,
-        primaryImage: input.primaryImage,
-      });
 
       return carService.addCar({
         modelId:      input.modelId,
@@ -123,7 +122,7 @@ export const carResolvers: Partial<Resolvers> = {
       plateNumber?:  string | null;
       fuelTypeId?:   string | null;
       basePrice?:    number | null;
-      primaryImage?: Promise<FileUpload> | null;
+      primaryImage?: { url: string; publicId: string } | null; // <-- Updated: Expects metadata object
     }}, ctx: GraphQLContext) => {
       isAdmin(ctx);
       return carService.updateCar(id, {
@@ -141,7 +140,7 @@ export const carResolvers: Partial<Resolvers> = {
 
     uploadCarImages: (
       _: unknown,
-      { carId, images, setPrimary }: { carId: string; images: Promise<FileUpload>[]; setPrimary?: boolean | null },
+      { carId, images, setPrimary }: { carId: string; images: { url: string; publicId: string }[]; setPrimary?: boolean | null }, // <-- Updated: Array of metadata
       ctx: GraphQLContext,
     ) => {
       isAdmin(ctx);

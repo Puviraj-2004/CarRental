@@ -22,7 +22,7 @@ export type AddCarInput = {
   fuelTypeId?: InputMaybe<Scalars['ID']['input']>;
   modelId: Scalars['ID']['input'];
   plateNumber: Scalars['String']['input'];
-  primaryImage?: InputMaybe<Scalars['Upload']['input']>;
+  primaryImage?: InputMaybe<ImageInput>;
   status?: InputMaybe<CarStatus>;
 };
 
@@ -92,6 +92,7 @@ export type Car = {
   images: Array<CarImage>;
   model: VehicleModel;
   plateNumber: Scalars['String']['output'];
+  primaryImagePublicId?: Maybe<Scalars['String']['output']>;
   primaryImageUrl: Scalars['String']['output'];
   status: CarStatus;
 };
@@ -110,6 +111,7 @@ export type CarImage = {
   __typename?: 'CarImage';
   carId: Scalars['String']['output'];
   id: Scalars['ID']['output'];
+  publicId: Scalars['String']['output'];
   url: Scalars['String']['output'];
 };
 
@@ -123,6 +125,15 @@ export type CheckoutSession = {
   __typename?: 'CheckoutSession';
   sessionId: Scalars['String']['output'];
   url: Scalars['String']['output'];
+};
+
+export type CloudinarySignature = {
+  __typename?: 'CloudinarySignature';
+  apiKey: Scalars['String']['output'];
+  cloudName: Scalars['String']['output'];
+  folder: Scalars['String']['output'];
+  signature: Scalars['String']['output'];
+  timestamp: Scalars['Int']['output'];
 };
 
 export type CreateBookingInput = {
@@ -189,6 +200,11 @@ export type FuelType = {
   __typename?: 'FuelType';
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+};
+
+export type ImageInput = {
+  publicId: Scalars['String']['input'];
+  url: Scalars['String']['input'];
 };
 
 export type LoginInput = {
@@ -376,7 +392,7 @@ export type MutationUpdateUserRoleArgs = {
 
 export type MutationUploadCarImagesArgs = {
   carId: Scalars['ID']['input'];
-  images: Array<Scalars['Upload']['input']>;
+  images: Array<ImageInput>;
   setPrimary?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -471,6 +487,7 @@ export type Query = {
   carAvailabilityCalendar: Array<CalendarDay>;
   cars: PaginatedCars;
   carsByStatus: PaginatedCars;
+  cloudinarySignature: CloudinarySignature;
   fuelTypes: Array<FuelType>;
   hasApprovedDocuments: DocumentReuseStatus;
   isEmailAvailable: Scalars['Boolean']['output'];
@@ -526,6 +543,11 @@ export type QueryCarsArgs = {
 export type QueryCarsByStatusArgs = {
   pagination?: InputMaybe<PaginationInput>;
   status: CarStatus;
+};
+
+
+export type QueryCloudinarySignatureArgs = {
+  folder: Scalars['String']['input'];
 };
 
 
@@ -606,7 +628,7 @@ export type UpdateCarInput = {
   basePrice?: InputMaybe<Scalars['Float']['input']>;
   fuelTypeId?: InputMaybe<Scalars['ID']['input']>;
   plateNumber?: InputMaybe<Scalars['String']['input']>;
-  primaryImage?: InputMaybe<Scalars['Upload']['input']>;
+  primaryImage?: InputMaybe<ImageInput>;
 };
 
 export type User = {
@@ -725,6 +747,7 @@ export type ResolversTypes = ResolversObject<{
   CarImage: ResolverTypeWrapper<CarImage>;
   CarStatus: CarStatus;
   CheckoutSession: ResolverTypeWrapper<CheckoutSession>;
+  CloudinarySignature: ResolverTypeWrapper<CloudinarySignature>;
   CreateBookingInput: CreateBookingInput;
   DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
   DocumentReuseStatus: ResolverTypeWrapper<Omit<DocumentReuseStatus, 'documents'> & { documents?: Maybe<ResolversTypes['Documents']> }>;
@@ -735,6 +758,7 @@ export type ResolversTypes = ResolversObject<{
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   FuelType: ResolverTypeWrapper<FuelType>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  ImageInput: ImageInput;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LoginInput: LoginInput;
@@ -778,6 +802,7 @@ export type ResolversParentTypes = ResolversObject<{
   CarFilterInput: CarFilterInput;
   CarImage: CarImage;
   CheckoutSession: CheckoutSession;
+  CloudinarySignature: CloudinarySignature;
   CreateBookingInput: CreateBookingInput;
   DateTime: Scalars['DateTime']['output'];
   DocumentReuseStatus: Omit<DocumentReuseStatus, 'documents'> & { documents?: Maybe<ResolversParentTypes['Documents']> };
@@ -786,6 +811,7 @@ export type ResolversParentTypes = ResolversObject<{
   Float: Scalars['Float']['output'];
   FuelType: FuelType;
   ID: Scalars['ID']['output'];
+  ImageInput: ImageInput;
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
   LoginInput: LoginInput;
@@ -855,6 +881,7 @@ export type CarResolvers<ContextType = GraphQLContext, ParentType extends Resolv
   images?: Resolver<Array<ResolversTypes['CarImage']>, ParentType, ContextType>;
   model?: Resolver<ResolversTypes['VehicleModel'], ParentType, ContextType>;
   plateNumber?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  primaryImagePublicId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   primaryImageUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['CarStatus'], ParentType, ContextType>;
 }>;
@@ -862,12 +889,21 @@ export type CarResolvers<ContextType = GraphQLContext, ParentType extends Resolv
 export type CarImageResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CarImage'] = ResolversParentTypes['CarImage']> = ResolversObject<{
   carId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  publicId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
 export type CheckoutSessionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CheckoutSession'] = ResolversParentTypes['CheckoutSession']> = ResolversObject<{
   sessionId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+}>;
+
+export type CloudinarySignatureResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CloudinarySignature'] = ResolversParentTypes['CloudinarySignature']> = ResolversObject<{
+  apiKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  cloudName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  folder?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  signature?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  timestamp?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 }>;
 
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
@@ -1009,6 +1045,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   carAvailabilityCalendar?: Resolver<Array<ResolversTypes['CalendarDay']>, ParentType, ContextType, RequireFields<QueryCarAvailabilityCalendarArgs, 'carId' | 'month' | 'year'>>;
   cars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, Partial<QueryCarsArgs>>;
   carsByStatus?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryCarsByStatusArgs, 'status'>>;
+  cloudinarySignature?: Resolver<ResolversTypes['CloudinarySignature'], ParentType, ContextType, RequireFields<QueryCloudinarySignatureArgs, 'folder'>>;
   fuelTypes?: Resolver<Array<ResolversTypes['FuelType']>, ParentType, ContextType>;
   hasApprovedDocuments?: Resolver<ResolversTypes['DocumentReuseStatus'], ParentType, ContextType>;
   isEmailAvailable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsEmailAvailableArgs, 'email'>>;
@@ -1071,6 +1108,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Car?: CarResolvers<ContextType>;
   CarImage?: CarImageResolvers<ContextType>;
   CheckoutSession?: CheckoutSessionResolvers<ContextType>;
+  CloudinarySignature?: CloudinarySignatureResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
   DocumentReuseStatus?: DocumentReuseStatusResolvers<ContextType>;
   Documents?: DocumentsResolvers<ContextType>;

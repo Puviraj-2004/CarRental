@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react'; // Imported signOut trigger
+import { signOut } from 'next-auth/react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { AdminSidebar, adminMenuItems } from '@/components/layout/AdminSidebar/AdminSidebar';
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
@@ -48,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {t('common.appName')} Admin
         </Typography>
         <List component="nav" disablePadding onClick={handleDrawerToggle}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {adminMenuItems.map((item) => {
               const isActive = pathname === item.path;
               return (
@@ -57,29 +57,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   component={Link}
                   href={item.path}
                   sx={{
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     bgcolor: isActive ? 'primary.main' : 'transparent',
                     color: isActive ? 'primary.contrastText' : 'text.primary',
+                    '&:hover': {
+                      bgcolor: isActive ? 'primary.dark' : 'grey.100',
+                    },
+                    px: 2,
+                    py: 1.2,
                   }}
                 >
                   <ListItemText
                     primary={t(item.labelKey)}
-                    primaryTypographyProps={{ fontWeight: isActive ? 700 : 500 }}
+                    primaryTypographyProps={{ 
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '14px'
+                    }}
                   />
                 </ListItemButton>
               );
             })}
-          </div>
+          </Box>
         </List>
       </Box>
 
-      {/* Mobile Drawer Logout Button */}
       <Button
         variant="outlined"
         color="error"
         fullWidth
         onClick={handleLogout}
-        sx={{ fontWeight: 700, textTransform: 'none', mt: 'auto', py: 1 }}
+        sx={{ fontWeight: 700, textTransform: 'none', mt: 'auto', py: 1.2, borderRadius: '8px' }}
       >
         {t('navbar.logout')}
       </Button>
@@ -88,15 +95,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'grey.50' }}>
+      
+      {/* Mobile Top Navigation Bar */}
       <AppBar
         position="fixed"
         elevation={0}
         color="default"
         sx={{
-          display: { lg: 'none' },
+          display: { lg: 'none' }, // Visible on mobile, hidden on desktop (lg)
           borderBottom: 1,
           borderColor: 'grey.200',
-          bgcolor: 'background.paper'
+          bgcolor: 'background.paper',
+          zIndex: 1100
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -112,6 +122,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Toolbar>
       </AppBar>
 
+      {/* Temporary Drawer menu on Mobile screens */}
       <Drawer
         variant="temporary"
         open={mobileOpen}
@@ -125,15 +136,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {drawerContent}
       </Drawer>
 
+      {/* Permanent Fixed Sidebar on Desktop screens */}
       <AdminSidebar />
 
+      {/* Main Content Area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: { xs: 3, md: 4 },
-          pt: { xs: '84px', lg: 4 },
+          pt: { xs: '84px', lg: 4 }, // Shift content down on mobile to clear fixed AppBar
           width: { lg: 'calc(100% - 240px)' },
+          marginLeft: { lg: '240px' }, // <-- Added: Creates space to offset the fixed AdminSidebar [1]
           boxSizing: 'border-box'
         }}
       >

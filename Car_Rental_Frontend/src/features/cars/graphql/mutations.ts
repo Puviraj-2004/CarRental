@@ -55,7 +55,7 @@ export const DELETE_CAR_MUTATION = gql`
 `;
 
 export const UPLOAD_CAR_IMAGES_MUTATION = gql`
-  mutation UploadCarImages($carId: ID!, $images: [Upload!]!, $setPrimary: Boolean) {
+  mutation UploadCarImages($carId: ID!, $images: [ImageInput!]!, $setPrimary: Boolean) { # <-- Updated: [Upload!]! to [ImageInput!]!
     uploadCarImages(carId: $carId, images: $images, setPrimary: $setPrimary) {
       id
       images {

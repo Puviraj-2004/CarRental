@@ -13,6 +13,13 @@ const DOCUMENT_MIME_TYPES = new Set([
 
 export type UploadContext = 'car_image' | 'verification_document' | 'ocr_document';
 
+// --- Max file sizes (in MB) by upload context ---
+const MAX_SIZES_MB: Record<UploadContext, number> = {
+  car_image: 10,             // 10MB limit for Cloudinary image uploads [2]
+  verification_document: 10, // 10MB limit
+  ocr_document: 10,          // 10MB limit
+};
+
 /**
  * Asserts that the file's MIME type matches the allowed types for the upload context.
  */
@@ -64,6 +71,25 @@ export function validateFileExtension(
     const allowed = [...allowedExt].join(', ');
     throw new Error(
       `File upload rejected: unsupported file extension "${ext || 'none'}". Allowed: ${allowed}`
+    );
+  }
+}
+
+/**
+ * Asserts that the file size is within acceptable limits for the context.
+ */
+export function validateFileSize(
+  sizeInBytes: number,
+  filename: string | undefined,
+  context: UploadContext
+): void {
+  const maxMb = MAX_SIZES_MB[context] || 10;
+  const maxBytes = maxMb * 1024 * 1024;
+
+  if (sizeInBytes > maxBytes) {
+    const currentSizeMB = (sizeInBytes / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `File "${filename || 'unknown'}" upload rejected: size ${currentSizeMB}MB exceeds the ${maxMb}MB limit.`
     );
   }
 }

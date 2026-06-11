@@ -139,6 +139,7 @@ model Car {
   basePrice       Decimal @db.Decimal(10,2)
   status          CarStatus    @default(AVAILABLE)
   primaryImageUrl String       @default("")
+  primaryImagePublicId String?  
   images          CarImage[]
   bookings        Booking[]
 
@@ -153,6 +154,7 @@ model CarImage {
   carId String
   car   Car    @relation(fields: [carId], references: [id], onDelete: Cascade)
   url   String
+  publicId String @default("")      
 }
 
 model Booking {

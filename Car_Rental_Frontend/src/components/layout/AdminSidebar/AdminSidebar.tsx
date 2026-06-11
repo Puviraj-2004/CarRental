@@ -10,8 +10,8 @@ import Button from '@mui/material/Button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useMutation } from '@apollo/client';           // ← import
-import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations'; // ← import
+import { useMutation } from '@apollo/client';
+import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
 import { useLanguage } from '@/lib/LanguageContext';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 
@@ -30,11 +30,11 @@ export const adminMenuItems: AdminMenuItem[] = [
 export const AdminSidebar: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const [logoutMutation] = useMutation(LOGOUT_MUTATION);  // ← hook
+  const [logoutMutation] = useMutation(LOGOUT_MUTATION);
 
-  const handleLogout = async (): Promise<void> => {       // ← make async
+  const handleLogout = async (): Promise<void> => {
     try {
-      await logoutMutation();  // clears HTTP‑only refresh token cookie
+      await logoutMutation(); // Clears HTTP‑only refresh token cookie
     } catch (err) {
       console.error('Logout mutation failed', err);
     } finally {
@@ -43,10 +43,66 @@ export const AdminSidebar: React.FC = () => {
   };
 
   return (
-    <Box /* ... rest of your JSX unchanged ... */ >
+    <Box
+      sx={{
+        width: 240,
+        height: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bgcolor: 'background.paper',
+        borderRight: 1,
+        borderColor: 'grey.200',
+        display: { xs: 'none', lg: 'flex' }, // Hide on mobile, show on desktop (lg and above) [1]
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        p: 3,
+        boxSizing: 'border-box',
+        zIndex: 1200,
+      }}
+    >
       <Box>
-        {/* ... menu items ... */}
+        {/* Brand App Name Header */}
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 4, color: 'primary.main', letterSpacing: '-0.5px' }}>
+          {t('common.appName')} Admin
+        </Typography>
+
+        {/* Navigation Link List */}
+        <List component="nav" disablePadding>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {adminMenuItems.map((item) => {
+              const isActive = pathname === item.path;
+              return (
+                <ListItemButton
+                  key={item.path}
+                  component={Link}
+                  href={item.path}
+                  sx={{
+                    borderRadius: '8px',
+                    bgcolor: isActive ? 'primary.main' : 'transparent',
+                    color: isActive ? 'primary.contrastText' : 'text.primary',
+                    '&:hover': {
+                      bgcolor: isActive ? 'primary.dark' : 'grey.100',
+                    },
+                    px: 2,
+                    py: 1.2,
+                  }}
+                >
+                  <ListItemText
+                    primary={t(item.labelKey)}
+                    primaryTypographyProps={{ 
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '14px'
+                    }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </Box>
+        </List>
       </Box>
+
+      {/* Language Switcher and Logout Area */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <LanguageSwitcher />
@@ -56,7 +112,7 @@ export const AdminSidebar: React.FC = () => {
           color="error"
           fullWidth
           onClick={handleLogout}
-          sx={{ fontWeight: 700, textTransform: 'none', py: 1 }}
+          sx={{ fontWeight: 700, textTransform: 'none', py: 1.2, borderRadius: '8px' }}
         >
           {t('navbar.logout')}
         </Button>

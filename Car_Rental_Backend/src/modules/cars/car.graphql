@@ -22,20 +22,27 @@ type FuelType {
 }
 
 type CarImage {
-  id:    ID!
-  carId: String!
-  url:   String!
+  id:       ID!
+  carId:    String!
+  url:      String!
+  publicId: String!
 }
 
 type Car {
-  id:              ID!
-  plateNumber:     String!
-  basePrice:       Float!
-  status:          CarStatus!
-  primaryImageUrl: String!
-  model:           VehicleModel!
-  fuelType:        FuelType
-  images:          [CarImage!]!
+  id:                   ID!
+  plateNumber:          String!
+  basePrice:            Float!
+  status:               CarStatus!
+  primaryImageUrl:      String!
+  primaryImagePublicId: String # <-- Updated: Made nullable (removed !) to prevent errors if no cover exists [1]
+  model:                VehicleModel!
+  fuelType:             FuelType
+  images:               [CarImage!]!
+}
+
+input ImageInput {
+  url: String!
+  publicId: String!
 }
 
 type PaginatedCars {
@@ -55,14 +62,14 @@ input AddCarInput {
   fuelTypeId:   ID
   basePrice:    Float!
   status:       CarStatus
-  primaryImage: Upload
+  primaryImage: ImageInput # <-- Corrected: Removed duplicate "Upload" definition [1]
 }
 
 input UpdateCarInput {
   plateNumber:  String
   fuelTypeId:   ID
   basePrice:    Float
-  primaryImage: Upload
+  primaryImage: ImageInput # <-- Corrected: Removed duplicate "Upload" definition [1]
 }
 
 input CarFilterInput {
@@ -75,6 +82,14 @@ input CarFilterInput {
   search:     String
 }
 
+type CloudinarySignature {
+  signature: String!
+  timestamp: Int!
+  apiKey: String!
+  cloudName: String!
+  folder: String!
+}
+
 extend type Query {
   car(id: ID!): Car
   cars(pagination: PaginationInput, filter: CarFilterInput): PaginatedCars!
@@ -85,13 +100,15 @@ extend type Query {
   brands: [Brand!]!
   models: [VehicleModel!]!
   fuelTypes: [FuelType!]!
+
+  cloudinarySignature(folder: String!): CloudinarySignature!
 }
 
 extend type Mutation {
   addCar(input: AddCarInput!): Car!
   updateCar(id: ID!, input: UpdateCarInput!): Car!
   deleteCar(id: ID!): Boolean!
-  uploadCarImages(carId: ID!, images: [Upload!]!, setPrimary: Boolean): Car!
+  uploadCarImages(carId: ID!, images: [ImageInput!]!, setPrimary: Boolean): Car! 
   deleteCarImage(imageId: ID!): Boolean!
   setPrimaryImage(carId: ID!, imageId: ID!): Car!
   updateCarStatus(id: ID!, status: CarStatus!): Car!

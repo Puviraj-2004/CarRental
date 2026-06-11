@@ -1,61 +1,34 @@
-import type { FileUpload } from 'graphql-upload-ts';
 import { CarStatus } from '@prisma/client';
 
 import { AppError, ErrorCode } from '../../core/errors/AppError';
 import { normalizePagination } from '../../core/utils/pagination';
-import { validateFileMime } from '../../core/utils/fileValidation';
-import cloudinary from '../../config/cloudinary';
+import cloudinary, { signUploadRequest } from '../../config/cloudinary';
 import { carRepository } from './car.repository';
 import type { CarWithRelations } from '../../prisma/types';
-
-// ─── Upload helpers ───────────────────────────────────────────────────────────
-
-function uploadStream(createReadStream: () => NodeJS.ReadableStream): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const upload = cloudinary.uploader.upload_stream(
-      { folder: 'cars', resource_type: 'image' },
-      (error, result) => {
-        if (error ?? !result) return reject(error ?? new Error('Upload failed'));
-        resolve(result!.secure_url);
-      },
-    );
-    createReadStream().pipe(upload);
-  });
-}
-
-async function uploadImage(file: any): Promise<string> {
-  const resolved = await file;
-
-  // 1. Safe guard: If the promise resolved to null or undefined, ignore it
-  if (!resolved) {
-    return '';
-  }
-
-  // Supports both flat and nested (.file) upload structures
-  const fileData = resolved.file ? resolved.file : resolved;
-  const createReadStream = fileData?.createReadStream;
-  const mimetype = fileData?.mimetype;
-
-  // 2. Safe guard: If it is an empty object or lacks a stream, return empty string safely
-  if (typeof createReadStream !== 'function' || !mimetype) {
-    return ''; 
-  }
-
-  // Print high-resility debug logs to verify extraction
-  console.log("📂 [DEBUG] uploadImage extraction details:", {
-    filename: fileData?.filename,
-    mimetype,
-    hasCreateReadStream: true,
-  });
-
-  validateFileMime(mimetype, 'car_image');
-  return uploadStream(createReadStream);
-}
-
-// ─── CarService ───────────────────────────────────────────────────────────────
+import logger from '../../config/logger';
 
 export class CarService {
-  // ── CRUD ───────────────────────────────────────────────────────────────────
+
+  // ── Secure Signature Generator for Client Side Direct Uploads ──────────────
+
+  getUploadSignature(folder: string) {
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const params = { timestamp, folder };
+    
+    // Generates the HMAC-SHA256 signature securely using the apiSecret kept on the server
+    const signature = signUploadRequest(params);
+    const config = cloudinary.config();
+
+    return {
+      signature,
+      timestamp,
+      apiKey: config.api_key || '',
+      cloudName: config.cloud_name || '',
+      folder,
+    };
+  }
+
+  // ── CRUD Mutations Updated ─────────────────────────────────────────────────
 
   async addCar(input: {
     modelId:       string;
@@ -63,25 +36,21 @@ export class CarService {
     fuelTypeId?:   string;
     basePrice:     number;
     status?:       CarStatus;
-    primaryImage?: Promise<FileUpload>;
+    primaryImage?: { url: string; publicId: string }; // <-- Updated: No stream inputs
   }): Promise<CarWithRelations> {
     const existing = await carRepository.findByPlate(input.plateNumber);
     if (existing) {
       throw new AppError('A car with this plate number already exists.', ErrorCode.ALREADY_EXISTS);
     }
 
-    let primaryImageUrl: string | undefined;
-    if (input.primaryImage) {
-      primaryImageUrl = await uploadImage(input.primaryImage);
-    }
-
     return carRepository.create({
-      modelId:        input.modelId,
-      plateNumber:    input.plateNumber.toUpperCase(),
-      fuelTypeId:     input.fuelTypeId,
-      basePrice:      input.basePrice,
-      status:         input.status,
-      primaryImageUrl,
+      modelId:              input.modelId,
+      plateNumber:          input.plateNumber.toUpperCase(),
+      fuelTypeId:           input.fuelTypeId,
+      basePrice:            input.basePrice,
+      status:               input.status,
+      primaryImageUrl:      input.primaryImage?.url || '',
+      primaryImagePublicId: input.primaryImage?.publicId || null,
     });
   }
 
@@ -89,14 +58,21 @@ export class CarService {
     plateNumber?:  string;
     fuelTypeId?:   string | null;
     basePrice?:    number;
-    primaryImage?: Promise<FileUpload>;
+    primaryImage?: { url: string; publicId: string }; // <-- Updated: No stream inputs
   }): Promise<CarWithRelations> {
     const car = await carRepository.findById(id);
     if (!car) throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
 
-    let primaryImageUrl: string | undefined;
-    if (input.primaryImage) {
-      primaryImageUrl = await uploadImage(input.primaryImage);
+    // If updating/overwriting the primary image, clean up the previous file on Cloudinary first
+    if (input.primaryImage && car.primaryImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(car.primaryImagePublicId);
+      } catch (err) {
+        logger.error('Failed to clean old primary image from Cloudinary on update', { 
+          publicId: car.primaryImagePublicId, 
+          error: err 
+        });
+      }
     }
 
     return carRepository.update(id, {
@@ -107,13 +83,42 @@ export class CarService {
           : { disconnect: true },
       }),
       ...(input.basePrice   != null && { basePrice: input.basePrice }),
-      ...(primaryImageUrl   != null && { primaryImageUrl }),
+      ...(input.primaryImage != null && { 
+        primaryImageUrl:      input.primaryImage.url,
+        primaryImagePublicId: input.primaryImage.publicId
+      }),
     });
   }
 
   async deleteCar(id: string): Promise<boolean> {
     const car = await carRepository.findById(id);
     if (!car) throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
+
+    const publicIdsToDelete: string[] = [];
+
+    // Gather primary image tracking ID
+    if (car.primaryImagePublicId) {
+      publicIdsToDelete.push(car.primaryImagePublicId);
+    }
+
+    // Gather all secondary additional image tracking IDs
+    if (car.images && car.images.length > 0) {
+      for (const img of car.images) {
+        if (img.publicId) {
+          publicIdsToDelete.push(img.publicId);
+        }
+      }
+    }
+
+    // Destroy every single asset associated with the car on Cloudinary
+    for (const publicId of publicIdsToDelete) {
+      try {
+        await cloudinary.uploader.destroy(publicId);
+      } catch (err) {
+        logger.error('Failed to destroy Cloudinary asset on car deletion', { publicId, error: err });
+      }
+    }
+
     await carRepository.delete(id);
     return true;
   }
@@ -162,35 +167,38 @@ export class CarService {
     return carRepository.findByStatus(status, normalizePagination(pagination));
   }
 
-  // ── Images ─────────────────────────────────────────────────────────────────
+  // ── Images Updated ─────────────────────────────────────────────────────────
 
- async uploadCarImages(
+  async uploadCarImages(
     carId:      string,
-    images:     Promise<FileUpload>[],
+    images:     { url: string; publicId: string }[], // <-- Updated: Receives metadata from client
     setPrimary: boolean,
   ): Promise<CarWithRelations> {
     const car = await carRepository.findById(carId);
     if (!car) throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
 
-    const urls: string[] = [];
-
-    // Resolve files sequentially (one-by-one) to prevent busboy stream-choking issues
-    for (const filePromise of images) {
-      const url = await uploadImage(filePromise);
-      if (url) {
-        urls.push(url);
-      }
-    }
-
-    // If no valid images were successfully uploaded, return the car unchanged
-    if (urls.length === 0) {
+    if (images.length === 0) {
       return car;
     }
 
-    const updated = await carRepository.addImages(carId, urls);
+    const updated = await carRepository.addImages(carId, images);
 
-    if (setPrimary && urls[0]) {
-      return carRepository.update(carId, { primaryImageUrl: urls[0] });
+    if (setPrimary && images[0]) {
+      // Clean up previous unique primary image from Cloudinary to avoid leaks
+      if (car.primaryImagePublicId) {
+        try {
+          await cloudinary.uploader.destroy(car.primaryImagePublicId);
+        } catch (err) {
+          logger.error('Failed to clean up old primary image during pointer swap', {
+            publicId: car.primaryImagePublicId,
+            error: err
+          });
+        }
+      }
+      return carRepository.update(carId, { 
+        primaryImageUrl:      images[0].url,
+        primaryImagePublicId: images[0].publicId
+      });
     }
     return updated;
   }
@@ -198,6 +206,19 @@ export class CarService {
   async deleteCarImage(imageId: string): Promise<boolean> {
     const image = await carRepository.findImageById(imageId);
     if (!image) throw new AppError('Image not found.', ErrorCode.NOT_FOUND);
+
+    // Clean file from Cloudinary securely using the tracked public ID
+    if (image.publicId) {
+      try {
+        await cloudinary.uploader.destroy(image.publicId);
+      } catch (err) {
+        logger.error('Failed to destroy car image from Cloudinary', { 
+          publicId: image.publicId, 
+          error: err 
+        });
+      }
+    }
+
     await carRepository.deleteImage(imageId);
     return true;
   }
@@ -210,7 +231,24 @@ export class CarService {
     if (!image || image.carId !== carId) {
       throw new AppError('Image not found for this car.', ErrorCode.NOT_FOUND);
     }
-    return carRepository.update(carId, { primaryImageUrl: image.url });
+
+    // Safety: Clean up previous primary image ONLY if it was unique and not part of the additional image gallery.
+    const isOldPrimaryShared = car.images.some(img => img.url === car.primaryImageUrl && img.id !== imageId);
+    if (car.primaryImagePublicId && !isOldPrimaryShared && car.primaryImagePublicId !== image.publicId) {
+      try {
+        await cloudinary.uploader.destroy(car.primaryImagePublicId);
+      } catch (err) {
+        logger.error('Failed to clear old primary image from Cloudinary', {
+          publicId: car.primaryImagePublicId,
+          error: err
+        });
+      }
+    }
+
+    return carRepository.update(carId, { 
+      primaryImageUrl:      image.url,
+      primaryImagePublicId: image.publicId
+    });
   }
 
   // ── Status / Pricing / Maintenance ─────────────────────────────────────────

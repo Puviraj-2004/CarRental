@@ -11,7 +11,6 @@ const CODE_MAP: Record<ErrorCode, string> = {
   [ErrorCode.ALREADY_EXISTS]:        'ALREADY_EXISTS',
   [ErrorCode.INTERNAL_SERVER_ERROR]: 'INTERNAL_SERVER_ERROR',
   [ErrorCode.UPLOAD_ERROR]:          'UPLOAD_ERROR',
-  // Config errors must NOT leak details to clients
   [ErrorCode.CONFIGURATION_ERROR]:   'INTERNAL_SERVER_ERROR',
   [ErrorCode.RATE_LIMIT_EXCEEDED]:   'RATE_LIMIT_EXCEEDED',
   [ErrorCode.SERVICE_UNAVAILABLE]:   'SERVICE_UNAVAILABLE',

@@ -1,5 +1,17 @@
 import { gql } from '@apollo/client';
 
+export const GET_CLOUDINARY_SIGNATURE = gql`
+  query GetCloudinarySignature($folder: String!) {
+    cloudinarySignature(folder: $folder) {
+      signature
+      timestamp
+      apiKey
+      cloudName
+      folder
+    }
+  }
+`;
+
 export const GET_CAR_QUERY = gql`
   query GetCar($id: ID!) {
     car(id: $id) {
@@ -102,8 +114,6 @@ export const GET_CAR_AVAILABILITY_CALENDAR_QUERY = gql`
     }
   }
 `;
-
-// ─── DESCRIPTOR QUERIES (Moved from legacy global files) ───────────────────
 
 export const GET_BRANDS_QUERY = gql`
   query GetBrands {
