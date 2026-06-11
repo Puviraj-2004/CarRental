@@ -15,6 +15,7 @@ export class AuthRepository {
     email:          string;
     password:       string;
     emailVerified?: boolean;
+    phoneNumber?:  string;
   }): Promise<UserWithRelations> {
     return prisma.user.create({
       data,

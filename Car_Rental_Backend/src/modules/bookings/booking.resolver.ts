@@ -17,8 +17,9 @@ import type {
 
 export const bookingResolvers: Partial<Resolvers> = {
   Booking: {
-    basePrice:  (parent) => Number(parent.basePrice),
-    totalPrice: (parent) => Number(parent.totalPrice),
+    basePrice:      (parent) => Number(parent.basePrice),
+    totalPrice:     (parent) => Number(parent.totalPrice),
+    reminderSentAt: (parent) => parent.reminderSentAt ?? null,
   },
 
   Query: {

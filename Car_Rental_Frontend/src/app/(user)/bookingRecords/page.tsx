@@ -1,11 +1,11 @@
-import { BookingRecordsContainer } from '@/components/features/bookingRecords/BookingRecordsContainer';
-import { Suspense } from 'react';
-import { Box, CircularProgress } from '@mui/material';
+'use client';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 
-export default function Page() {
+export default function CustomerBookingRecordsPage() {
   return (
-    <Suspense fallback={<Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}><CircularProgress /></Box>}>
-      <BookingRecordsContainer />
-    </Suspense>
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
   );
 }

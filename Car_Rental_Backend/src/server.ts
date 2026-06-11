@@ -8,7 +8,11 @@ import { startScheduler } from './jobs/scheduler';
 export async function startServer(): Promise<void> {
   logger.info('Initialising Car Rental Backend');
   
-  await startScheduler();
+  startScheduler().catch((err) => {
+    logger.error('Failed to initialize background scheduler:', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 
   const { httpServer, apollo } = await buildApp();
 
@@ -18,31 +22,36 @@ export async function startServer(): Promise<void> {
 
   logger.info(`Server ready at http://localhost:${env.port}/graphql`);
 
-  const gracefulShutdown = async (signal: string): Promise<void> => {
-    logger.info('Graceful shutdown initiated', { signal });
+const gracefulShutdown = async (signal: string): Promise<void> => {
+  logger.info('Graceful shutdown initiated', { signal });
 
+  try {
     await apollo.stop();
-
-    httpServer.close(async () => {
-      logger.info('HTTP server closed');
-      try {
-        await prisma.$disconnect();
-        logger.info('Prisma disconnected');
-      } catch (err) {
-        logger.error('Error disconnecting Prisma', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-      logger.info('Graceful shutdown complete');
-      process.exit(0);
+  } catch (err) {
+    logger.error('Error stopping Apollo Server', {
+      error: err instanceof Error ? err.message : String(err),
     });
+  }
 
-    setTimeout(() => {
-      logger.error('Forced shutdown after 10s timeout');
-      process.exit(1);
-    }, 10_000);
-  };
+  httpServer.close(async () => {
+    logger.info('HTTP server closed');
+    try {
+      await prisma.$disconnect();
+      logger.info('Prisma disconnected');
+    } catch (err) {
+      logger.error('Error disconnecting Prisma', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    logger.info('Graceful shutdown complete');
+    process.exit(0);
+  });
 
+  setTimeout(() => {
+    logger.error('Forced shutdown after 10s timeout');
+    process.exit(1);
+  }, 10_000);
+};
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT',  () => gracefulShutdown('SIGINT'));

@@ -5,7 +5,7 @@ export default withAuth(
   function middleware(req) {
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
-    const userRole = token?.role as string;
+    const userRole = token?.role;
 
     // Block non-admins from admin routes
     if (pathname.startsWith("/admin") && userRole !== "ADMIN") {
@@ -15,13 +15,13 @@ export default withAuth(
     // Redirect authenticated users away from auth pages
     const authPages = ["/login", "/register", "/verify-otp"];
     if (authPages.includes(pathname) && token) {
-      const redirectUrl = userRole === "ADMIN" ? "/admin/dashboard" : "/";
+      const redirectUrl = userRole === "ADMIN" ? "/admin/cars" : "/";
       return NextResponse.redirect(new URL(redirectUrl, req.url));
     }
 
     // Redirect admin users from home to admin dashboard
     if (token && pathname === "/" && userRole === "ADMIN") {
-      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      return NextResponse.redirect(new URL("/admin/cars", req.url));
     }
 
     return NextResponse.next();
@@ -53,7 +53,6 @@ export default withAuth(
         }
 
         // Everything else requires authentication
-        // If no token, next-auth auto-redirects to /login
         return !!token;
       },
     },

@@ -1,9 +1,13 @@
-import { AdminBookingsContainer } from '@/components/features/admin/bookings/AdminBookingsContainer';
+'use client';
 
-export default function AdminOnsiteBookingsPage() {
+import React from 'react';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+
+export default function AdminBookingsOnsitePage() {
   return (
-    <AdminBookingsContainer
-      viewFilter={{ labelKey: 'admin.onsiteWalkIns', walkInOnly: true, bookingType: 'RENTAL' }}
-    />
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
   );
 }

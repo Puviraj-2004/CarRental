@@ -1,10 +1,5 @@
-import { Suspense } from 'react';
-import { CarsContainer } from '@/components/features/cars/CarsContainer';
+import { CarsContainer } from '@/features/cars';
 
-export default function Page() {
-  return (
-    <Suspense>
-      <CarsContainer showTopBar />
-    </Suspense>
-  );
+export default function CarsPage() {
+  return <CarsContainer />;
 }

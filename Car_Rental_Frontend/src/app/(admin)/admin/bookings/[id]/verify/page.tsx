@@ -1,9 +1,11 @@
 'use client';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 
-import { use } from 'react';
-import { AdminVerifyBookingContainer } from '@/components/features/admin/bookings/AdminVerifyBookingContainer';
-
-export default function AdminBookingVerifyPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  return <AdminVerifyBookingContainer bookingId={id} />;
+export default function AdminBookingVerifyPage() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
+  );
 }

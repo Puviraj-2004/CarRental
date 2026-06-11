@@ -24,6 +24,7 @@ type User {
   id:            ID!
   email:         String!
   emailVerified: Boolean!
+  phoneNumber:   String
   role:          Role!
   documents:     Documents
   bookings:      [Booking!]!
@@ -39,22 +40,22 @@ type Documents {
   idCardBackUrl:   String
   addressProofUrl: String
   licenseNumber:   String
-  licenseExpiry:   String
+  licenseExpiry:   DateTime
   age:             Int
   idNumber:        String
-  idExpiry:        String
+  idExpiry:        DateTime
   address:         String
   status:          VerificationStatus!
-  createdAt:       String!
-  updatedAt:       String!
+  createdAt:       DateTime!
+  updatedAt:       DateTime!
 }
 
 type OCRResult {
   licenseNumber:   String
-  licenseExpiry:   String
+  licenseExpiry:   DateTime
   age:             Int
   idNumber:        String
-  idExpiry:        String
+  idExpiry:        DateTime
   address:         String
   fallbackUsed:    Boolean
   isQuotaExceeded: Boolean
@@ -67,10 +68,10 @@ input DocumentsInput {
   idCardBackFile:   Upload
   addressProofFile: Upload
   licenseNumber:    String
-  licenseExpiry:    String
+  licenseExpiry:    DateTime
   age:              Int
   idNumber:         String
-  idExpiry:         String
+  idExpiry:         DateTime
   address:          String
 }
 

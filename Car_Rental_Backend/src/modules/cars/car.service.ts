@@ -23,8 +23,31 @@ function uploadStream(createReadStream: () => NodeJS.ReadableStream): Promise<st
   });
 }
 
-async function uploadImage(file: Promise<FileUpload>): Promise<string> {
-  const { createReadStream, mimetype } = await file;
+async function uploadImage(file: any): Promise<string> {
+  const resolved = await file;
+
+  // 1. Safe guard: If the promise resolved to null or undefined, ignore it
+  if (!resolved) {
+    return '';
+  }
+
+  // Supports both flat and nested (.file) upload structures
+  const fileData = resolved.file ? resolved.file : resolved;
+  const createReadStream = fileData?.createReadStream;
+  const mimetype = fileData?.mimetype;
+
+  // 2. Safe guard: If it is an empty object or lacks a stream, return empty string safely
+  if (typeof createReadStream !== 'function' || !mimetype) {
+    return ''; 
+  }
+
+  // Print high-resility debug logs to verify extraction
+  console.log("📂 [DEBUG] uploadImage extraction details:", {
+    filename: fileData?.filename,
+    mimetype,
+    hasCreateReadStream: true,
+  });
+
   validateFileMime(mimetype, 'car_image');
   return uploadStream(createReadStream);
 }
@@ -141,7 +164,7 @@ export class CarService {
 
   // ── Images ─────────────────────────────────────────────────────────────────
 
-  async uploadCarImages(
+ async uploadCarImages(
     carId:      string,
     images:     Promise<FileUpload>[],
     setPrimary: boolean,
@@ -149,7 +172,21 @@ export class CarService {
     const car = await carRepository.findById(carId);
     if (!car) throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
 
-    const urls    = await Promise.all(images.map(uploadImage));
+    const urls: string[] = [];
+
+    // Resolve files sequentially (one-by-one) to prevent busboy stream-choking issues
+    for (const filePromise of images) {
+      const url = await uploadImage(filePromise);
+      if (url) {
+        urls.push(url);
+      }
+    }
+
+    // If no valid images were successfully uploaded, return the car unchanged
+    if (urls.length === 0) {
+      return car;
+    }
+
     const updated = await carRepository.addImages(carId, urls);
 
     if (setPrimary && urls[0]) {

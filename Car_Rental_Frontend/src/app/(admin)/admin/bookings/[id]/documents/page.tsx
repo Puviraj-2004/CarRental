@@ -1,9 +1,11 @@
 'use client';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 
-import { use } from 'react';
-import { AdminDocumentsContainer } from '@/components/features/admin/bookings/documents/AdminDocumentsContainer';
-
-export default function AdminDocumentsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  return <AdminDocumentsContainer bookingId={id} />;
+export default function AdminDocumentsPage() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
+  );
 }

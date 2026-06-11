@@ -1,5 +1,5 @@
-import { AddCarContainer } from '@/components/features/admin/add-car/AddCarContainer';
+import { AddCarContainer } from '@/features/cars';
 
-export default function AddCarPage() {
+export default function AdminAddCarPage() {
   return <AddCarContainer />;
 }

@@ -1,6 +1,17 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ─── Global error handlers (must be set before any async operations) ───
+process.on('uncaughtException', (err) => {
+  console.error('❌ UNCAUGHT EXCEPTION – shutting down', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ UNHANDLED REJECTION – shutting down', reason);
+  process.exit(1);
+});
+
 import { validateEnv } from './config/env';
 validateEnv();
 

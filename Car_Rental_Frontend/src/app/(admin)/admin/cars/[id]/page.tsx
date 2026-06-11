@@ -1,10 +1,10 @@
-import { EditCarContainer } from '@/components/features/admin/edit-car/EditCarContainer';
+import { EditCarContainer } from '@/features/cars';
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function Page({ params }: PageProps) {
-  const { id } = await params;
+export default async function AdminEditCarPage({ params }: PageProps) {
+  const { id } = await params; // Awaited route params promise
   return <EditCarContainer id={id} />;
 }

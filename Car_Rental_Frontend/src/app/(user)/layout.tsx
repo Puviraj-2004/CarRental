@@ -1,16 +1,31 @@
 import React from 'react';
-import Navbar from '@/components/features/layout/Navbar';
-import Footer from '@/components/features/layout/Footer';
 import Box from '@mui/material/Box';
+import { Navbar } from '@/components/layout/Navbar/Navbar';
+import { Footer } from '@/components/layout/Footer/Footer';
+import { BottomNav } from '@/components/layout/BottomNav/BottomNav';
 
-export default function UserLayout({ children }: { children: React.ReactNode }) {
+export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        pb: { xs: '64px', md: 0 } // Safe padding boundary for mobile bottom bar
+      }}
+    >
+      {/* Automatically hidden on Mobile, shown on Desktop */}
       <Navbar />
-      <Box sx={{ flex: 1, paddingTop: '80px' }}> {/* Add padding-top to account for fixed navbar */}
+      
+      <Box sx={{ flexGrow: 1 }}>
         {children}
       </Box>
+      
+      {/* Automatically hidden on Mobile, shown on Desktop */}
       <Footer />
+      
+      {/* Automatically shown on Mobile, hidden on Desktop */}
+      <BottomNav />
     </Box>
   );
 }

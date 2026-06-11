@@ -1,7 +1,13 @@
-import { use } from 'react';
-import { AdminBookingDetailsContainer } from '@/components/features/admin/bookings/AdminBookingDetailsContainer';
+'use client';
 
-export default function AdminBookingDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  return <AdminBookingDetailsContainer bookingId={id} />;
+import React from 'react';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+
+export default function AdminBookingDetailsPage() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
+  );
 }

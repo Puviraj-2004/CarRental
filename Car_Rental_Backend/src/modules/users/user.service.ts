@@ -22,10 +22,10 @@ export interface DocumentsInput {
   idCardBackFile?:   UploadPromise;
   addressProofFile?: UploadPromise;
   licenseNumber?:    string;
-  licenseExpiry?:    string;
+  licenseExpiry?:    Date | string;
   age?:              number;
   idNumber?:         string;
-  idExpiry?:         string;
+  idExpiry?:         Date | string;
   address?:          string;
 }
 
@@ -34,10 +34,10 @@ export type OcrDocumentSide = 'FRONT' | 'BACK';
 
 export interface OcrResult {
   licenseNumber?:   string | null;
-  licenseExpiry?:   string | null;
+  licenseExpiry?:   Date | null;
   age?:             number | null;
   idNumber?:        string | null;
-  idExpiry?:        string | null;
+  idExpiry?:        Date | null;
   address?:         string | null;
   fallbackUsed?:    boolean;
   isQuotaExceeded?: boolean;
@@ -188,11 +188,13 @@ export class UserService {
       addressProofUrl,
       licenseNumber: input.licenseNumber,
       licenseExpiry: input.licenseExpiry
-        ? new Date(input.licenseExpiry)
+        ? (input.licenseExpiry instanceof Date ? input.licenseExpiry : new Date(input.licenseExpiry))
         : undefined,
       age:      input.age,
       idNumber: input.idNumber,
-      idExpiry: input.idExpiry ? new Date(input.idExpiry) : undefined,
+      idExpiry: input.idExpiry 
+        ? (input.idExpiry instanceof Date ? input.idExpiry : new Date(input.idExpiry))
+        : undefined,
       address:  input.address,
     });
   }
@@ -320,11 +322,13 @@ export class UserService {
       addressProofUrl,
       licenseNumber: input.licenseNumber,
       licenseExpiry: input.licenseExpiry
-        ? new Date(input.licenseExpiry)
+        ? (input.licenseExpiry instanceof Date ? input.licenseExpiry : new Date(input.licenseExpiry))
         : undefined,
       age:      input.age,
       idNumber: input.idNumber,
-      idExpiry: input.idExpiry ? new Date(input.idExpiry) : undefined,
+      idExpiry: input.idExpiry
+        ? (input.idExpiry instanceof Date ? input.idExpiry : new Date(input.idExpiry))
+        : undefined,
       address:  input.address,
     };
 

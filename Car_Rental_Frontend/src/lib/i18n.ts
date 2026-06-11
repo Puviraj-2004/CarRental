@@ -1,9 +1,10 @@
-import en from './locales/en';
-import fr from './locales/fr';
+import { en } from "./locales/en";
+import { fr } from "./locales/fr";
+
 
 const locales: Record<string, any> = {
-  en,
-  fr,
+  en: en,
+  fr: fr,
 };
 
 export const getTranslation = (lang: string, key: string, params?: Record<string, string>): string => {

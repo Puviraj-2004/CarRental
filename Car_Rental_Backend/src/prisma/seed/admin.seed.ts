@@ -3,10 +3,9 @@ import prisma from '../client';
 import { hashPassword } from '../../core/utils/jwt';
 import { env } from '../../config/env';
 
-
-
 export async function seedAdmin(): Promise<void> {
-  const email    = env.seedAdminEmail;
+  // Normalize email to lowercase to match the login service standards
+  const email    = env.seedAdminEmail.trim().toLowerCase();
   const password = env.seedAdminPassword;
 
   const existing = await prisma.user.findUnique({ where: { email } });

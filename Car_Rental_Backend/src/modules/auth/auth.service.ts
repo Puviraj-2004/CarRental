@@ -51,7 +51,7 @@ async function sendOtpEmail(to: string, otp: string): Promise<void> {
 // ─── AuthService ──────────────────────────────────────────────────────────────
 
 export class AuthService {
-  async register(email: string, password: string) {
+  async register(email: string, password: string, phoneNumber?: string) {
     const normalized = email.trim().toLowerCase();
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
@@ -69,7 +69,7 @@ export class AuthService {
     }
 
     const hashed = await hashPassword(password);
-    await storePendingRegistration(normalized, '', hashed);
+    await storePendingRegistration(normalized, phoneNumber || '', hashed);
 
     const otp = generateOTP();
     await storeOTP(normalized, otp);

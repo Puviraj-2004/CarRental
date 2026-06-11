@@ -1,9 +1,13 @@
-import { AdminBookingsContainer } from '@/components/features/admin/bookings/AdminBookingsContainer';
+'use client';
 
-export default function AdminReplacementBookingsPage() {
+import React from 'react';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+
+export default function AdminBookingsReplacementPage() {
   return (
-    <AdminBookingsContainer
-      viewFilter={{ labelKey: 'admin.replacementBookings', bookingType: 'REPLACEMENT' }}
-    />
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
   );
 }

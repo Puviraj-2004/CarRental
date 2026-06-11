@@ -1,5 +1,11 @@
-import { InventoryContainer } from '@/components/features/admin/inventory/InventoryContainer';
+'use client';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 
-export default function InventoryPage() {
-  return <InventoryContainer />;
+export default function AdminInventoryPage() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
+  );
 }

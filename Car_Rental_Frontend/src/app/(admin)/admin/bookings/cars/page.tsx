@@ -3,8 +3,7 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CircularProgress, Box } from '@mui/material';
-import { CarsContainer } from '@/components/features/cars/CarsContainer';
-
+import { CarsContainer } from '@/features/cars';
 function AdminBookingsCarsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();

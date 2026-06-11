@@ -26,13 +26,6 @@ export type AddCarInput = {
   status?: InputMaybe<CarStatus>;
 };
 
-export type AuthPayload = {
-  __typename?: 'AuthPayload';
-  accessToken: Scalars['String']['output'];
-  refreshToken: Scalars['String']['output'];
-  user: User;
-};
-
 export type Booking = {
   __typename?: 'Booking';
   basePrice: Scalars['Float']['output'];
@@ -47,6 +40,7 @@ export type Booking = {
   notes?: Maybe<Scalars['String']['output']>;
   numberOfDays: Scalars['Int']['output'];
   payment?: Maybe<Payment>;
+  reminderSentAt?: Maybe<Scalars['DateTime']['output']>;
   startDate: Scalars['DateTime']['output'];
   status: BookingStatus;
   totalPrice: Scalars['Float']['output'];
@@ -114,6 +108,7 @@ export type CarFilterInput = {
 
 export type CarImage = {
   __typename?: 'CarImage';
+  carId: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   url: Scalars['String']['output'];
 };
@@ -161,18 +156,18 @@ export type Documents = {
   addressProofUrl?: Maybe<Scalars['String']['output']>;
   age?: Maybe<Scalars['Int']['output']>;
   bookingId?: Maybe<Scalars['ID']['output']>;
-  createdAt: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
   id: Scalars['ID']['output'];
   idCardBackUrl?: Maybe<Scalars['String']['output']>;
   idCardFrontUrl?: Maybe<Scalars['String']['output']>;
-  idExpiry?: Maybe<Scalars['String']['output']>;
+  idExpiry?: Maybe<Scalars['DateTime']['output']>;
   idNumber?: Maybe<Scalars['String']['output']>;
   licenseBackUrl?: Maybe<Scalars['String']['output']>;
-  licenseExpiry?: Maybe<Scalars['String']['output']>;
+  licenseExpiry?: Maybe<Scalars['DateTime']['output']>;
   licenseFrontUrl?: Maybe<Scalars['String']['output']>;
   licenseNumber?: Maybe<Scalars['String']['output']>;
   status: VerificationStatus;
-  updatedAt: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
   userId?: Maybe<Scalars['ID']['output']>;
 };
 
@@ -182,10 +177,10 @@ export type DocumentsInput = {
   age?: InputMaybe<Scalars['Int']['input']>;
   idCardBackFile?: InputMaybe<Scalars['Upload']['input']>;
   idCardFrontFile?: InputMaybe<Scalars['Upload']['input']>;
-  idExpiry?: InputMaybe<Scalars['String']['input']>;
+  idExpiry?: InputMaybe<Scalars['DateTime']['input']>;
   idNumber?: InputMaybe<Scalars['String']['input']>;
   licenseBackFile?: InputMaybe<Scalars['Upload']['input']>;
-  licenseExpiry?: InputMaybe<Scalars['String']['input']>;
+  licenseExpiry?: InputMaybe<Scalars['DateTime']['input']>;
   licenseFrontFile?: InputMaybe<Scalars['Upload']['input']>;
   licenseNumber?: InputMaybe<Scalars['String']['input']>;
 };
@@ -201,6 +196,12 @@ export type LoginInput = {
   password: Scalars['String']['input'];
 };
 
+export type LoginPayload = {
+  __typename?: 'LoginPayload';
+  accessToken: Scalars['String']['output'];
+  user: User;
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   addCar: Car;
@@ -213,10 +214,10 @@ export type Mutation = {
   deleteCar: Scalars['Boolean']['output'];
   deleteCarImage: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
-  login: AuthPayload;
+  login: LoginPayload;
   logout: Scalars['Boolean']['output'];
   processDocumentOCR: OcrResult;
-  refreshTokens: RefreshPayload;
+  refreshTokens: RefreshTokensPayload;
   refundPayment: Payment;
   register: RegisterPayload;
   resendOTP: ResendOtpPayload;
@@ -293,20 +294,10 @@ export type MutationLoginArgs = {
 };
 
 
-export type MutationLogoutArgs = {
-  refreshToken: Scalars['String']['input'];
-};
-
-
 export type MutationProcessDocumentOcrArgs = {
   documentType: DocumentType;
   file: Scalars['Upload']['input'];
   side: DocumentSide;
-};
-
-
-export type MutationRefreshTokensArgs = {
-  refreshToken: Scalars['String']['input'];
 };
 
 
@@ -400,10 +391,10 @@ export type OcrResult = {
   address?: Maybe<Scalars['String']['output']>;
   age?: Maybe<Scalars['Int']['output']>;
   fallbackUsed?: Maybe<Scalars['Boolean']['output']>;
-  idExpiry?: Maybe<Scalars['String']['output']>;
+  idExpiry?: Maybe<Scalars['DateTime']['output']>;
   idNumber?: Maybe<Scalars['String']['output']>;
   isQuotaExceeded?: Maybe<Scalars['Boolean']['output']>;
-  licenseExpiry?: Maybe<Scalars['String']['output']>;
+  licenseExpiry?: Maybe<Scalars['DateTime']['output']>;
   licenseNumber?: Maybe<Scalars['String']['output']>;
 };
 
@@ -475,13 +466,16 @@ export type Query = {
   availableCars: PaginatedCars;
   booking?: Maybe<Booking>;
   bookings: PaginatedBookings;
+  brands: Array<Brand>;
   car?: Maybe<Car>;
   carAvailabilityCalendar: Array<CalendarDay>;
   cars: PaginatedCars;
   carsByStatus: PaginatedCars;
+  fuelTypes: Array<FuelType>;
   hasApprovedDocuments: DocumentReuseStatus;
   isEmailAvailable: Scalars['Boolean']['output'];
   me?: Maybe<User>;
+  models: Array<VehicleModel>;
   myBookings: PaginatedBookings;
   myDocuments?: Maybe<Documents>;
   myPayments: PaginatedPayments;
@@ -574,15 +568,15 @@ export type QueryUsersArgs = {
   pagination?: InputMaybe<PaginationInput>;
 };
 
-export type RefreshPayload = {
-  __typename?: 'RefreshPayload';
+export type RefreshTokensPayload = {
+  __typename?: 'RefreshTokensPayload';
   accessToken: Scalars['String']['output'];
-  refreshToken: Scalars['String']['output'];
 };
 
 export type RegisterInput = {
   email: Scalars['String']['input'];
   password: Scalars['String']['input'];
+  phoneNumber?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type RegisterPayload = {
@@ -593,7 +587,7 @@ export type RegisterPayload = {
 
 export type ResendOtpPayload = {
   __typename?: 'ResendOTPPayload';
-  expiresAt?: Maybe<Scalars['String']['output']>;
+  expiresAt: Scalars['DateTime']['output'];
   message: Scalars['String']['output'];
   success: Scalars['Boolean']['output'];
 };
@@ -622,6 +616,7 @@ export type User = {
   email: Scalars['String']['output'];
   emailVerified: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  phoneNumber?: Maybe<Scalars['String']['output']>;
   role: Role;
 };
 
@@ -718,7 +713,6 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   AddCarInput: AddCarInput;
-  AuthPayload: ResolverTypeWrapper<Omit<AuthPayload, 'user'> & { user: ResolversTypes['User'] }>;
   Booking: ResolverTypeWrapper<BookingWithRelations>;
   BookingFilterInput: BookingFilterInput;
   BookingStatus: BookingStatus;
@@ -744,6 +738,7 @@ export type ResolversTypes = ResolversObject<{
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
   LoginInput: LoginInput;
+  LoginPayload: ResolverTypeWrapper<Omit<LoginPayload, 'user'> & { user: ResolversTypes['User'] }>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   OCRResult: ResolverTypeWrapper<OcrResult>;
   PageInfo: ResolverTypeWrapper<PageInfo>;
@@ -756,7 +751,7 @@ export type ResolversTypes = ResolversObject<{
   PaymentMethod: ResolverTypeWrapper<PaymentMethod>;
   PaymentStatus: PaymentStatus;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
-  RefreshPayload: ResolverTypeWrapper<RefreshPayload>;
+  RefreshTokensPayload: ResolverTypeWrapper<RefreshTokensPayload>;
   RegisterInput: RegisterInput;
   RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
   ResendOTPPayload: ResolverTypeWrapper<ResendOtpPayload>;
@@ -774,7 +769,6 @@ export type ResolversTypes = ResolversObject<{
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   AddCarInput: AddCarInput;
-  AuthPayload: Omit<AuthPayload, 'user'> & { user: ResolversParentTypes['User'] };
   Booking: BookingWithRelations;
   BookingFilterInput: BookingFilterInput;
   Boolean: Scalars['Boolean']['output'];
@@ -795,6 +789,7 @@ export type ResolversParentTypes = ResolversObject<{
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
   LoginInput: LoginInput;
+  LoginPayload: Omit<LoginPayload, 'user'> & { user: ResolversParentTypes['User'] };
   Mutation: Record<PropertyKey, never>;
   OCRResult: OcrResult;
   PageInfo: PageInfo;
@@ -806,7 +801,7 @@ export type ResolversParentTypes = ResolversObject<{
   Payment: PaymentWithMethod;
   PaymentMethod: PaymentMethod;
   Query: Record<PropertyKey, never>;
-  RefreshPayload: RefreshPayload;
+  RefreshTokensPayload: RefreshTokensPayload;
   RegisterInput: RegisterInput;
   RegisterPayload: RegisterPayload;
   ResendOTPPayload: ResendOtpPayload;
@@ -817,12 +812,6 @@ export type ResolversParentTypes = ResolversObject<{
   User: UserWithRelations;
   VehicleModel: ModelWithBrand;
   VerifyOTPPayload: VerifyOtpPayload;
-}>;
-
-export type AuthPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AuthPayload'] = ResolversParentTypes['AuthPayload']> = ResolversObject<{
-  accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  user?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
 }>;
 
 export type BookingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Booking'] = ResolversParentTypes['Booking']> = ResolversObject<{
@@ -838,6 +827,7 @@ export type BookingResolvers<ContextType = GraphQLContext, ParentType extends Re
   notes?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   numberOfDays?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   payment?: Resolver<Maybe<ResolversTypes['Payment']>, ParentType, ContextType>;
+  reminderSentAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   startDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['BookingStatus'], ParentType, ContextType>;
   totalPrice?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
@@ -870,6 +860,7 @@ export type CarResolvers<ContextType = GraphQLContext, ParentType extends Resolv
 }>;
 
 export type CarImageResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['CarImage'] = ResolversParentTypes['CarImage']> = ResolversObject<{
+  carId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
@@ -893,18 +884,18 @@ export type DocumentsResolvers<ContextType = GraphQLContext, ParentType extends 
   addressProofUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   age?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   bookingId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   idCardBackUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   idCardFrontUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  idExpiry?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  idExpiry?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   idNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   licenseBackUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  licenseExpiry?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  licenseExpiry?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   licenseFrontUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   licenseNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['VerificationStatus'], ParentType, ContextType>;
-  updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   userId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
 }>;
 
@@ -917,6 +908,11 @@ export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes
   name: 'JSON';
 }
 
+export type LoginPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['LoginPayload'] = ResolversParentTypes['LoginPayload']> = ResolversObject<{
+  accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  user?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
+}>;
+
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   addCar?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationAddCarArgs, 'input'>>;
   adminUpdateBookingStatus?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationAdminUpdateBookingStatusArgs, 'id' | 'status'>>;
@@ -928,10 +924,10 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteCar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarArgs, 'id'>>;
   deleteCarImage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarImageArgs, 'imageId'>>;
   deleteUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserArgs, 'id'>>;
-  login?: Resolver<ResolversTypes['AuthPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
-  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
+  login?: Resolver<ResolversTypes['LoginPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
+  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   processDocumentOCR?: Resolver<ResolversTypes['OCRResult'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'documentType' | 'file' | 'side'>>;
-  refreshTokens?: Resolver<ResolversTypes['RefreshPayload'], ParentType, ContextType, RequireFields<MutationRefreshTokensArgs, 'refreshToken'>>;
+  refreshTokens?: Resolver<ResolversTypes['RefreshTokensPayload'], ParentType, ContextType>;
   refundPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationRefundPaymentArgs, 'paymentId'>>;
   register?: Resolver<ResolversTypes['RegisterPayload'], ParentType, ContextType, RequireFields<MutationRegisterArgs, 'input'>>;
   resendOTP?: Resolver<ResolversTypes['ResendOTPPayload'], ParentType, ContextType, RequireFields<MutationResendOtpArgs, 'email'>>;
@@ -953,10 +949,10 @@ export type OcrResultResolvers<ContextType = GraphQLContext, ParentType extends 
   address?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   age?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   fallbackUsed?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
-  idExpiry?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  idExpiry?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   idNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   isQuotaExceeded?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
-  licenseExpiry?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  licenseExpiry?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   licenseNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 }>;
 
@@ -1008,13 +1004,16 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   availableCars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryAvailableCarsArgs, 'endDate' | 'startDate'>>;
   booking?: Resolver<Maybe<ResolversTypes['Booking']>, ParentType, ContextType, RequireFields<QueryBookingArgs, 'id'>>;
   bookings?: Resolver<ResolversTypes['PaginatedBookings'], ParentType, ContextType, Partial<QueryBookingsArgs>>;
+  brands?: Resolver<Array<ResolversTypes['Brand']>, ParentType, ContextType>;
   car?: Resolver<Maybe<ResolversTypes['Car']>, ParentType, ContextType, RequireFields<QueryCarArgs, 'id'>>;
   carAvailabilityCalendar?: Resolver<Array<ResolversTypes['CalendarDay']>, ParentType, ContextType, RequireFields<QueryCarAvailabilityCalendarArgs, 'carId' | 'month' | 'year'>>;
   cars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, Partial<QueryCarsArgs>>;
   carsByStatus?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryCarsByStatusArgs, 'status'>>;
+  fuelTypes?: Resolver<Array<ResolversTypes['FuelType']>, ParentType, ContextType>;
   hasApprovedDocuments?: Resolver<ResolversTypes['DocumentReuseStatus'], ParentType, ContextType>;
   isEmailAvailable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsEmailAvailableArgs, 'email'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+  models?: Resolver<Array<ResolversTypes['VehicleModel']>, ParentType, ContextType>;
   myBookings?: Resolver<ResolversTypes['PaginatedBookings'], ParentType, ContextType, Partial<QueryMyBookingsArgs>>;
   myDocuments?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType>;
   myPayments?: Resolver<ResolversTypes['PaginatedPayments'], ParentType, ContextType, Partial<QueryMyPaymentsArgs>>;
@@ -1025,9 +1024,8 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   users?: Resolver<ResolversTypes['PaginatedUsers'], ParentType, ContextType, Partial<QueryUsersArgs>>;
 }>;
 
-export type RefreshPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RefreshPayload'] = ResolversParentTypes['RefreshPayload']> = ResolversObject<{
+export type RefreshTokensPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RefreshTokensPayload'] = ResolversParentTypes['RefreshTokensPayload']> = ResolversObject<{
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
 export type RegisterPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RegisterPayload'] = ResolversParentTypes['RegisterPayload']> = ResolversObject<{
@@ -1036,7 +1034,7 @@ export type RegisterPayloadResolvers<ContextType = GraphQLContext, ParentType ex
 }>;
 
 export type ResendOtpPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ResendOTPPayload'] = ResolversParentTypes['ResendOTPPayload']> = ResolversObject<{
-  expiresAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  expiresAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
 }>;
@@ -1051,6 +1049,7 @@ export type UserResolvers<ContextType = GraphQLContext, ParentType extends Resol
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   emailVerified?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  phoneNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   role?: Resolver<ResolversTypes['Role'], ParentType, ContextType>;
 }>;
 
@@ -1066,7 +1065,6 @@ export type VerifyOtpPayloadResolvers<ContextType = GraphQLContext, ParentType e
 }>;
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
-  AuthPayload?: AuthPayloadResolvers<ContextType>;
   Booking?: BookingResolvers<ContextType>;
   Brand?: BrandResolvers<ContextType>;
   CalendarDay?: CalendarDayResolvers<ContextType>;
@@ -1078,6 +1076,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Documents?: DocumentsResolvers<ContextType>;
   FuelType?: FuelTypeResolvers<ContextType>;
   JSON?: GraphQLScalarType;
+  LoginPayload?: LoginPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   OCRResult?: OcrResultResolvers<ContextType>;
   PageInfo?: PageInfoResolvers<ContextType>;
@@ -1088,7 +1087,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   Payment?: PaymentResolvers<ContextType>;
   PaymentMethod?: PaymentMethodResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
-  RefreshPayload?: RefreshPayloadResolvers<ContextType>;
+  RefreshTokensPayload?: RefreshTokensPayloadResolvers<ContextType>;
   RegisterPayload?: RegisterPayloadResolvers<ContextType>;
   ResendOTPPayload?: ResendOtpPayloadResolvers<ContextType>;
   Upload?: GraphQLScalarType;

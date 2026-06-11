@@ -11,7 +11,7 @@ const pendingRegKey = (email: string) => `pending_reg:${email.toLowerCase()}`;
 
 // ─── In-memory fallbacks (development only) ──────────────────────────────────
 type OTPRecord    = { code: string; expiresAt: number; attemptsLeft: number };
-type PendingRecord = { fullName: string; password: string; phoneNumber?: string; registeredAt: number };
+type PendingRecord = { password: string; phoneNumber?: string; registeredAt: number };
 
 const otpStore             = new Map<string, OTPRecord>();
 const pendingRegistrations = new Map<string, PendingRecord>();
@@ -115,14 +115,12 @@ export const clearOTP = async (email: string): Promise<void> => {
 
 export const storePendingRegistration = async (
   email: string,
-  fullName: string,
   hashedPassword: string,
   phoneNumber?: string,
 ): Promise<void> => {
   requireRedisInProduction();
   const normalized = email.toLowerCase();
   const record: PendingRecord = {
-    fullName,
     password: hashedPassword,
     phoneNumber,
     registeredAt: Date.now(),
@@ -138,7 +136,7 @@ export const storePendingRegistration = async (
 
 export const getPendingRegistration = async (
   email: string,
-): Promise<{ fullName: string; password: string; phoneNumber?: string } | null> => {
+): Promise<{ password: string; phoneNumber?: string } | null> => {
   requireRedisInProduction();
   const normalized = email.toLowerCase();
   const redis = getRedisClient();
@@ -160,7 +158,6 @@ export const getPendingRegistration = async (
   }
 
   return {
-    fullName:    pending.fullName,
     password:    pending.password,
     phoneNumber: pending.phoneNumber,
   };

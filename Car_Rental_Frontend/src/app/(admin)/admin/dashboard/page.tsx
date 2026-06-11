@@ -1,4 +1,4 @@
-import { DashboardContainer } from '@/components/features/admin/DashboardContainer';
+import { DashboardContainer } from '@/features/admin';
 
 export default function AdminDashboardPage() {
   return <DashboardContainer />;

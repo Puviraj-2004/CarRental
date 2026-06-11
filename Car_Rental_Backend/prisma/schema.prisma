@@ -56,13 +56,26 @@ model PaymentMethod {
 model User {
   id            String      @id @default(uuid())
   email         String      @unique
-  password      String?
+  password      String
   emailVerified Boolean     @default(false)
+  phoneNumber   String?   
   role          Role        @default(USER)
   documents     Documents?
+  refreshTokens RefreshToken[]
   bookings      Booking[]
 
   @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique 
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token]) 
 }
 
 model Documents {

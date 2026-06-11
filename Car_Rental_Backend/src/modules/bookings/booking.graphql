@@ -13,25 +13,26 @@ enum BookingType {
 }
 
 type Booking {
-  id:           ID!
-  carId:        String!
-  userId:       String
-  startDate:    DateTime!
-  endDate:      DateTime!
-  numberOfDays: Int!
-  basePrice:    Float!
-  totalPrice:   Float!
-  guestName:    String
-  guestPhone:   String
-  notes:        String
-  status:       BookingStatus!
-  type:         BookingType!
-  car:          Car!
-  user:         User
-  payment:      Payment
-  documents:    Documents
-  createdAt:    DateTime!
-  updatedAt:    DateTime!
+  id:             ID!
+  carId:          String!
+  userId:         String
+  startDate:      DateTime!
+  endDate:        DateTime!
+  numberOfDays:   Int!
+  basePrice:      Float!
+  totalPrice:     Float!
+  guestName:      String
+  guestPhone:     String
+  notes:          String
+  status:         BookingStatus!
+  type:           BookingType!
+  car:            Car!
+  user:           User
+  payment:        Payment
+  documents:      Documents
+  reminderSentAt: DateTime
+  createdAt:      DateTime!
+  updatedAt:      DateTime!
 }
 
 type PaginatedBookings {

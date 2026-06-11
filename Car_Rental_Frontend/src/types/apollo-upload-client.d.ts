@@ -4,15 +4,16 @@ declare module 'apollo-upload-client' {
   interface UploadLinkOptions {
     uri?: string;
     useGETForQueries?: boolean;
-    isExtractableFile?: (value: any) => boolean;
-    FormData?: any;
-    formDataAppendFile?: (form: FormData, i: number, file: any) => void;
-    fetch?: any;
-    fetchOptions?: any;
+    isExtractableFile?: (value: unknown) => boolean; // Typed as unknown
+    FormData?: unknown;
+    formDataAppendFile?: (form: FormData, i: number, file: unknown) => void;
+    fetch?: unknown;
+    fetchOptions?: unknown;
     credentials?: RequestCredentials;
-    headers?: any;
+    headers?: unknown;
     includeExtensions?: boolean;
   }
 
   export function createUploadLink(options?: UploadLinkOptions): ApolloLink;
+  export function isExtractableFile(value: unknown): boolean; // Added declaration export
 }

@@ -22,8 +22,9 @@ type FuelType {
 }
 
 type CarImage {
-  id:  ID!
-  url: String!
+  id:    ID!
+  carId: String!
+  url:   String!
 }
 
 type Car {
@@ -80,6 +81,10 @@ extend type Query {
   availableCars(startDate: String!, endDate: String!, pagination: PaginationInput): PaginatedCars!
   carsByStatus(status: CarStatus!, pagination: PaginationInput): PaginatedCars!
   carAvailabilityCalendar(carId: ID!, month: Int!, year: Int!): [CalendarDay!]!
+  
+  brands: [Brand!]!
+  models: [VehicleModel!]!
+  fuelTypes: [FuelType!]!
 }
 
 extend type Mutation {

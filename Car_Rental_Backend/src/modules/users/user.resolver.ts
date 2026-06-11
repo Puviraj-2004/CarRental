@@ -13,6 +13,38 @@ import {
 import type { Resolvers, QueryUsersArgs } from '../../graphql/__generated__/types';
 
 export const userResolvers: Partial<Resolvers> = {
+  User: {
+    phoneNumber: (parent) => parent.phoneNumber ?? null,
+  },
+
+  Documents: {
+    licenseExpiry: (parent) => parent.licenseExpiry ?? null,
+    idExpiry:      (parent) => parent.idExpiry      ?? null,
+    createdAt:     (parent) => parent.createdAt,
+    updatedAt:     (parent) => parent.updatedAt,
+  },
+
+  OCRResult: {
+    licenseExpiry: (parent) => {
+      if (!parent.licenseExpiry) return null;
+      if (parent.licenseExpiry instanceof Date) return parent.licenseExpiry;
+      try {
+        return new Date(parent.licenseExpiry);
+      } catch {
+        return null;
+      }
+    },
+    idExpiry: (parent) => {
+      if (!parent.idExpiry) return null;
+      if (parent.idExpiry instanceof Date) return parent.idExpiry;
+      try {
+        return new Date(parent.idExpiry);
+      } catch {
+        return null;
+      }
+    },
+  },
+
   Query: {
     me: (_: unknown, __: Record<string, never>, ctx: GraphQLContext) => {
       isAuthenticated(ctx);

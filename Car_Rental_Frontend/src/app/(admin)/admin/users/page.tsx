@@ -1,5 +1,11 @@
-import { AdminUsersContainer } from '@/components/features/admin/users/AdminUsersContainer';
+'use client';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 
-export default function Page() {
-  return <AdminUsersContainer />;
+export default function AdminUsersPage() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress />
+    </Box>
+  );
 }

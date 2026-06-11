@@ -17,9 +17,33 @@ export const carResolvers: Partial<Resolvers> = {
     basePrice: (parent) => Number(parent.basePrice),
   },
 
+  CarImage: {
+    carId: (parent) => parent.carId,
+  },
+
+  // Field resolver to resolve the Brand relation nested inside VehicleModel
+  VehicleModel: {
+    brand: (parent, _, ctx) => 
+      ctx.prisma.brand.findUniqueOrThrow({ where: { id: parent.brandId } }),
+  },
+
   Query: {
     car: (_: unknown, { id }: { id: string }) =>
       carService.getCarById(id),
+
+    // ─── New dropdown query resolvers (fetches directly from DB) ───────────
+    brands: (_: unknown, __: Record<string, never>, ctx: GraphQLContext) =>
+      ctx.prisma.brand.findMany({ orderBy: { name: 'asc' } }),
+
+    models: async (_: unknown, __: Record<string, never>, ctx: GraphQLContext) => {
+      const models = await ctx.prisma.vehicleModel.findMany({
+        include: { brand: true }   // ← add relation
+      });
+      return models;
+    },
+
+    fuelTypes: (_: unknown, __: Record<string, never>, ctx: GraphQLContext) =>
+      ctx.prisma.fuelType.findMany({ orderBy: { name: 'asc' } }),
 
     cars: (_: unknown, { pagination, filter }: QueryCarsArgs) =>
       carService.getCars(
@@ -78,6 +102,13 @@ export const carResolvers: Partial<Resolvers> = {
       primaryImage?: Promise<FileUpload> | null;
     }}, ctx: GraphQLContext) => {
       isAdmin(ctx);
+
+        console.log("📂 Backend resolver received input:", {
+        modelId: input.modelId,
+        plateNumber: input.plateNumber,
+        primaryImage: input.primaryImage,
+      });
+
       return carService.addCar({
         modelId:      input.modelId,
         plateNumber:  input.plateNumber,
