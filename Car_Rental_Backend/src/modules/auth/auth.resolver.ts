@@ -1,16 +1,5 @@
 import { authService } from './auth.service';
 import type { Resolvers } from '../../graphql/__generated__/types';
-import type { GraphQLContext } from '../../graphql/context';
-import { AppError, ErrorCode } from '../../core/errors/AppError';
-import { env } from '../../config/env';
-
-const cookieOptions = {
-  httpOnly: true,
-  secure:   env.nodeEnv === 'production',
-  sameSite: 'lax' as const,
-  maxAge:   30 * 24 * 60 * 60 * 1000, // 30 days
-  path:     '/',
-};
 
 export const authResolvers: Partial<Resolvers> = {
   Mutation: {
@@ -26,28 +15,21 @@ export const authResolvers: Partial<Resolvers> = {
       return { ...result, expiresAt };
     },
     
-    login: async (_, { input }, ctx: GraphQLContext) => {
+    login: async (_, { input }) => {
+      // Direct return of payload to NextAuth [1.1.2]
       const { accessToken, refreshToken, user } = await authService.login(input.email, input.password);
-      ctx.res.cookie('refreshToken', refreshToken, cookieOptions);
-      return { accessToken, user };
+      return { accessToken, refreshToken, user };
     },
 
-    refreshTokens: async (_, __, ctx: GraphQLContext) => {
-      const refreshToken = ctx.req.cookies.refreshToken;
-      if (!refreshToken) {
-        throw new AppError('No refresh token provided', ErrorCode.UNAUTHENTICATED);
-      }
+    refreshTokens: async (_, { refreshToken }) => {
+      // Reads token from GraphQL variable, rotates it, and returns the new pair [1.1.2]
       const { accessToken, refreshToken: newRefreshToken } = await authService.refreshTokens(refreshToken);
-      ctx.res.cookie('refreshToken', newRefreshToken, cookieOptions);
-      return { accessToken };
+      return { accessToken, refreshToken: newRefreshToken };
     },
 
-    logout: async (_, __, ctx: GraphQLContext) => {
-      const refreshToken = ctx.req.cookies.refreshToken;
-      if (refreshToken) {
-        await authService.logout(refreshToken);
-      }
-      ctx.res.clearCookie('refreshToken', { path: '/' });
+    logout: async (_, { refreshToken }) => {
+      // Revokes the specific token from Redis & PostgreSQL fallback [1]
+      await authService.logout(refreshToken);
       return true;
     },
   },

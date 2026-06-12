@@ -1,10 +1,12 @@
 type LoginPayload {
   accessToken: String!
+  refreshToken: String! 
   user: User!
 }
 
 type RefreshTokensPayload {
   accessToken: String!
+  refreshToken: String! 
 }
 
 extend type Mutation {
@@ -12,8 +14,8 @@ extend type Mutation {
   verifyOTP(email: String!, otp: String!): VerifyOTPPayload!
   resendOTP(email: String!): ResendOTPPayload!
   login(input: LoginInput!): LoginPayload!
-  refreshTokens: RefreshTokensPayload!        
-  logout: Boolean!
+  refreshTokens(refreshToken: String!): RefreshTokensPayload! 
+  logout(refreshToken: String!): Boolean!                     
 }
 
 input RegisterInput {

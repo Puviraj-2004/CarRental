@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { getSession, signOut } from 'next-auth/react';
 import { useMutation } from '@apollo/client';
 import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -34,7 +34,10 @@ export const AdminSidebar: React.FC = () => {
 
   const handleLogout = async (): Promise<void> => {
     try {
-      await logoutMutation(); // Clears HTTP‑only refresh token cookie
+      const session = await getSession();
+      if (session?.refreshToken) {
+        await logoutMutation({ variables: { refreshToken: session.refreshToken } });
+      }
     } catch (err) {
       console.error('Logout mutation failed', err);
     } finally {

@@ -3,9 +3,7 @@ import { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 /**
- * Refresh token logic – now uses cookie-based refresh.
- * The browser automatically sends the refreshToken cookie.
- * The mutation takes NO arguments and returns only a new accessToken.
+ * Executes direct-to-backend token rotation using the encrypted JWT storage token.
  */
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   try {
@@ -17,17 +15,19 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",        // ← critical: send cookies
       body: JSON.stringify({
         operationName: "RefreshTokens",
         query: `
-          mutation RefreshTokens {
-            refreshTokens {
+          mutation RefreshTokens($refreshToken: String!) {
+            refreshTokens(refreshToken: $refreshToken) {
               accessToken
+              refreshToken # <-- Requests both rotated tokens [1.1.2]
             }
           }
         `,
-        // No variables – backend reads cookie automatically
+        variables: {
+          refreshToken: token.refreshToken, // Pass token from NextAuth state [1.1.2]
+        },
       }),
     });
 
@@ -38,24 +38,24 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
     }
 
     const newAccessToken = responseData.data?.refreshTokens?.accessToken;
+    const newRefreshToken = responseData.data?.refreshTokens?.refreshToken;
 
-    if (!newAccessToken) {
-      throw new Error("No access token returned from refresh mutation");
+    if (!newAccessToken || !newRefreshToken) {
+      throw new Error("Missing tokens in backend refresh payload");
     }
 
-    // Keep existing token data, update only accessToken and expiry
-    // Do NOT update refreshToken – it is now managed by HTTP‑only cookie
+    // Encrypt and return the brand-new rotated tokens back to NextAuth [1.1.2]
     return {
       ...token,
       accessToken:        newAccessToken,
-      accessTokenExpires: Date.now() + 15 * 60 * 1000,
-      // refreshToken is no longer stored in JWT
+      refreshToken:       newRefreshToken,
+      accessTokenExpires: Date.now() + 15 * 60 * 1000, // 15-minute validity window
     };
   } catch (error) {
     console.error("Error refreshing access token:", error);
     return {
       ...token,
-      error: "RefreshAccessTokenError",
+      error: "RefreshAccessTokenError", // Triggers client-side login redirect
     };
   }
 }
@@ -78,13 +78,13 @@ export const authOptions: NextAuthOptions = {
           const res = await fetch(apiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include",        // send cookies (optional here, but safe)
             body: JSON.stringify({
               operationName: "Login",
               query: `
                 mutation Login($input: LoginInput!) {
                   login(input: $input) {
                     accessToken
+                    refreshToken # <-- Now queried and returned securely [1.1.2]
                     user { id email role }
                   }
                 }
@@ -107,15 +107,16 @@ export const authOptions: NextAuthOptions = {
 
           const user = responseData.data?.login?.user;
           const accessToken = responseData.data?.login?.accessToken;
+          const refreshToken = responseData.data?.login?.refreshToken;
 
-          if (user && accessToken) {
+          if (user && accessToken && refreshToken) {
             return {
               id:          user.id,
               email:       user.email,
-              fullName:    user.email, // fallback
+              fullName:    user.email,
               role:        user.role,
               accessToken,
-              // refreshToken is NOT returned nor stored
+              refreshToken, // <-- Forwarded to jwt callback [1.1.2]
             };
           }
 
@@ -132,11 +133,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.accessToken        = user.accessToken;
+        token.refreshToken       = user.refreshToken; 
         token.accessTokenExpires = Date.now() + 15 * 60 * 1000;
         token.role               = user.role;
         token.fullName           = user.fullName;
         token.id                 = user.id;
-        // Do NOT store refreshToken
       }
 
       // If access token is still valid, return it
@@ -144,12 +145,13 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // Otherwise, refresh the access token
+      // Otherwise, rotate the tokens
       return await refreshAccessToken(token);
     },
     async session({ session, token }) {
       if (token) {
         session.accessToken   = token.accessToken;
+        session.refreshToken  = token.refreshToken; // <-- Expose on session so clients can access it for logouts [1]
         session.user.role     = token.role;
         session.user.fullName = token.fullName;
         session.user.id       = token.id;

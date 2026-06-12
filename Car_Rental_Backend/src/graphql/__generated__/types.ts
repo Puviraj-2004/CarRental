@@ -215,6 +215,7 @@ export type LoginInput = {
 export type LoginPayload = {
   __typename?: 'LoginPayload';
   accessToken: Scalars['String']['output'];
+  refreshToken: Scalars['String']['output'];
   user: User;
 };
 
@@ -310,10 +311,20 @@ export type MutationLoginArgs = {
 };
 
 
+export type MutationLogoutArgs = {
+  refreshToken: Scalars['String']['input'];
+};
+
+
 export type MutationProcessDocumentOcrArgs = {
   documentType: DocumentType;
   file: Scalars['Upload']['input'];
   side: DocumentSide;
+};
+
+
+export type MutationRefreshTokensArgs = {
+  refreshToken: Scalars['String']['input'];
 };
 
 
@@ -593,6 +604,7 @@ export type QueryUsersArgs = {
 export type RefreshTokensPayload = {
   __typename?: 'RefreshTokensPayload';
   accessToken: Scalars['String']['output'];
+  refreshToken: Scalars['String']['output'];
 };
 
 export type RegisterInput = {
@@ -946,6 +958,7 @@ export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes
 
 export type LoginPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['LoginPayload'] = ResolversParentTypes['LoginPayload']> = ResolversObject<{
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   user?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
 }>;
 
@@ -961,9 +974,9 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteCarImage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarImageArgs, 'imageId'>>;
   deleteUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserArgs, 'id'>>;
   login?: Resolver<ResolversTypes['LoginPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
-  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
   processDocumentOCR?: Resolver<ResolversTypes['OCRResult'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'documentType' | 'file' | 'side'>>;
-  refreshTokens?: Resolver<ResolversTypes['RefreshTokensPayload'], ParentType, ContextType>;
+  refreshTokens?: Resolver<ResolversTypes['RefreshTokensPayload'], ParentType, ContextType, RequireFields<MutationRefreshTokensArgs, 'refreshToken'>>;
   refundPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationRefundPaymentArgs, 'paymentId'>>;
   register?: Resolver<ResolversTypes['RegisterPayload'], ParentType, ContextType, RequireFields<MutationRegisterArgs, 'input'>>;
   resendOTP?: Resolver<ResolversTypes['ResendOTPPayload'], ParentType, ContextType, RequireFields<MutationResendOtpArgs, 'email'>>;
@@ -1063,6 +1076,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
 
 export type RefreshTokensPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RefreshTokensPayload'] = ResolversParentTypes['RefreshTokensPayload']> = ResolversObject<{
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
 export type RegisterPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RegisterPayload'] = ResolversParentTypes['RegisterPayload']> = ResolversObject<{

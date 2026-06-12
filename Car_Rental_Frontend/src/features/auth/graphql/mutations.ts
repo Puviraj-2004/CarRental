@@ -24,8 +24,8 @@ export const LOGIN_MUTATION = gql`
 `;
 
 export const LOGOUT_MUTATION = gql`
-  mutation Logout {
-    logout
+  mutation Logout($refreshToken: String!) {
+    logout(refreshToken: $refreshToken)
   }
 `;
 
