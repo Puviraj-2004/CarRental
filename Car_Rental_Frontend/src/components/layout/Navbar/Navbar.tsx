@@ -20,16 +20,16 @@ import { useMutation } from '@apollo/client';
 import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations'; 
 import { useLanguage } from '@/lib/LanguageContext';
 import { LanguageSwitcher } from '../LanguageSwitcher';
+import { useThemeMode } from '@/app/providers'; // <-- Imported dynamic theme hook [1]
 
 interface NavItem {
   labelKey: string;
-  defaultLabel: string; // Defensive fallback if translation key is missing [1]
+  defaultLabel: string;
   path: string;
   authRequired?: boolean;
   adminOnly?: boolean;
 }
 
-// Configured navigation items matching your public and user directory routes [1]
 const navItems: NavItem[] = [
   { labelKey: 'navbar.home', defaultLabel: 'Home', path: '/' },
   { labelKey: 'navbar.cars', defaultLabel: 'Cars', path: '/cars' },
@@ -41,6 +41,7 @@ const navItems: NavItem[] = [
 export const Navbar: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
+  const { mode, toggleTheme } = useThemeMode(); // <-- Connected Mode state & Toggler [1]
   const { data: session, status } = useSession();
   const [logoutMutation] = useMutation(LOGOUT_MUTATION);  
 
@@ -55,7 +56,6 @@ export const Navbar: React.FC = () => {
 
   const handleLogout = async (): Promise<void> => {       
     try {
-      // Safely pass the active refresh token to revoke it in Redis & PostgreSQL on logout [1]
       if (session?.refreshToken) {
         await logoutMutation({ variables: { refreshToken: session.refreshToken } });
       }
@@ -66,14 +66,30 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  // Filter links based on current authentication and authorization state [1]
   const visibleNavItems = navItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
     if (item.authRequired && !isAuthenticated) return false;
     return true;
   });
 
-  // Mobile Drawer Menu markup
+  // Render SVGs inline for absolute cross-platform rendering safety
+  const renderThemeIcon = () => {
+    if (mode === 'dark') {
+      // Sun Icon
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m0 13.5V21m9.75-9h-2.25m-13.5 0H3m14.01-6.49-1.59 1.59M8.22 15.78l-1.59 1.59m12.42 1.59-1.59-1.59M8.22 8.22 6.63 6.63M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />
+        </svg>
+      );
+    }
+    // Moon Icon
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+      </svg>
+    );
+  };
+
   const mobileDrawerContent = (
     <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <Box sx={{ flexGrow: 1 }}>
@@ -112,7 +128,6 @@ export const Navbar: React.FC = () => {
               );
             })}
 
-            {/* Quick Link to Admin Dashboard in mobile menu if user is Admin [1] */}
             {isAdmin && (
               <ListItemButton
                 component={Link}
@@ -136,9 +151,12 @@ export const Navbar: React.FC = () => {
         </List>
       </Box>
 
-      {/* Mobile Drawer Actions Area */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto', pt: 2, borderTop: '1px solid', borderColor: 'grey.100' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto', pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
+          {/* Mobile Theme Toggle Button */}
+          <IconButton onClick={toggleTheme} color="primary">
+            {renderThemeIcon()}
+          </IconButton>
           <LanguageSwitcher />
         </Box>
         {isAuthenticated ? (
@@ -178,14 +196,13 @@ export const Navbar: React.FC = () => {
         sx={{ 
           bgcolor: 'background.paper', 
           borderBottom: '1px solid', 
-          borderColor: 'grey.100',
+          borderColor: 'divider',
           zIndex: 1000
         }}
       >
         <Container maxWidth="lg">
           <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: '70px' }}>
             
-            {/* Logo / App Name */}
             <Typography 
               variant="h5" 
               component={Link} 
@@ -200,7 +217,6 @@ export const Navbar: React.FC = () => {
               {t('common.appName') || 'BlueDrive'}
             </Typography>
 
-            {/* Desktop Navigation Links */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
               {visibleNavItems.map((item) => {
                 const isActive = pathname === item.path;
@@ -218,7 +234,7 @@ export const Navbar: React.FC = () => {
                       py: 1,
                       borderRadius: '8px',
                       transition: '0.15s',
-                      '&:hover': { color: 'primary.main', bgcolor: 'primary.50' }
+                      '&:hover': { color: 'primary.main', bgcolor: 'divider' }
                     }}
                   >
                     {t(item.labelKey) || item.defaultLabel}
@@ -227,8 +243,12 @@ export const Navbar: React.FC = () => {
               })}
             </Box>
 
-            {/* Desktop Action Area */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2 }}>
+              {/* Desktop Theme Toggle Button */}
+              <IconButton onClick={toggleTheme} color="primary" sx={{ p: 1 }}>
+                {renderThemeIcon()}
+              </IconButton>
+              
               <LanguageSwitcher />
 
               {isAdmin && (
@@ -263,7 +283,6 @@ export const Navbar: React.FC = () => {
               )}
             </Box>
 
-            {/* Mobile Hamburger Toggle Icon */}
             <IconButton
               color="default"
               aria-label="open drawer"
@@ -280,7 +299,6 @@ export const Navbar: React.FC = () => {
         </Container>
       </AppBar>
 
-      {/* Temporary Mobile Drawer menu */}
       <Drawer
         anchor="right"
         variant="temporary"
