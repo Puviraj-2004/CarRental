@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { getSession, signOut } from 'next-auth/react';
+import { signOut, getSession } from 'next-auth/react'; 
 import { useMutation } from '@apollo/client';
 import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
 import { useLanguage } from '@/lib/LanguageContext';

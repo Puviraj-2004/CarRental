@@ -232,7 +232,7 @@ export type Mutation = {
   deleteCarImage: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
   login: LoginPayload;
-  logout: Scalars['Boolean']['output'];
+  logout?: Maybe<Scalars['Boolean']['output']>;
   processDocumentOCR: OcrResult;
   refreshTokens: RefreshTokensPayload;
   refundPayment: Payment;
@@ -974,7 +974,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteCarImage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarImageArgs, 'imageId'>>;
   deleteUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserArgs, 'id'>>;
   login?: Resolver<ResolversTypes['LoginPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
-  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
+  logout?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
   processDocumentOCR?: Resolver<ResolversTypes['OCRResult'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'documentType' | 'file' | 'side'>>;
   refreshTokens?: Resolver<ResolversTypes['RefreshTokensPayload'], ParentType, ContextType, RequireFields<MutationRefreshTokensArgs, 'refreshToken'>>;
   refundPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationRefundPaymentArgs, 'paymentId'>>;

@@ -15,7 +15,7 @@ extend type Mutation {
   resendOTP(email: String!): ResendOTPPayload!
   login(input: LoginInput!): LoginPayload!
   refreshTokens(refreshToken: String!): RefreshTokensPayload! 
-  logout(refreshToken: String!): Boolean!                     
+  logout(refreshToken: String!): Boolean                    
 }
 
 input RegisterInput {
