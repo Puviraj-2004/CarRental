@@ -3,27 +3,42 @@ import rateLimit from 'express-rate-limit';
 import RedisStore, { RedisReply } from 'rate-limit-redis';
 import { getRedisClient, isRedisConfigured } from '../../config/redis';
 import { env } from '../../config/env';
+import logger from '../../config/logger';
 
 const isProd = env.nodeEnv === 'production';
 
 /**
- * Build a Redis-backed store when Redis is available.
- * Falls back to the default in-memory store in development or when Redis is not configured.
+ * Build a Redis-backed store with self-healing fail-open protections [1].
+ * Fall back to Express in-memory store at startup if Redis is unreachable [1].
  */
 const createStore = () => {
   if (isRedisConfigured()) {
     const redis = getRedisClient();
-    if (redis) {
+    // Only instantiate RedisStore if the connection is established and ready [1]
+    if (redis && redis.status === 'ready') {
       return new RedisStore({
         sendCommand: async (...args: string[]): Promise<RedisReply> => {
-          const command = args[0];
-          const commandArgs = args.slice(1);
-          return redis.call(command, ...commandArgs) as Promise<RedisReply>;
+          // If the connection drops during active runtime, fail-open [1]
+          if (redis.status !== 'ready') {
+            logger.debug('Redis rate-limiter: connection is offline mid-request. Failing open.');
+            return [1, 0] as unknown as RedisReply;
+          }
+
+          try {
+            const command = args[0];
+            const commandArgs = args.slice(1);
+            return await (redis.call(command, ...commandArgs) as Promise<RedisReply>);
+          } catch (err) {
+            logger.warn('Redis rate-limiter: command failed during active outage. Failing open.', {
+              error: err instanceof Error ? err.message : String(err)
+            });
+            return [1, 0] as unknown as RedisReply;
+          }
         },
       });
     }
   }
-  return undefined; // express-rate-limit falls back to in-memory
+  return undefined; // express-rate-limit falls back to standard in-memory
 };
 
 const keyFromRequest = (req: Request): string =>

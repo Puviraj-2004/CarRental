@@ -69,7 +69,9 @@ export class AuthService {
     }
 
     const hashed = await hashPassword(password);
-    await storePendingRegistration(normalized, phoneNumber || '', hashed);
+    
+    // Aligned to: (1) email, (2) hashedPassword, (3) phoneNumber [1]
+    await storePendingRegistration(normalized, hashed, phoneNumber || undefined);
 
     const otp = generateOTP();
     await storeOTP(normalized, otp);
@@ -93,11 +95,15 @@ export class AuthService {
       if (!pending) {
         throw new AppError('Registration expired. Please register again.', ErrorCode.BAD_USER_INPUT);
       }
+      
+      // Saves both password and phoneNumber correctly to PostgreSQL [1]
       user = await authRepository.createUser({
         email:         normalized,
         password:      pending.password,
+        phoneNumber:   pending.phoneNumber,
         emailVerified: true,
       });
+      
       await clearPendingRegistration(normalized);
       logSecurityEvent.registrationSuccess({ userId: user.id, email: user.email });
     } else {
