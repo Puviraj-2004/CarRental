@@ -28,12 +28,13 @@ interface NavItem {
   path: string;
   authRequired?: boolean;
   adminOnly?: boolean;
+  guestOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
   { labelKey: 'navbar.home', defaultLabel: 'Home', path: '/' },
   { labelKey: 'navbar.cars', defaultLabel: 'Cars', path: '/cars' },
-  { labelKey: 'navbar.about', defaultLabel: 'About Us', path: '/about' },
+  { labelKey: 'navbar.about', defaultLabel: 'About Us', path: '/about', guestOnly: true },
   { labelKey: 'navbar.bookings', defaultLabel: 'My Bookings', path: '/bookingRecords', authRequired: true },
   { labelKey: 'navbar.profile', defaultLabel: 'Profile', path: '/profile', authRequired: true },
 ];
@@ -69,6 +70,7 @@ export const Navbar: React.FC = () => {
   const visibleNavItems = navItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
     if (item.authRequired && !isAuthenticated) return false;
+    if (item.guestOnly && isAuthenticated) return false;
     return true;
   });
 
