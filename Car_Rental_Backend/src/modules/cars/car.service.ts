@@ -36,7 +36,7 @@ export class CarService {
     fuelTypeId?:   string;
     basePrice:     number;
     status?:       CarStatus;
-    primaryImage?: { url: string; publicId: string }; // <-- Updated: No stream inputs
+    primaryImage?: { url: string; publicId: string }; 
   }): Promise<CarWithRelations> {
     const existing = await carRepository.findByPlate(input.plateNumber);
     if (existing) {
@@ -58,7 +58,7 @@ export class CarService {
     plateNumber?:  string;
     fuelTypeId?:   string | null;
     basePrice?:    number;
-    primaryImage?: { url: string; publicId: string }; // <-- Updated: No stream inputs
+    primaryImage?: { url: string; publicId: string }; 
   }): Promise<CarWithRelations> {
     const car = await carRepository.findById(id);
     if (!car) throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
@@ -171,7 +171,7 @@ export class CarService {
 
   async uploadCarImages(
     carId:      string,
-    images:     { url: string; publicId: string }[], // <-- Updated: Receives metadata from client
+    images:     { url: string; publicId: string }[], 
     setPrimary: boolean,
   ): Promise<CarWithRelations> {
     const car = await carRepository.findById(carId);
@@ -274,7 +274,7 @@ export class CarService {
     return carRepository.update(id, { status: CarStatus.UNAVAILABLE });
   }
 
-  // ── Availability Calendar ──────────────────────────────────────────────────
+  // ── Availability Calendar Updated (Timezone-Agnostic String Comparison) ───
 
   async getAvailabilityCalendar(
     carId:  string,
@@ -289,9 +289,15 @@ export class CarService {
     const result: { date: string; available: boolean; bookingId?: string | null }[] = [];
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const date    = new Date(year, month - 1, day);
-      const dateStr = date.toISOString().split('T')[0];
-      const booking = bookings.find(b => b.startDate <= date && b.endDate > date);
+      // 1. Build a pure date string in YYYY-MM-DD format (no local timezone shifts) [1]
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      // 2. Perform an inclusive, timezone-agnostic string comparison directly on the raw DB dates [1]
+      const booking = bookings.find(b => {
+        const bStartStr = b.startDate.toISOString().split('T')[0];
+        const bEndStr = b.endDate.toISOString().split('T')[0];
+        return dateStr >= bStartStr && dateStr <= bEndStr; // Inclusive check [1]
+      });
 
       result.push({
         date:      dateStr,

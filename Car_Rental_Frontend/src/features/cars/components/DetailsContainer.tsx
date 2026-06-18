@@ -16,7 +16,7 @@ export const DetailsContainer: React.FC<{ id: string }> = ({ id }) => {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  // Read dates from the URL query params [1]
+  // Read date-only parameters from the URL
   const startDate = searchParams.get('startDate') || '';
   const endDate = searchParams.get('endDate') || '';
 
@@ -46,11 +46,12 @@ export const DetailsContainer: React.FC<{ id: string }> = ({ id }) => {
     await refetchCalendar({ month: nextMonth, year: nextYear });
   };
 
-  // Writes dates chosen in the modal directly to the URL query string [1]
+  // Writes dates chosen inside the view directly to the URL query string [1]
   const handleApplyDates = (start: string, end: string) => {
     const current = new URLSearchParams(Array.from(searchParams.entries()));
-    current.set('startDate', start);
-    current.set('endDate', end);
+    if (start) current.set('startDate', start); else current.delete('startDate');
+    if (end) current.set('endDate', end); else current.delete('endDate');
+    
     const query = current.toString() ? `?${current.toString()}` : '';
     router.replace(`${pathname}${query}`);
   };
@@ -69,7 +70,7 @@ export const DetailsContainer: React.FC<{ id: string }> = ({ id }) => {
       endDate={endDate}
       bookingDuration={bookingDuration}
       totalPrice={totalPrice}
-      onApplyDates={handleApplyDates} // <-- Added callback for modal submission [1]
+      onApplyDates={handleApplyDates} // <-- Added callback for dynamic changes [1]
     />
   );
 };

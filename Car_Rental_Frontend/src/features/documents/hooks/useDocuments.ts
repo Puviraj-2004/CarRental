@@ -1,11 +1,9 @@
-import { useQuery, useMutation, FetchResult, ApolloError } from '@apollo/client';
-import { GET_MY_DOCUMENTS_QUERY, HAS_APPROVED_DOCUMENTS_QUERY } from '../graphql/queries';
-import {
-  SAVE_DOCUMENTS_MUTATION,
-  SAVE_BOOKING_DOCUMENTS_MUTATION,
-  REUSE_DOCUMENTS_FOR_BOOKING_MUTATION,
-  PROCESS_DOCUMENT_OCR_MUTATION
-} from '../graphql/mutations';
+import { useQuery, useMutation, FetchResult, useApolloClient } from '@apollo/client';
+import {  GET_CLOUDINARY_SIGNATURE } from '@/features/cars/graphql/queries';
+import { validateFileMime, validateFileExtension, validateFileSize } from '@/lib/fileValidation';
+import { gql } from '@apollo/client';
+import { PROCESS_DOCUMENT_OCR_MUTATION, SAVE_BOOKING_DOCUMENTS_MUTATION } from '../graphql/mutations';
+import { GET_MY_DOCUMENTS_QUERY } from '../graphql/queries';
 
 export interface Documents {
   id:              string;
@@ -27,112 +25,146 @@ export interface Documents {
   updatedAt:       string;
 }
 
-export interface DocumentReuseStatus {
-  hasApprovedDocuments: boolean;
-  documents?:           Documents | null;
-}
-
-export interface DocumentsInput {
-  licenseFrontFile?: File | null;
-  licenseBackFile?:  File | null;
-  idCardFrontFile?:  File | null;
-  idCardBackFile?:   File | null;
-  addressProofFile?: File | null;
-  licenseNumber?:    string | null;
-  licenseExpiry?:    string | null;
-  age?:              number | null;
-  idNumber?:         string | null;
-  idExpiry?:         string | null;
-  address?:          string | null;
-}
-
 export interface OCRResult {
-  licenseNumber?:   string | null;
-  licenseExpiry?:   string | null;
-  age?:             number | null;
-  idNumber?:        string | null;
-  idExpiry?:        string | null;
-  address?:         string | null;
-  fallbackUsed?:    boolean | null;
-  isQuotaExceeded?: boolean | null;
+  licenseNumber?: string | null;
+  licenseExpiry?: string | null;
+  idNumber?:      string | null;
+  idExpiry?:      string | null;
+  address?:       string | null;
+  birthDate?:     string | null;
+}
+
+export interface UploadFilesInput {
+  licenseFront: File;
+  licenseBack: File;
+  idCardFront: File;
+  idCardBack: File;
+  addressProof: File;
+}
+
+export interface FinalDocumentsInput {
+  licenseFrontUrl: string;
+  licenseBackUrl:  string;
+  idCardFrontUrl:  string;
+  idCardBackUrl:   string;
+  addressProofUrl: string;
+  licenseNumber:   string;
+  licenseExpiry:   string;
+  idNumber:        string;
+  idExpiry:        string;
+  address:         string;
+  birthDate:       string;
 }
 
 export interface UseDocumentsReturn {
   myDocuments:           Documents | null;
   loadingMyDocs:         boolean;
-  reuseStatus:           DocumentReuseStatus | null;
-  loadingReuseStatus:    boolean;
-  executeSaveProfile:    (input: DocumentsInput) => Promise<FetchResult<{ saveDocuments: Documents }>>;
-  loadingSaveProfile:    boolean;
-  executeSaveBooking:    (bookingId: string, input: DocumentsInput, saveToProfile: boolean) => Promise<FetchResult<{ saveBookingDocuments: Documents }>>;
+  // Updated: Explicitly accepts the saveToProfile parameter [1]
+  executeSaveBooking:    (bookingId: string, input: FinalDocumentsInput, saveToProfile: boolean) => Promise<FetchResult<{ saveBookingDocuments: Documents }>>;
   loadingSaveBooking:    boolean;
-  executeReuse:          (bookingId: string) => Promise<FetchResult<{ reuseDocumentsForBooking: Documents }>>;
-  loadingReuse:          boolean;
-  executeOCR:            (file: File, documentType: 'LICENSE' | 'ID_CARD' | 'ADDRESS_PROOF', side: 'FRONT' | 'BACK') => Promise<FetchResult<{ processDocumentOCR: OCRResult }>>;
+  executeOCR:            (files: UploadFilesInput) => Promise<{ urls: any, ocr: OCRResult }>;
   loadingOCR:            boolean;
 }
 
 export const useDocuments = (): UseDocumentsReturn => {
+  const client = useApolloClient();
+
   const { data: myDocsData, loading: loadingMyDocs } = useQuery<{ myDocuments: Documents | null }>(
     GET_MY_DOCUMENTS_QUERY
   );
 
-  const { data: reuseData, loading: loadingReuseStatus } = useQuery<{ hasApprovedDocuments: DocumentReuseStatus }>(
-    HAS_APPROVED_DOCUMENTS_QUERY
-  );
-
-  const [saveDocuments, { loading: loadingSaveProfile }] = useMutation<{ saveDocuments: Documents }, { input: DocumentsInput }>(
-    SAVE_DOCUMENTS_MUTATION
-  );
-
   const [saveBookingDocuments, { loading: loadingSaveBooking }] = useMutation<
     { saveBookingDocuments: Documents },
-    { bookingId: string; input: DocumentsInput; saveToProfile: boolean }
+    { bookingId: string; input: any; saveToProfile: boolean }
   >(SAVE_BOOKING_DOCUMENTS_MUTATION);
-
-  const [reuseDocumentsForBooking, { loading: loadingReuse }] = useMutation<
-    { reuseDocumentsForBooking: Documents },
-    { bookingId: string }
-  >(REUSE_DOCUMENTS_FOR_BOOKING_MUTATION);
 
   const [processDocumentOCR, { loading: loadingOCR }] = useMutation<
     { processDocumentOCR: OCRResult },
-    { file: File; documentType: string; side: string }
+    {
+      licenseFrontUrl: string;
+      licenseBackUrl:  string;
+      idCardFrontUrl:  string;
+      idCardBackUrl:   string;
+      addressProofUrl: string;
+    }
   >(PROCESS_DOCUMENT_OCR_MUTATION);
 
-  const executeSaveProfile = async (input: DocumentsInput) => {
-    return await saveDocuments({ variables: { input } });
+  const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
+    validateFileExtension(file.name, 'verification_document');
+    validateFileMime(file.type, 'verification_document');
+    validateFileSize(file.size, file.name, 'verification_document'); [2]
+
+    const { data } = await client.query({
+      query: GET_CLOUDINARY_SIGNATURE,
+      variables: { folder },
+      fetchPolicy: 'no-cache',
+    });
+
+    const { signature, timestamp, apiKey, cloudName } = data.cloudinarySignature;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', timestamp.toString());
+    formData.append('signature', signature);
+    formData.append('folder', folder);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to upload file "${file.name}" directly to Cloudinary.`);
+    }
+
+    const result = await response.json();
+    return result.secure_url;
   };
 
-  const executeSaveBooking = async (bookingId: string, input: DocumentsInput, saveToProfile: boolean) => {
+  const executeOCR = async (files: UploadFilesInput) => {
+    const [
+      licenseFrontUrl,
+      licenseBackUrl,
+      idCardFrontUrl,
+      idCardBackUrl,
+      addressProofUrl
+    ] = await Promise.all([
+      uploadToCloudinary(files.licenseFront, 'documents'),
+      uploadToCloudinary(files.licenseBack, 'documents'),
+      uploadToCloudinary(files.idCardFront, 'documents'),
+      uploadToCloudinary(files.idCardBack, 'documents'),
+      uploadToCloudinary(files.addressProof, 'documents'),
+    ]);
+
+    const res = await processDocumentOCR({
+      variables: {
+        licenseFrontUrl,
+        licenseBackUrl,
+        idCardFrontUrl,
+        idCardBackUrl,
+        addressProofUrl
+      }
+    });
+
+    return {
+      urls: { licenseFrontUrl, licenseBackUrl, idCardFrontUrl, idCardBackUrl, addressProofUrl },
+      ocr: res.data?.processDocumentOCR || {}
+    };
+  };
+
+  // Updated: Explicitly accepts the third "saveToProfile" parameter and passes it [1]
+  const executeSaveBooking = async (bookingId: string, input: FinalDocumentsInput, saveToProfile: boolean) => {
     return await saveBookingDocuments({
       variables: { bookingId, input, saveToProfile },
-    });
-  };
-
-  const executeReuse = async (bookingId: string) => {
-    return await reuseDocumentsForBooking({
-      variables: { bookingId },
-    });
-  };
-
-  const executeOCR = async (file: File, documentType: 'LICENSE' | 'ID_CARD' | 'ADDRESS_PROOF', side: 'FRONT' | 'BACK') => {
-    return await processDocumentOCR({
-      variables: { file, documentType, side },
     });
   };
 
   return {
     myDocuments: myDocsData?.myDocuments || null,
     loadingMyDocs,
-    reuseStatus: reuseData?.hasApprovedDocuments || null,
-    loadingReuseStatus,
-    executeSaveProfile,
-    loadingSaveProfile,
     executeSaveBooking,
     loadingSaveBooking,
-    executeReuse,
-    loadingReuse,
     executeOCR,
     loadingOCR,
   };

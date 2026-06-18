@@ -1,4 +1,4 @@
-import { GraphQLFormattedError } from 'graphql';
+import { GraphQLFormattedError, GraphQLError } from 'graphql';
 import { AppError, ErrorCode } from './AppError';
 import logger from '../../config/logger';
 
@@ -25,8 +25,12 @@ const CODE_MAP: Record<ErrorCode, string> = {
  */
 export function formatGraphQLError(
   formattedError: GraphQLFormattedError,
-  originalError: unknown,
+  error: unknown,
 ): GraphQLFormattedError {
+  // Apollo Server 4 passes the GraphQLError wrapper as the second argument.
+  // The originally thrown error (e.g. AppError) lives at graphqlError.originalError.
+  const originalError = error instanceof GraphQLError ? error.originalError : error;
+
   if (originalError instanceof AppError) {
     return {
       message: originalError.message,
@@ -36,13 +40,11 @@ export function formatGraphQLError(
     };
   }
 
-  // Log unexpected errors so they are visible in the server logs
-  if (!(originalError instanceof AppError)) {
-    logger.error('Unhandled GraphQL error', {
-      message: originalError instanceof Error ? originalError.message : String(originalError),
-      stack: originalError instanceof Error ? originalError.stack : undefined,
-    });
-  }
+  // Log truly unexpected errors
+  logger.error('Unhandled GraphQL error', {
+    message: originalError instanceof Error ? originalError.message : String(originalError),
+    stack:   originalError instanceof Error ? originalError.stack   : undefined,
+  });
 
   if (process.env.NODE_ENV === 'production') {
     return {

@@ -13,8 +13,8 @@ RUN npm ci
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Copy source & compile TypeScript
-COPY tsconfig.json ./
+# Copy source, config, and utility scripts [1]
+COPY tsconfig.json copy-graphql.js ./ 
 COPY src ./src/
 
 RUN npm run build

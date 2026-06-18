@@ -15,7 +15,7 @@ const BOOKING_INCLUDE = {
 } as const;
 
 export class BookingRepository {
-  // ── Queries ────────────────────────────────────────────────────────────────
+  // ... Queries remain unchanged ...
 
   findById(id: string): Promise<BookingWithRelations | null> {
     return prisma.booking.findUnique({ where: { id }, include: BOOKING_INCLUDE });
@@ -98,8 +98,9 @@ export class BookingRepository {
             ],
           },
           AND: [
-            { startDate: { lt: endDate } },
-            { endDate:   { gt: startDate } },
+            // Updated: Changed lt to lte, and gt to gte to enforce same-day checkout conflict blocks [1]
+            { startDate: { lte: endDate } },
+            { endDate:   { gte: startDate } },
           ],
         },
         select: { id: true },

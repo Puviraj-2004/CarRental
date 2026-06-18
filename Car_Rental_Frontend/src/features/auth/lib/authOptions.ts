@@ -1,16 +1,17 @@
 import { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { getApiUrl } from "@/lib/apolloClient"; // <-- Imported centralized helper [1.1.8]
+
+const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
+const ACCESS_TOKEN_REFRESH_BUFFER_MS = 10 * 1000;
 
 /**
  * Executes direct-to-backend token rotation using the encrypted JWT storage token.
  */
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   try {
-    const apiUrl =
-      process.env.INTERNAL_API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:4000/graphql";
+    const apiUrl = getApiUrl(); // <-- Updated: Clean, single-source extraction [1.1.8]
 
     const res = await fetch(apiUrl, {
       method: "POST",
@@ -21,12 +22,12 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
           mutation RefreshTokens($refreshToken: String!) {
             refreshTokens(refreshToken: $refreshToken) {
               accessToken
-              refreshToken # <-- Requests both rotated tokens [1.1.2]
+              refreshToken 
             }
           }
         `,
         variables: {
-          refreshToken: token.refreshToken, // Pass token from NextAuth state [1.1.2]
+          refreshToken: token.refreshToken, 
         },
       }),
     });
@@ -44,18 +45,17 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       throw new Error("Missing tokens in backend refresh payload");
     }
 
-    // Encrypt and return the brand-new rotated tokens back to NextAuth [1.1.2]
     return {
       ...token,
       accessToken:        newAccessToken,
       refreshToken:       newRefreshToken,
-      accessTokenExpires: Date.now() + 15 * 60 * 1000, // 15-minute validity window
+      accessTokenExpires: Date.now() + ACCESS_TOKEN_TTL_MS,
     };
   } catch (error) {
     console.error("Error refreshing access token:", error);
     return {
       ...token,
-      error: "RefreshAccessTokenError", // Triggers client-side login redirect
+      error: "RefreshAccessTokenError", 
     };
   }
 }
@@ -70,10 +70,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
-          const apiUrl =
-            process.env.INTERNAL_API_URL ||
-            process.env.NEXT_PUBLIC_API_URL ||
-            "http://localhost:4000/graphql";
+          const apiUrl = getApiUrl(); // <-- Updated: Clean, single-source extraction [1.1.8]
 
           const res = await fetch(apiUrl, {
             method: "POST",
@@ -84,7 +81,7 @@ export const authOptions: NextAuthOptions = {
                 mutation Login($input: LoginInput!) {
                   login(input: $input) {
                     accessToken
-                    refreshToken # <-- Now queried and returned securely [1.1.2]
+                    refreshToken 
                     user { id email role }
                   }
                 }
@@ -115,8 +112,9 @@ export const authOptions: NextAuthOptions = {
               email:       user.email,
               fullName:    user.email,
               role:        user.role,
+              phoneNumber: user.phoneNumber || "",
               accessToken,
-              refreshToken, // <-- Forwarded to jwt callback [1.1.2]
+              refreshToken, 
             };
           }
 
@@ -134,24 +132,26 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.accessToken        = user.accessToken;
         token.refreshToken       = user.refreshToken; 
-        token.accessTokenExpires = Date.now() + 15 * 60 * 1000;
+        token.accessTokenExpires = Date.now() + ACCESS_TOKEN_TTL_MS;
         token.role               = user.role;
         token.fullName           = user.fullName;
         token.id                 = user.id;
       }
 
-      // If access token is still valid, return it
-      if (token.accessTokenExpires && Date.now() < token.accessTokenExpires) {
+      // Refresh slightly before expiry to avoid clock skew/network latency logouts.
+      if (
+        token.accessTokenExpires &&
+        Date.now() < token.accessTokenExpires - ACCESS_TOKEN_REFRESH_BUFFER_MS
+      ) {
         return token;
       }
 
-      // Otherwise, rotate the tokens
       return await refreshAccessToken(token);
     },
     async session({ session, token }) {
       if (token) {
         session.accessToken   = token.accessToken;
-        session.refreshToken  = token.refreshToken; // <-- Expose on session so clients can access it for logouts [1]
+        session.refreshToken  = token.refreshToken; 
         session.user.role     = token.role;
         session.user.fullName = token.fullName;
         session.user.id       = token.id;

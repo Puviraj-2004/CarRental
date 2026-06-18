@@ -1,0 +1,64 @@
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+type Documents {
+  id:              ID!
+  bookingId:       ID
+  licenseFrontUrl: String
+  licenseBackUrl:  String
+  idCardFrontUrl:  String
+  idCardBackUrl:   String
+  addressProofUrl: String
+  licenseNumber:   String
+  licenseExpiry:   DateTime
+  age:             Int
+  idNumber:        String
+  idExpiry:        DateTime
+  address:         String
+  status:          VerificationStatus!
+  createdAt:       DateTime!
+  updatedAt:       DateTime!
+}
+
+type OCRPayload {
+  licenseNumber: String
+  licenseExpiry: String
+  idNumber:      String
+  idExpiry:      String
+  address:       String
+  birthDate:     String
+}
+
+input DocumentsInput {
+  licenseFrontUrl: String!
+  licenseBackUrl:  String!
+  idCardFrontUrl:  String!
+  idCardBackUrl:   String!
+  addressProofUrl: String!
+  
+  licenseNumber:   String
+  licenseExpiry:   String
+  idNumber:        String
+  idExpiry:        String
+  address:         String
+  birthDate:       String
+}
+
+extend type Query {
+  bookingDocuments(bookingId: ID!): Documents
+}
+
+extend type Mutation {
+  processDocumentOCR(
+    licenseFrontUrl: String!,
+    licenseBackUrl:  String!,
+    idCardFrontUrl:  String!,
+    idCardBackUrl:   String!,
+    addressProofUrl: String!
+  ): OCRPayload!
+
+  saveBookingDocuments(bookingId: ID!, input: DocumentsInput!, saveToProfile: Boolean!): Documents!
+}

@@ -60,7 +60,9 @@ model User {
   emailVerified Boolean     @default(false)
   phoneNumber   String?   
   role          Role        @default(USER)
-  documents     Documents?
+  documentId    String?     @unique
+  documents     Documents?  @relation("UserProfileDocuments", fields: [documentId], references: [id], onDelete: SetNull)
+  
   refreshTokens RefreshToken[]
   bookings      Booking[]
 
@@ -80,8 +82,7 @@ model RefreshToken {
 
 model Documents {
   id              String             @id @default(uuid())
-  userId          String?            @unique
-  user            User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User?              @relation("UserProfileDocuments")
   bookingId       String?            @unique
   booking         Booking?           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -102,7 +103,6 @@ model Documents {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  @@index([userId])
   @@index([bookingId])
   @@index([status])
 }

@@ -10,18 +10,20 @@ import { authResolvers } from '../modules/auth/auth.resolver';
 import { carResolvers }  from '../modules/cars/car.resolver';
 import { bookingResolvers } from '../modules/bookings/booking.resolver';
 import { paymentResolvers } from '../modules/payments/payment.resolver';
+import { documentResolvers } from '../modules/documents/document.resolver'; 
 
 function loadSDL(relativePath: string) {
   const content = readFileSync(join(__dirname, relativePath), 'utf8');
   return gql(content);
 }
 
-const baseTypeDefs   = loadSDL('../graphql/base.graphql');
-const authTypeDefs   = loadSDL('../modules/auth/auth.graphql');
-const userTypeDefs   = loadSDL('../modules/users/user.graphql');
-const carTypeDefs    = loadSDL('../modules/cars/car.graphql');
-const bookingTypeDefs = loadSDL('../modules/bookings/booking.graphql');
-const paymentTypeDefs = loadSDL('../modules/payments/payment.graphql');
+const baseTypeDefs    = loadSDL('../graphql/base.graphql');
+const authTypeDefs    = loadSDL('../modules/auth/auth.graphql');
+const userTypeDefs    = loadSDL('../modules/users/user.graphql');
+const carTypeDefs     = loadSDL('../modules/cars/car.graphql');
+const bookingTypeDefs  = loadSDL('../modules/bookings/booking.graphql');
+const paymentTypeDefs  = loadSDL('../modules/payments/payment.graphql');
+const documentTypeDefs = loadSDL('../modules/documents/document.graphql'); // <-- Loaded
 
 const resolverModules: Resolvers[] = [
   { DateTime: DateTimeResolver } as unknown as Resolvers,
@@ -30,7 +32,17 @@ const resolverModules: Resolvers[] = [
   carResolvers  as unknown as Resolvers,
   bookingResolvers  as unknown as Resolvers,
   paymentResolvers  as unknown as Resolvers,
+  documentResolvers as unknown as Resolvers, // <-- Registered
 ];
 
-export const typeDefs  = mergeTypeDefs([baseTypeDefs, authTypeDefs, userTypeDefs, carTypeDefs, bookingTypeDefs, paymentTypeDefs]);
+export const typeDefs  = mergeTypeDefs([
+  baseTypeDefs, 
+  authTypeDefs, 
+  userTypeDefs, 
+  carTypeDefs, 
+  bookingTypeDefs, 
+  paymentTypeDefs,
+  documentTypeDefs // <-- Merged [1]
+]);
+
 export const resolvers = mergeResolvers(resolverModules);

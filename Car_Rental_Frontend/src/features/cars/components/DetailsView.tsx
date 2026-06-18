@@ -18,6 +18,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 import Link from 'next/link';
+import { useToast } from '@/lib/ToastContext';
 import type { DetailedCar, CalendarDay } from '../hooks/useCarDetails';
 
 interface DetailsViewProps {
@@ -33,7 +34,7 @@ interface DetailsViewProps {
   endDate: string;
   bookingDuration: number;
   totalPrice: number | null;
-  onApplyDates: (start: string, end: string) => void; // New callback prop
+  onApplyDates: (start: string, end: string) => void;
 }
 
 export const DetailsView: React.FC<DetailsViewProps> = ({
@@ -51,9 +52,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   totalPrice,
   onApplyDates,
 }) => {
+  const { showToast } = useToast();
   const [activeImage, setActiveFileUrl] = useState<string | null>(null);
   
-  // Modal states for offline date configuration [1]
   const [openModal, setOpenModal] = useState(false);
   const [modalStart, setModalStart] = useState('');
   const [modalEnd, setModalEnd] = useState('');
@@ -69,7 +70,28 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const hasDates = !!(startDate && endDate);
   const primaryImage = activeImage || car.primaryImageUrl || 'https://via.placeholder.com/600x300?text=No+Image';
 
-  // Dynamic booking URL
+  // Timezone-safe local date YYYY-MM-DD generator [1]
+  const getLocalTodayStr = (): string => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getLocalTodayStr();
+
+  const getNextDayStr = (dateStr: string): string => {
+    if (!dateStr) return todayStr;
+    try {
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return todayStr;
+    }
+  };
+
   const checkoutUrl = hasDates
     ? `/booking?carId=${car.id}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
     : '#';
@@ -94,24 +116,74 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     onMonthChange(nextMonth, nextYear);
   };
 
-  // Intercept button click if dates are missing, opening the focused popup modal instead [1]
   const handleBookingClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
     if (!hasDates) {
-      e.preventDefault(); // Prevents empty redirect loop [1]
-      setOpenModal(true); // Triggers date picker popup [1]
+      e.preventDefault(); 
+      setModalStart(todayStr);
+      setModalEnd('');
+      setOpenModal(true); 
     }
   };
 
+  const handleModifyClick = () => {
+    setModalStart(startDate);
+    setModalEnd(endDate);
+    setOpenModal(true); 
+  };
+
   const handleApplyDatesFromModal = () => {
-    if (!modalStart || !modalEnd) {
-      return;
-    }
+    if (!modalStart || !modalEnd) return;
     if (new Date(modalStart) >= new Date(modalEnd)) {
-      alert('Pick-up date must be before Return date.');
+      showToast('Pick-up date must be before Return date.', 'error');
       return;
     }
+    
+    const hasConflict = calendar.some((day) => {
+      const d = day.date;
+      return d >= modalStart && d <= modalEnd && !day.available;
+    });
+
+    if (hasConflict) {
+      showToast('This period includes unavailable dates. Please select an available block.', 'error');
+      return;
+    }
+
     onApplyDates(modalStart, modalEnd);
     setOpenModal(false);
+  };
+
+  const handleCalendarDayClick = (dayDate: string, isAvailable: boolean) => {
+    if (dayDate < todayStr) return; 
+
+    if (!isAvailable) {
+      showToast('This date is already booked. Please choose an available date.', 'error');
+      return;
+    }
+
+    if (!startDate || (startDate && endDate)) {
+      onApplyDates(dayDate, ''); 
+      showToast('Pick-up date set. Now select your Return date on the calendar.', 'info');
+      return;
+    }
+
+    if (dayDate <= startDate) {
+      onApplyDates(dayDate, ''); 
+      showToast('Pick-up date updated.', 'info');
+      return;
+    }
+
+    const hasConflict = calendar.some((day) => {
+      const d = day.date;
+      return d >= startDate && d <= dayDate && !day.available;
+    });
+
+    if (hasConflict) {
+      showToast('This selection includes unavailable dates. Please choose an available block.', 'error');
+      return;
+    }
+
+    onApplyDates(startDate, dayDate);
+    showToast('Rental dates updated successfully.', 'success');
   };
 
   return (
@@ -230,38 +302,81 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             {loadingCalendar ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
             ) : (
-              <Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <Grid container spacing={1} columns={7} sx={{ mb: 2 }}>
-                  {calendar.map((day) => (
-                    <Grid item xs={1} key={day.date}>
-                      <Box
-                        sx={{
-                          borderRadius: '8px',
-                          py: 1,
-                          textAlign: 'center',
-                          bgcolor: day.available ? '#ecfdf5' : '#fef2f2',
-                          color: day.available ? '#059669' : '#dc2626',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          border: '1px solid',
-                          borderColor: day.available ? '#10b981' : '#f87171',
-                          transition: '0.2s',
-                          '&:hover': { transform: 'scale(1.05)' }
-                        }}
-                      >
-                        {new Date(day.date).getDate()}
-                      </Box>
-                    </Grid>
-                  ))}
+                  {calendar.map((day) => {
+                    const isPast = day.date < todayStr;
+                    const isStart = startDate && day.date === startDate;
+                    const isEnd = endDate && day.date === endDate;
+                    const isSelectedRange = hasDates && day.date >= startDate && day.date <= endDate;
+
+                    let bgcolor = day.available ? '#ecfdf5' : '#fef2f2';
+                    let color = day.available ? '#059669' : '#dc2626';
+                    let borderColor = day.available ? '#10b981' : '#f87171';
+                    let opacity = 1;
+
+                    if (isPast) {
+                      bgcolor = 'grey.100';
+                      color = 'text.disabled';
+                      borderColor = 'grey.200';
+                      opacity = 0.4;
+                    } else if (isSelectedRange || isStart || isEnd) { 
+                      bgcolor = 'primary.main';
+                      color = 'primary.contrastText';
+                      borderColor = 'primary.main';
+                      if (isStart || isEnd) {
+                        bgcolor = 'secondary.main'; 
+                        borderColor = 'secondary.main';
+                      }
+                    }
+
+                    return (
+                      <Grid item xs={1} key={day.date}>
+                        <Box
+                          sx={{
+                            borderRadius: '8px',
+                            py: 1,
+                            textAlign: 'center',
+                            bgcolor,
+                            color,
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            border: '1px solid',
+                            borderColor,
+                            opacity,
+                            userSelect: 'none' 
+                          }}
+                        >
+                          {new Date(day.date).getDate()}
+                        </Box>
+                      </Grid>
+                    );
+                  })}
                 </Grid>
 
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#059669' }}>
-                    <Box sx={{ width: 8, height: 8, bgcolor: '#10b981', borderRadius: '50%' }} /> Available
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', mt: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', fontSize: '11px', fontWeight: 700, mb: hasDates ? 2 : 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#059669' }}>
+                      <Box sx={{ width: 8, height: 8, bgcolor: '#10b981', borderRadius: '50%' }} /> Available
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#dc2626' }}>
+                      <Box sx={{ width: 8, height: 8, bgcolor: '#f87171', borderRadius: '50%' }} /> Reserved
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'primary.main' }}>
+                      <Box sx={{ width: 8, height: 8, bgcolor: 'primary.main', borderRadius: '50%' }} /> Selected
+                    </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#dc2626' }}>
-                    <Box sx={{ width: 8, height: 8, bgcolor: '#f87171', borderRadius: '50%' }} /> Reserved / Booked
-                  </Box>
+
+                  {hasDates && (
+                    <Button
+                      variant="outlined"
+                      onClick={handleModifyClick}
+                      fullWidth
+                      sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', py: 1 }}
+                    >
+                      Modify Trip Dates
+                    </Button>
+                  )}
                 </Box>
               </Box>
             )}
@@ -274,7 +389,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             fullWidth
             component={Link}
             href={checkoutUrl}
-            onClick={handleBookingClick} // <-- Intercepts and blocks if no dates exist [1]
+            onClick={handleBookingClick}
             sx={{ py: 1.6, fontWeight: 700, textTransform: 'none', borderRadius: '8px', fontSize: '15px' }}
           >
             {hasDates ? 'Book This Car Now' : 'Select Rental Dates to Book'}
@@ -282,7 +397,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         </Grid>
       </Grid>
 
-      {/* ─── NATIVE MODAL DATE SELECTOR DIALOG ────────────────────────── */}
+      {/* ─── FOCUSED DATE SELECTOR DIALOG (Popup Dialog with Dynamic min) ─── */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -301,6 +416,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               </FormLabel>
               <input
                 type="date"
+                min={todayStr}
                 value={modalStart}
                 onChange={(e) => setModalStart(e.target.value)}
                 style={{
@@ -316,13 +432,14 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               />
             </FormControl>
 
-            {/* Return Date */}
+            {/* Return Date (Locked min attribute dynamically) [1] */}
             <FormControl fullWidth>
               <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
                 Return Date
               </FormLabel>
               <input
                 type="date"
+                min={getNextDayStr(modalStart)} // <-- Restricts same-day and prior selections [1]
                 value={modalEnd}
                 onChange={(e) => setModalEnd(e.target.value)}
                 style={{

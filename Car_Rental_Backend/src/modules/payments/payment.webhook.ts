@@ -15,7 +15,7 @@ export async function handleStripeWebhook(req: Request, res: Response, prisma: P
   const stripe = getStripeClient();
   if (!stripe || !env.stripeWebhookSecret) {
     securityLogger.error('Stripe webhook called but Stripe not configured');
-    res.status(500).json({ error: 'Stripe not configured' });
+    res.status(503).json({ error: 'Stripe not configured' });
     return;
   }
 
@@ -50,20 +50,37 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   if (!bookingId) return;
 
   const paymentRef = session.payment_intent ?? session.id;
+  const rawMethod = session.payment_method_types?.[0] || 'card';
+
+  // Find or create the payment method
+  const paymentMethod = await prisma.paymentMethod.upsert({
+    where: { name: rawMethod },
+    update: {},
+    create: { name: rawMethod },
+  });
+
+  // Updated: Strictly uses Unchecked scalar properties (paymentMethodId) to prevent schema conflicts [1]
   await prisma.payment.upsert({
     where: { bookingId },
-    update: { status: 'PAID', stripeId: String(paymentRef) },
+    update: { 
+      status: 'PAID', 
+      stripeId: String(paymentRef),
+      paymentMethodId: paymentMethod.id // <-- Uses raw scalar foreign key [1]
+    },
     create: {
-      bookingId,
+      bookingId, 
       amount: (session.amount_total ?? 0) / 100,
       status: 'PAID',
       stripeId: String(paymentRef),
+      paymentMethodId: paymentMethod.id, // <-- Uses raw scalar foreign key [1]
     },
   });
+
   await prisma.booking.update({
     where: { id: bookingId },
     data: { status: 'CONFIRMED' },
   });
+
   securityLogger.info('Booking confirmed via webhook', { bookingId });
 }
 

@@ -1,105 +1,82 @@
-# ================================================================
-#  Car Rental — Docker Compose (Development)
-# ================================================================
-#  Usage:
-#    cp Car_Rental_Backend/.env.example  Car_Rental_Backend/.env
-#    cp Car_Rental_Frontend/.env.example Car_Rental_Frontend/.env.local
-#    docker compose up -d
-# ================================================================
-#
-#  Migration strategy:
-#    Migrations are run once by the backend container's entrypoint
-#    script (docker-entrypoint.sh) before the Node process starts.
-#    The separate `migrate` service has been removed — it caused
-#    duplicate migration execution and race conditions when both
-#    the migrate service and the backend entrypoint ran concurrently.
-# ================================================================
-
 services:
-  # ── PostgreSQL ─────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
+  # 1. PostgreSQL Database Service [1]
+  db:
+    image: postgres:15-alpine
+    container_name: car_rental_postgres
+    restart: always
     environment:
-      POSTGRES_USER: car_rental
-      POSTGRES_PASSWORD: car_rental_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
       POSTGRES_DB: car_rental_db
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U car_rental -d car_rental_db"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d car_rental_db"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # ── Redis ──────────────────────────────────────────────────
+  # 2. Local, Persistent Redis Service [1]
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
+    container_name: car_rental_redis
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
     ports:
       - "6379:6379"
     volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - redis_data:/data
 
-  # ── Backend (GraphQL API) ─────────────────────────────────
-  # Migrations run inside docker-entrypoint.sh before the app starts.
-  # postgres must be healthy before this container starts so the
-  # migration step has a live database to connect to.
+  # 3. Backend Application Service [1]
   backend:
     build:
-      context: ./Car_Rental_Backend
+      context: ./Car_Rental_Backend # Points to the backend folder [1]
       dockerfile: Dockerfile
-    restart: unless-stopped
+    container_name: car_rental_backend
+    restart: always
     ports:
       - "4000:4000"
     env_file:
-      - ./Car_Rental_Backend/.env
+      - ./Car_Rental_Backend/.env # Explicitly loads the backend .env variables [1]
     environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://car_rental:car_rental_pass@postgres:5432/car_rental_db?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
+      # Hardcoded structural configs (overrides localhost to use internal Docker network) [1, 2]
+      DATABASE_URL: "postgresql://postgres:admin123@db:5432/car_rental_db?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      NODE_ENV: "production"
+      PORT: 4000
+      # Allow the browser (which connects via localhost:3000) through CORS in production
+      FRONTEND_URL: "http://localhost:3000"
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health/live"]
-      interval: 30s
-      timeout: 5s
-      start_period: 60s
-      retries: 3
+        condition: service_started
 
-  # ── Frontend (Next.js) ────────────────────────────────────
+  # 4. Frontend Application Service [1]
   frontend:
     build:
       context: ./Car_Rental_Frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000/graphql
-        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
-    restart: unless-stopped
+        - NEXT_PUBLIC_API_URL=http://localhost:4000/graphql
+        - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SpDyaCC6atK1wIGGCDEQmXLETHokupyItPzY2KegmQ04q0CZRP6qOVN4IcBV6nS9BOPEufLkbilr7ipkqhjtjw7001SuUnzIT
+    container_name: car_rental_frontend
+    restart: always
     ports:
       - "3000:3000"
     env_file:
-      - ./Car_Rental_Frontend/.env.local
+      - ./Car_Rental_Frontend/.env # Explicitly loads the frontend .env variables [1]
     environment:
-      NODE_ENV: production
-      NEXTAUTH_URL: http://localhost:3000
-      INTERNAL_API_URL: http://backend:4000/graphql
+      NODE_ENV: "production"
+      PORT: 3000
+      INTERNAL_API_URL: "http://backend:4000/graphql"
+      # Must match the public URL so NextAuth sets cookies with the correct domain
+      NEXTAUTH_URL: "http://localhost:3000"
     depends_on:
       backend:
-        condition: service_healthy
-
+        condition: service_started
 volumes:
-  pgdata:
-  redisdata:
+  postgres_data:
+  redis_data:

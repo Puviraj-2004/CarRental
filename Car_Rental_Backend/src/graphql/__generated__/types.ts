@@ -184,15 +184,15 @@ export type Documents = {
 
 export type DocumentsInput = {
   address?: InputMaybe<Scalars['String']['input']>;
-  addressProofFile?: InputMaybe<Scalars['Upload']['input']>;
-  age?: InputMaybe<Scalars['Int']['input']>;
-  idCardBackFile?: InputMaybe<Scalars['Upload']['input']>;
-  idCardFrontFile?: InputMaybe<Scalars['Upload']['input']>;
-  idExpiry?: InputMaybe<Scalars['DateTime']['input']>;
+  addressProofUrl: Scalars['String']['input'];
+  birthDate?: InputMaybe<Scalars['String']['input']>;
+  idCardBackUrl: Scalars['String']['input'];
+  idCardFrontUrl: Scalars['String']['input'];
+  idExpiry?: InputMaybe<Scalars['String']['input']>;
   idNumber?: InputMaybe<Scalars['String']['input']>;
-  licenseBackFile?: InputMaybe<Scalars['Upload']['input']>;
-  licenseExpiry?: InputMaybe<Scalars['DateTime']['input']>;
-  licenseFrontFile?: InputMaybe<Scalars['Upload']['input']>;
+  licenseBackUrl: Scalars['String']['input'];
+  licenseExpiry?: InputMaybe<Scalars['String']['input']>;
+  licenseFrontUrl: Scalars['String']['input'];
   licenseNumber?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -233,7 +233,8 @@ export type Mutation = {
   deleteUser: Scalars['Boolean']['output'];
   login: LoginPayload;
   logout?: Maybe<Scalars['Boolean']['output']>;
-  processDocumentOCR: OcrResult;
+  mockFinalizePayment: Payment;
+  processDocumentOCR: OcrPayload;
   refreshTokens: RefreshTokensPayload;
   refundPayment: Payment;
   register: RegisterPayload;
@@ -316,10 +317,18 @@ export type MutationLogoutArgs = {
 };
 
 
+export type MutationMockFinalizePaymentArgs = {
+  bookingId: Scalars['String']['input'];
+  success: Scalars['Boolean']['input'];
+};
+
+
 export type MutationProcessDocumentOcrArgs = {
-  documentType: DocumentType;
-  file: Scalars['Upload']['input'];
-  side: DocumentSide;
+  addressProofUrl: Scalars['String']['input'];
+  idCardBackUrl: Scalars['String']['input'];
+  idCardFrontUrl: Scalars['String']['input'];
+  licenseBackUrl: Scalars['String']['input'];
+  licenseFrontUrl: Scalars['String']['input'];
 };
 
 
@@ -413,6 +422,16 @@ export type MutationVerifyOtpArgs = {
   otp: Scalars['String']['input'];
 };
 
+export type OcrPayload = {
+  __typename?: 'OCRPayload';
+  address?: Maybe<Scalars['String']['output']>;
+  birthDate?: Maybe<Scalars['String']['output']>;
+  idExpiry?: Maybe<Scalars['String']['output']>;
+  idNumber?: Maybe<Scalars['String']['output']>;
+  licenseExpiry?: Maybe<Scalars['String']['output']>;
+  licenseNumber?: Maybe<Scalars['String']['output']>;
+};
+
 export type OcrResult = {
   __typename?: 'OCRResult';
   address?: Maybe<Scalars['String']['output']>;
@@ -492,6 +511,7 @@ export type Query = {
   __typename?: 'Query';
   availableCars: PaginatedCars;
   booking?: Maybe<Booking>;
+  bookingDocuments?: Maybe<Documents>;
   bookings: PaginatedBookings;
   brands: Array<Brand>;
   car?: Maybe<Car>;
@@ -524,6 +544,11 @@ export type QueryAvailableCarsArgs = {
 
 export type QueryBookingArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryBookingDocumentsArgs = {
+  bookingId: Scalars['ID']['input'];
 };
 
 
@@ -776,6 +801,7 @@ export type ResolversTypes = ResolversObject<{
   LoginInput: LoginInput;
   LoginPayload: ResolverTypeWrapper<Omit<LoginPayload, 'user'> & { user: ResolversTypes['User'] }>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
+  OCRPayload: ResolverTypeWrapper<OcrPayload>;
   OCRResult: ResolverTypeWrapper<OcrResult>;
   PageInfo: ResolverTypeWrapper<PageInfo>;
   PaginatedBookings: ResolverTypeWrapper<Omit<PaginatedBookings, 'items'> & { items: Array<ResolversTypes['Booking']> }>;
@@ -829,6 +855,7 @@ export type ResolversParentTypes = ResolversObject<{
   LoginInput: LoginInput;
   LoginPayload: Omit<LoginPayload, 'user'> & { user: ResolversParentTypes['User'] };
   Mutation: Record<PropertyKey, never>;
+  OCRPayload: OcrPayload;
   OCRResult: OcrResult;
   PageInfo: PageInfo;
   PaginatedBookings: Omit<PaginatedBookings, 'items'> & { items: Array<ResolversParentTypes['Booking']> };
@@ -975,7 +1002,8 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   deleteUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserArgs, 'id'>>;
   login?: Resolver<ResolversTypes['LoginPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
   logout?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
-  processDocumentOCR?: Resolver<ResolversTypes['OCRResult'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'documentType' | 'file' | 'side'>>;
+  mockFinalizePayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationMockFinalizePaymentArgs, 'bookingId' | 'success'>>;
+  processDocumentOCR?: Resolver<ResolversTypes['OCRPayload'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'addressProofUrl' | 'idCardBackUrl' | 'idCardFrontUrl' | 'licenseBackUrl' | 'licenseFrontUrl'>>;
   refreshTokens?: Resolver<ResolversTypes['RefreshTokensPayload'], ParentType, ContextType, RequireFields<MutationRefreshTokensArgs, 'refreshToken'>>;
   refundPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationRefundPaymentArgs, 'paymentId'>>;
   register?: Resolver<ResolversTypes['RegisterPayload'], ParentType, ContextType, RequireFields<MutationRegisterArgs, 'input'>>;
@@ -992,6 +1020,15 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   updateUserRole?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<MutationUpdateUserRoleArgs, 'id' | 'role'>>;
   uploadCarImages?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUploadCarImagesArgs, 'carId' | 'images'>>;
   verifyOTP?: Resolver<ResolversTypes['VerifyOTPPayload'], ParentType, ContextType, RequireFields<MutationVerifyOtpArgs, 'email' | 'otp'>>;
+}>;
+
+export type OcrPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['OCRPayload'] = ResolversParentTypes['OCRPayload']> = ResolversObject<{
+  address?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  birthDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  idExpiry?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  idNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  licenseExpiry?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  licenseNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 }>;
 
 export type OcrResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['OCRResult'] = ResolversParentTypes['OCRResult']> = ResolversObject<{
@@ -1052,6 +1089,7 @@ export type PaymentMethodResolvers<ContextType = GraphQLContext, ParentType exte
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
   availableCars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryAvailableCarsArgs, 'endDate' | 'startDate'>>;
   booking?: Resolver<Maybe<ResolversTypes['Booking']>, ParentType, ContextType, RequireFields<QueryBookingArgs, 'id'>>;
+  bookingDocuments?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType, RequireFields<QueryBookingDocumentsArgs, 'bookingId'>>;
   bookings?: Resolver<ResolversTypes['PaginatedBookings'], ParentType, ContextType, Partial<QueryBookingsArgs>>;
   brands?: Resolver<Array<ResolversTypes['Brand']>, ParentType, ContextType>;
   car?: Resolver<Maybe<ResolversTypes['Car']>, ParentType, ContextType, RequireFields<QueryCarArgs, 'id'>>;
@@ -1130,6 +1168,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   JSON?: GraphQLScalarType;
   LoginPayload?: LoginPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  OCRPayload?: OcrPayloadResolvers<ContextType>;
   OCRResult?: OcrResultResolvers<ContextType>;
   PageInfo?: PageInfoResolvers<ContextType>;
   PaginatedBookings?: PaginatedBookingsResolvers<ContextType>;

@@ -32,8 +32,17 @@ export interface Booking {
   documents?: {
     id:             string;
     status:         'PENDING' | 'APPROVED' | 'REJECTED';
+    licenseFrontUrl?: string | null;
+    licenseBackUrl?:  string | null;
+    idCardFrontUrl?:  string | null;
+    idCardBackUrl?:   string | null;
+    addressProofUrl?: string | null;
     licenseNumber:  string | null;
     licenseExpiry?: string | null;
+  } | null;
+  payment?: {
+    id:     string;
+    status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
   } | null;
 }
 

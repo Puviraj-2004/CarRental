@@ -19,7 +19,7 @@ const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const GRACE_PERIOD_SECONDS = 60; // 60-second window to handle parallel requests [1]
 
 const refreshKey = (token: string) => `rt:${token}`;
-const rotatedKey = (token: string) => `rotated:rt:${token}`; // <-- Added: Cache key for grace period [1]
+const rotatedKey = (token: string) => `rotated:rt:${token}`; 
 
 /** Dev-only in-memory fallback */
 const devStore = new Map<string, { userId: string; role: Role; expiresAt: number }>();
@@ -37,22 +37,23 @@ export const verifyToken = (token: string): JWTPayload => {
   }
 };
 
-// ── Refresh token ─────────────────────────────────────────────────────────────
+// ── Refresh token (Write-Through Pattern) ──────────────────────────────────────
 
 export const generateRefreshToken = async (userId: string, role: Role): Promise<string> => {
   const token   = crypto.randomBytes(32).toString('hex');
   const payload = JSON.stringify({ userId, role });
   const redis   = getRedisClient();
 
+  // 1. Primary write to high-speed Redis cache (if online) [1]
   if (redis && redis.status === 'ready') {
     try {
       await redis.set(refreshKey(token), payload, 'EX', REFRESH_TOKEN_TTL_SECONDS);
-      return token;
     } catch (err) {
-      console.error('Upstash Redis set failed, falling back to PostgreSQL:', err);
+      console.error('Upstash Redis set failed during write-through:', err);
     }
   }
 
+  // 2. Durable Fallback write-through (Always active to prevent cache-miss outages) [1]
   if (env.nodeEnv === 'production') {
     await prisma.refreshToken.create({
       data: {
@@ -62,6 +63,7 @@ export const generateRefreshToken = async (userId: string, role: Role): Promise<
       },
     });
   } else {
+    // Local development runtime fallback
     devStore.set(token, { userId, role, expiresAt: Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000 });
   }
 
@@ -77,10 +79,9 @@ export const rotateRefreshToken = async (
   const redis = getRedisClient();
   let payload: { userId: string; role: Role } | null = null;
 
-  // Step 1: Query Upstash Redis with Grace-Period check [1]
+  // Step 1: Query Upstash Redis
   if (redis && redis.status === 'ready') {
     try {
-      // Try to fetch from the active store first
       const raw = await redis.get(refreshKey(oldToken));
       if (raw) {
         payload = JSON.parse(raw) as { userId: string; role: Role };
@@ -101,7 +102,7 @@ export const rotateRefreshToken = async (
     }
   }
 
-  // Step 2: Fallback query to PostgreSQL/Memory with Soft-Expiry Grace Period [1]
+  // Step 2: Fallback query to PostgreSQL/Memory (Always has the backup now!) [1]
   if (!payload) {
     if (env.nodeEnv === 'production') {
       const dbToken = await prisma.refreshToken.findUnique({
@@ -112,7 +113,7 @@ export const rotateRefreshToken = async (
       if (dbToken && dbToken.expiresAt > new Date()) {
         payload = { userId: dbToken.userId, role: dbToken.user.role };
         
-        // Instead of immediate deletion, set a short 60s expiration to handle parallel requests [1]
+        // Soft expiration to handle parallel requests [1]
         const graceExpiry = new Date(Date.now() + GRACE_PERIOD_SECONDS * 1000);
         await prisma.refreshToken.update({
           where: { token: oldToken },
@@ -152,7 +153,7 @@ export const revokeRefreshToken = async (token: string): Promise<void> => {
   if (redis && redis.status === 'ready') {
     try {
       await redis.del(refreshKey(token));
-      await redis.del(rotatedKey(token)); // Clear grace period key [1]
+      await redis.del(rotatedKey(token)); 
     } catch (err) {
       console.error('Upstash Redis delete failed during revoke:', err);
     }
@@ -160,7 +161,6 @@ export const revokeRefreshToken = async (token: string): Promise<void> => {
 
   if (env.nodeEnv === 'production') {
     try {
-      // In production, delete all traces from DB
       await prisma.refreshToken.deleteMany({ where: { token } });
     } catch (err) {
       console.error('PostgreSQL DB delete failed during revoke:', err);

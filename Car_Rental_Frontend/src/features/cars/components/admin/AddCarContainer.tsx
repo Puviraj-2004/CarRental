@@ -38,10 +38,11 @@ export const AddCarContainer: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
     setError(null);
     setSuccess(false);
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     const modelId = formData.get('modelId') as string;
     const plateNumber = formData.get('plateNumber') as string;
     const fuelTypeId = (formData.get('fuelTypeId') as string) || null;
@@ -78,7 +79,7 @@ export const AddCarContainer: React.FC = () => {
       showToast(t('adminCars.add.success'), 'success');
       setSuccess(true);
       setPrimaryFile(null);
-      e.currentTarget.reset();
+      form.reset();
       router.push('/admin/cars');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'));

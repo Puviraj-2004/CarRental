@@ -52,7 +52,7 @@ export class UserRepository {
     return buildPaginatedResult(items, totalCount, p.page, p.pageSize);
   }
 
-  // ── User mutations ────────────────────────────────────────────────────────
+  // ── User mutations Updated ────────────────────────────────────────────────
 
   updateUser(
     id:   string,
@@ -61,6 +61,7 @@ export class UserRepository {
       password?:      string;
       emailVerified?: boolean;
       role?:          Role;
+      documentId?:    string | null; // <-- Added: Allows updating and linking the persistent profile document [1]
     },
   ): Promise<UserWithRelations> {
     return prisma.user.update({
@@ -82,13 +83,18 @@ export class UserRepository {
     });
   }
 
-  // ── User-level documents ──────────────────────────────────────────────────
+  // ── User-level documents Updated (Resolved Deleted userId column) ──────────
 
-  findDocumentsByUserId(userId: string) {
-    return prisma.documents.findUnique({ where: { userId } });
+  async findDocumentsByUserId(userId: string) {
+    // Find documents by reading the relation through the User's documentId pointer [1]
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { documents: true }
+    });
+    return user?.documents || null;
   }
 
-  upsertUserDocuments(
+  async upsertUserDocuments(
     userId: string,
     data: {
       licenseFrontUrl?: string;
@@ -104,16 +110,46 @@ export class UserRepository {
       address?:         string;
     },
   ) {
-    return prisma.documents.upsert({
-      where:  { userId },
-      update: { ...data, status: VerificationStatus.PENDING },
-      create: { userId, ...data, status: VerificationStatus.PENDING },
+    // 1. Fetch current user document pointer [1]
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { documentId: true }
     });
+
+    if (user?.documentId) {
+      // 2. If profile document already exists, update it [1]
+      return prisma.documents.update({
+        where: { id: user.documentId },
+        data: { ...data, status: VerificationStatus.PENDING },
+      });
+    }
+
+    // 3. Otherwise, create a new profile document row [1]
+    const newDoc = await prisma.documents.create({
+      data: { ...data, status: VerificationStatus.PENDING }
+    });
+
+    // 4. Link the new profile document to the User table [1]
+    await prisma.user.update({
+      where: { id: userId },
+      data: { documentId: newDoc.id }
+    });
+
+    return newDoc;
   }
 
-  updateDocumentsStatus(userId: string, status: VerificationStatus) {
+  async updateDocumentsStatus(userId: string, status: VerificationStatus) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { documentId: true }
+    });
+
+    if (!user?.documentId) {
+      throw new Error('No documents found for this user.');
+    }
+
     return prisma.documents.update({
-      where: { userId },
+      where: { id: user.documentId },
       data:  { status },
     });
   }

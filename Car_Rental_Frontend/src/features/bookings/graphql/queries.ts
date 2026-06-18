@@ -51,6 +51,19 @@ export const GET_MY_BOOKINGS_QUERY = gql`
         status
         type
         createdAt
+        documents {
+          id
+          status
+          licenseFrontUrl
+          licenseBackUrl
+          idCardFrontUrl
+          idCardBackUrl
+          addressProofUrl
+        }
+        payment {
+          id
+          status
+        }
         car {
           id
           primaryImageUrl

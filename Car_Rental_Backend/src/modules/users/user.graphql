@@ -61,19 +61,7 @@ type OCRResult {
   isQuotaExceeded: Boolean
 }
 
-input DocumentsInput {
-  licenseFrontFile: Upload
-  licenseBackFile:  Upload
-  idCardFrontFile:  Upload
-  idCardBackFile:   Upload
-  addressProofFile: Upload
-  licenseNumber:    String
-  licenseExpiry:    DateTime
-  age:              Int
-  idNumber:         String
-  idExpiry:         DateTime
-  address:          String
-}
+
 
 type DocumentReuseStatus {
   hasApprovedDocuments: Boolean!
@@ -95,11 +83,7 @@ extend type Mutation {
   deleteUser(id: ID!):                                           Boolean!
   saveDocuments(input: DocumentsInput!):                         Documents!
   adminVerifyDocuments(userId: ID!, status: VerificationStatus!): Documents!
-  processDocumentOCR(
-    file:         Upload!
-    documentType: DocumentType!
-    side:         DocumentSide!
-  ): OCRResult!
+
 
   reuseDocumentsForBooking(bookingId: ID!):                    Documents!
   saveBookingDocuments(bookingId: ID!, input: DocumentsInput!, saveToProfile: Boolean): Documents!

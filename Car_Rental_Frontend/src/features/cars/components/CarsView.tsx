@@ -47,7 +47,28 @@ export const CarsView: React.FC<CarsViewProps> = ({
 }) => {
   const hasDates = !!(startDate && endDate);
 
-  // Calculates booking duration in days
+  // Timezone-safe local date YYYY-MM-DD generator [1]
+  const getLocalTodayStr = (): string => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getLocalTodayStr();
+
+  const getNextDayStr = (dateStr: string): string => {
+    if (!dateStr) return todayStr;
+    try {
+      const date = new Date(dateStr);
+      date.setDate(date.getDate() + 1);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return todayStr;
+    }
+  };
+
   const getBookingDurationDays = (): number => {
     if (!hasDates) return 0;
     const start = new Date(startDate);
@@ -59,19 +80,18 @@ export const CarsView: React.FC<CarsViewProps> = ({
   const bookingDuration = getBookingDurationDays();
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
+    <Container maxWidth="lg" sx={{ py: 8 }}>
       
-      {/* ─── Premium Header Section ───────────────────────────────────── */}
       <Box sx={{ mb: 6 }}>
         <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-1px' }}>
           {t('cars.catalog.title') || 'Discover Our Premium Fleet'}
         </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '16px', fontWeight: 500 }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 400 }}>
           {t('cars.catalog.subtitle') || 'Select your rental dates and explore luxury mobility.'}
         </Typography>
       </Box>
 
-      {/* ─── Re-designed Minimalist Search Console ────────────────────── */}
+      {/* ─── Minimalist Search Console ─────────────────────────────────── */}
       <Card 
         variant="outlined" 
         sx={{ 
@@ -86,14 +106,15 @@ export const CarsView: React.FC<CarsViewProps> = ({
       >
         <Grid container spacing={3}>
           
-          {/* Calendar Date Picker - Pick-up */}
+          {/* Pick-up Date (Enforced safe local min=today) */}
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
               <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
                 Pick-up Date
               </FormLabel>
               <input
-                type="date" // Simplified to Date-Only [1]
+                type="date"
+                min={todayStr}
                 value={startDate}
                 onChange={(e) => onFilterChange('startDate', e.target.value)}
                 style={{
@@ -111,14 +132,15 @@ export const CarsView: React.FC<CarsViewProps> = ({
             </FormControl>
           </Grid>
 
-          {/* Calendar Date Picker - Return */}
+          {/* Return Date (Enforced safe local min=startDate + 1 day) */}
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
               <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
                 Return Date
               </FormLabel>
               <input
-                type="date" // Simplified to Date-Only [1]
+                type="date"
+                min={getNextDayStr(startDate)} 
                 value={endDate}
                 onChange={(e) => onFilterChange('endDate', e.target.value)}
                 style={{
@@ -136,7 +158,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
             </FormControl>
           </Grid>
 
-          {/* Text Search Field */}
+          {/* Text Search */}
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
               <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -161,7 +183,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
             </FormControl>
           </Grid>
 
-          {/* Pricing Ranges (Grouped to fit perfectly) */}
+          {/* Pricing Budget */}
           <Grid item xs={12} sm={6} md={3}>
             <FormLabel sx={{ fontWeight: 700, mb: 1, display: 'block', color: 'text.primary', fontSize: '13px' }}>
               Daily Price Budget
@@ -202,7 +224,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
             </Box>
           </Grid>
 
-          {/* Action Row */}
+          {/* Reset Filters */}
           <Grid item xs={12} sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="outlined"
@@ -216,7 +238,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
         </Grid>
       </Card>
 
-      {/* ─── Informative Availability Guard Banner ───────────────────── */}
+      {/* ─── Informative Warning Banner ───────────────────────────────── */}
       {!hasDates && (
         <Alert severity="info" sx={{ mb: 5, borderRadius: '12px', fontWeight: 600 }}>
           Please select your pickup and return dates in the filters above to verify real-time availability and prices [1].
@@ -279,12 +301,10 @@ export const CarsView: React.FC<CarsViewProps> = ({
 
                     <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                       
-                      {/* Model Title */}
                       <Typography variant="h5" component="h3" sx={{ fontWeight: 800, mb: 1.5, letterSpacing: '-0.5px' }}>
                         {car.model.brand.name} {car.model.name}
                       </Typography>
                       
-                      {/* Specifications Tags */}
                       <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
                         <Box sx={{ bgcolor: 'divider', px: 1.5, py: 0.5, borderRadius: '6px', fontSize: '11px', fontWeight: 700, color: 'text.secondary' }}>
                           {car.fuelType?.name || 'Petrol'}
@@ -296,7 +316,6 @@ export const CarsView: React.FC<CarsViewProps> = ({
 
                       <Divider sx={{ mb: 2 }} />
 
-                      {/* Dynamic Pricing Layout [1] */}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mt: 'auto', mb: 3 }}>
                         <Box>
                           <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -310,7 +329,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
                         {totalPrice && (
                           <Box sx={{ textAlign: 'right' }}>
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                              Total Est. ({bookingDuration} days)
+                              Total Est. Cost ({bookingDuration} days)
                             </Typography>
                             <Typography variant="h6" color="secondary.main" sx={{ fontWeight: 800 }}>
                               {totalPrice.toFixed(2)} €
@@ -319,7 +338,6 @@ export const CarsView: React.FC<CarsViewProps> = ({
                         )}
                       </Box>
 
-                      {/* CTA Booking Action */}
                       <Button
                         variant="contained"
                         fullWidth

@@ -11,6 +11,7 @@ import { CarsView } from './CarsView';
 import { GET_CARS_QUERY, GET_AVAILABLE_CARS_QUERY } from '../graphql/queries';
 import type { CarFilterInput } from '../hooks/useCar';
 
+// Reinstated the original prop definitions [1]
 export interface CarsContainerProps {
   defaultBookingType?: string;
   defaultIsWalkIn?: boolean;
@@ -18,7 +19,21 @@ export interface CarsContainerProps {
   showTopBar?: boolean;
 }
 
-export const CarsContainer: React.FC<CarsContainerProps> = () => {
+// Timezone-safe local date YYYY-MM-DD generator [1]
+const getLocalTodayStr = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const CarsContainer: React.FC<CarsContainerProps> = ({
+  defaultBookingType,
+  defaultIsWalkIn,
+  layoutForAdmin,
+  showTopBar,
+}) => {
   const { t } = useLanguage();
   const { showToast } = useToast();
   
@@ -28,7 +43,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  // 1. Read dates from URL
+  // Read date-only parameters from the URL (Format: YYYY-MM-DD)
   const urlStartDate = searchParams.get('startDate') || '';
   const urlEndDate = searchParams.get('endDate') || '';
 
@@ -72,7 +87,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = () => {
   const isoStartDate = urlStartDate ? `${urlStartDate}T12:00:00.000Z` : '';
   const isoEndDate = urlEndDate ? `${urlEndDate}T12:00:00.000Z` : '';
 
-  // 2. Query A: Executes ONLY when NO dates are selected [1]
+  // Query A: Executes ONLY when NO dates are selected [1]
   const { 
     data: carsData, 
     loading: loadingCars, 
@@ -87,11 +102,11 @@ export const CarsContainer: React.FC<CarsContainerProps> = () => {
         search: filters.search,
       },
     },
-    skip: hasDates, // Skip this query if dates are selected [1]
+    skip: hasDates,
     fetchPolicy: 'cache-first',
   });
 
-  // 3. Query B: Executes ONLY when dates ARE selected [1]
+  // Query B: Executes ONLY when dates ARE selected [1]
   const { 
     data: availData, 
     loading: loadingAvail, 
@@ -102,7 +117,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = () => {
       endDate: isoEndDate,
       pagination: { page: currentPage, pageSize: 6 },
     },
-    skip: !hasDates, // Skip this query if dates are not selected [1]
+    skip: !hasDates,
     fetchPolicy: 'network-only',
   });
 
@@ -111,7 +126,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = () => {
   const loading = hasDates ? loadingAvail : loadingCars;
   const error = hasDates ? errorAvail : errorCars;
 
-  // 4. Client-side filtering fallback for availability
+  // Client-side filtering fallback for availability results
   const displayedCars = hasDates
     ? rawCars.filter((car: any) => {
         if (filters.search && !`${car.model.brand.name} ${car.model.name}`.toLowerCase().includes(filters.search.toLowerCase())) {
@@ -131,6 +146,11 @@ export const CarsContainer: React.FC<CarsContainerProps> = () => {
     setCurrentPage(1);
 
     if (name === 'startDate' || name === 'endDate') {
+      const todayStr = getLocalTodayStr(); // Timezone-safe date check [1]
+      if (val && val < todayStr) {
+        showToast('You cannot select a date in the past.', 'error');
+        return;
+      }
       if (name === 'startDate' && urlEndDate && new Date(val) >= new Date(urlEndDate)) {
         showToast('Pick-up date must be before Return date.', 'error');
         return;

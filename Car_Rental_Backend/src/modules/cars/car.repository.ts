@@ -20,8 +20,8 @@ const BLOCKING_STATUSES = [
 ] as const;
 
 export class CarRepository {
-  
-  // ... Queries remain identical ...
+  // ── Queries ────────────────────────────────────────────────────────────────
+
   findById(id: string): Promise<CarWithRelations | null> {
     return prisma.car.findUnique({ where: { id }, include: CAR_INCLUDE });
   }
@@ -86,8 +86,9 @@ export class CarRepository {
       where: {
         status: { in: [...BLOCKING_STATUSES] },
         AND: [
-          { startDate: { lt: endDate } },
-          { endDate:   { gt: startDate } },
+          // Enforces same-day turnover buffer [1]
+          { startDate: { lte: endDate } }, 
+          { endDate:   { gte: startDate } },
         ],
       },
       select: { carId: true },
@@ -127,7 +128,7 @@ export class CarRepository {
     basePrice:            number;
     status?:              CarStatus;
     primaryImageUrl?:     string;
-    primaryImagePublicId?: string | null; // <-- Updated: Store tracking identifier
+    primaryImagePublicId?: string | null; // <-- Added: Expects tracking ID [1]
   }): Promise<CarWithRelations> {
     return prisma.car.create({ data, include: CAR_INCLUDE });
   }
@@ -149,7 +150,7 @@ export class CarRepository {
         images: { 
           create: images.map(img => ({ 
             url: img.url, 
-            publicId: img.publicId        // <-- Updated: Save both URL and tracking ID
+            publicId: img.publicId 
           })) 
         } 
       },
@@ -165,7 +166,8 @@ export class CarRepository {
     return prisma.carImage.delete({ where: { id: imageId } });
   }
 
-  // ... Calendar remains identical ...
+  // ── Calendar ───────────────────────────────────────────────────────────────
+
   getMonthBookings(carId: string, year: number, month: number) {
     const start = new Date(year, month - 1, 1);
     const end   = new Date(year, month, 1);
@@ -174,8 +176,9 @@ export class CarRepository {
         carId,
         status: { in: [...BLOCKING_STATUSES] },
         AND: [
-          { startDate: { lt: end } },
-          { endDate:   { gt: start } },
+          // Enforces same-day turnover buffer on the calendar
+          { startDate: { lte: end } },
+          { endDate:   { gte: start } },
         ],
       },
       select: { id: true, startDate: true, endDate: true },

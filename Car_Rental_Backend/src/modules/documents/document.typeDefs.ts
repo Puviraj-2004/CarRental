@@ -1,10 +1,7 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { gql } from 'graphql-tag';
 
-export const documentTypeDefs = gql`
-  extend type Query {
-    _documentPlaceholder: Boolean
-  }
-  extend type Mutation {
-    _documentMutationPlaceholder: Boolean
-  }
-`;
+export const documentTypeDefs = gql(
+  readFileSync(join(__dirname, 'document.graphql'), 'utf8'),
+);

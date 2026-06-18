@@ -2,11 +2,23 @@ import { ApolloClient, InMemoryCache, from, ServerError, ServerParseError } from
 import { onError } from '@apollo/client/link/error';
 import { setContext } from '@apollo/client/link/context';
 import { RetryLink } from '@apollo/client/link/retry';
-import { createUploadLink } from 'apollo-upload-client'; // Cleaned import
+import { createUploadLink } from 'apollo-upload-client'; 
 import { getCookie } from 'cookies-next';
 import { getSession, signOut } from 'next-auth/react';
 
 let csrfTokenCache: { token: string; expiresAt: number } | null = null;
+
+/**
+ * Centrally resolves the correct API URL dynamically based on the execution context [1.1.8].
+ * Server-side calls use INTERNAL_API_URL (for internal Docker routing) [1.1.8].
+ * Client-side calls use NEXT_PUBLIC_API_URL, falling back to 127.0.0.1 for local safety [1.1.8, 1].
+ */
+export const getApiUrl = (): string => {
+  if (typeof window === 'undefined' && process.env.INTERNAL_API_URL) {
+    return process.env.INTERNAL_API_URL;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:4000/graphql';
+};
 
 const getBaseUrlFromGraphqlUrl = (graphqlUrl: string): string => {
   return graphqlUrl.replace(/\/?graphql\/?$/i, '').replace(/\/+$/, '');
@@ -14,7 +26,6 @@ const getBaseUrlFromGraphqlUrl = (graphqlUrl: string): string => {
 
 const fetchCsrfToken = async (): Promise<string | null> => {
     return null;
-  
 };
 
 const NON_RETRYABLE_CODES = new Set([
@@ -94,7 +105,12 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
 
   if (isUnauthenticatedGraphQL || isUnauthorizedHttp) {
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      signOut({ callbackUrl: '/login' });
+      void getSession().then((session) => {
+        // Only sign out when refresh has definitively failed.
+        if (!session || session.error === 'RefreshAccessTokenError') {
+          signOut({ callbackUrl: '/login' });
+        }
+      });
     }
   }
 });
@@ -132,9 +148,6 @@ const authLink = setContext(async (_, { headers }) => {
   };
 });
 
-// ─── Self-Sufficient File Extractor ──────────────────────────────────────────
-// Custom structural checking guarantees that uploads are correctly identified
-// without throwing runtime exceptions, even under strict compilation targets.
 const customIsExtractableFile = (value: unknown): value is File | Blob => {
   return (
     (typeof File !== 'undefined' && value instanceof File) ||
@@ -148,7 +161,7 @@ const customIsExtractableFile = (value: unknown): value is File | Blob => {
 };
 
 const uploadLink = createUploadLink({
-  uri: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql',
+  uri: getApiUrl(), // <-- Updated: Consumes the centralized helper [1.1.8]
   headers: {
     'Apollo-Require-Preflight': 'true',
   },
