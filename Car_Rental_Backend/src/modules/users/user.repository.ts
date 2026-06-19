@@ -52,7 +52,7 @@ export class UserRepository {
     return buildPaginatedResult(items, totalCount, p.page, p.pageSize);
   }
 
-  // ── User mutations Updated ────────────────────────────────────────────────
+  // ── User mutations ────────────────────────────────────────────────────────
 
   updateUser(
     id:   string,
@@ -61,7 +61,7 @@ export class UserRepository {
       password?:      string;
       emailVerified?: boolean;
       role?:          Role;
-      documentId?:    string | null; // <-- Added: Allows updating and linking the persistent profile document [1]
+      documentId?:    string | null; 
     },
   ): Promise<UserWithRelations> {
     return prisma.user.update({
@@ -83,10 +83,9 @@ export class UserRepository {
     });
   }
 
-  // ── User-level documents Updated (Resolved Deleted userId column) ──────────
+  // ── User-level documents (Excludes deleted userId column) ──────────────────
 
   async findDocumentsByUserId(userId: string) {
-    // Find documents by reading the relation through the User's documentId pointer [1]
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { documents: true }
@@ -110,26 +109,22 @@ export class UserRepository {
       address?:         string;
     },
   ) {
-    // 1. Fetch current user document pointer [1]
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { documentId: true }
     });
 
     if (user?.documentId) {
-      // 2. If profile document already exists, update it [1]
       return prisma.documents.update({
         where: { id: user.documentId },
         data: { ...data, status: VerificationStatus.PENDING },
       });
     }
 
-    // 3. Otherwise, create a new profile document row [1]
     const newDoc = await prisma.documents.create({
       data: { ...data, status: VerificationStatus.PENDING }
     });
 
-    // 4. Link the new profile document to the User table [1]
     await prisma.user.update({
       where: { id: userId },
       data: { documentId: newDoc.id }
@@ -154,13 +149,18 @@ export class UserRepository {
     });
   }
 
-  // ── Booking-level documents ───────────────────────────────────────────────
+  // ── Booking-level documents Updated (Excludes deleted bookingId column) ───
 
-  findDocumentsByBookingId(bookingId: string) {
-    return prisma.documents.findUnique({ where: { bookingId } });
+  async findDocumentsByBookingId(bookingId: string) {
+    // Navigates through the parent Booking table to retrieve the documents snapshot [1]
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { documents: true },
+    });
+    return booking?.documents || null;
   }
 
-  upsertBookingDocuments(
+  async upsertBookingDocuments(
     bookingId: string,
     data: {
       licenseFrontUrl?: string;
@@ -177,15 +177,33 @@ export class UserRepository {
       status?:          VerificationStatus;
     },
   ) {
-    return prisma.documents.upsert({
-      where:  { bookingId },
-      update: { ...data },
-      create: {
-        bookingId,
-        ...data,
-        status: data.status ?? VerificationStatus.PENDING,
-      },
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { documentId: true },
     });
+
+    const status = data.status ?? VerificationStatus.PENDING;
+
+    if (booking?.documentId) {
+      // 1. If the booking already has a linked document record, update it [1]
+      return prisma.documents.update({
+        where: { id: booking.documentId },
+        data: { ...data, status },
+      });
+    }
+
+    // 2. Otherwise, create a new document record [1]
+    const newDoc = await prisma.documents.create({
+      data: { ...data, status },
+    });
+
+    // 3. Link this new document record to the Booking table [1]
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { documentId: newDoc.id },
+    });
+
+    return newDoc;
   }
 }
 

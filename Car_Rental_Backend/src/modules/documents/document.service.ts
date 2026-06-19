@@ -1,10 +1,11 @@
 import { documentRepository } from './document.repository';
-import { userRepository } from '../users/user.repository'; 
+import { userRepository } from '../users/user.repository';
+import { AppError, ErrorCode } from '../../core/errors/AppError';
 
 interface SaveBookingDocumentsInput {
   userId: string;
   bookingId: string;
-  saveToProfile: boolean; // Managed explicitly [1]
+  saveToProfile: boolean;
   input: {
     licenseFrontUrl: string;
     licenseBackUrl:  string;
@@ -50,9 +51,8 @@ export class DocumentService {
     const address = input.address || null;
     const age = calculateAge(input.birthDate);
 
-    // 1. Structural update for Booking-level documents (strictly connected to Booking) [1]
-    const createData = {
-      booking:         { connect: { id: bookingId } },
+    // 1. Create a fresh Documents snapshot record [1]
+    const doc = await documentRepository.create({
       licenseFrontUrl: input.licenseFrontUrl,
       licenseBackUrl:  input.licenseBackUrl,
       idCardFrontUrl:  input.idCardFrontUrl,
@@ -64,44 +64,39 @@ export class DocumentService {
       idNumber,
       idExpiry,
       address,
-      status:          'PENDING' as const,
-    };
+      status:          'PENDING',
+    });
 
-    const updateData = {
-      licenseFrontUrl: input.licenseFrontUrl,
-      licenseBackUrl:  input.licenseBackUrl,
-      idCardFrontUrl:  input.idCardFrontUrl,
-      idCardBackUrl:   input.idCardBackUrl,
-      addressProofUrl: input.addressProofUrl,
-      licenseNumber,
-      licenseExpiry,
-      age,
-      idNumber,
-      idExpiry,
-      address,
-      status:          'PENDING' as const,
-    };
+    // 2. Link this document to the Booking [1]
+    await documentRepository.linkDocumentToBooking(bookingId, doc.id);
 
-    const bookingDoc = await documentRepository.upsert(bookingId, createData, updateData);
-
-    // 2. Dynamic "Save to Profile" action (Safely routed through the userRepository) [1]
+    // 3. If "Save to Profile" is checked, link this document to the User [1]
     if (saveToProfile) {
-      await userRepository.upsertUserDocuments(userId, {
-        licenseFrontUrl: input.licenseFrontUrl,
-        licenseBackUrl:  input.licenseBackUrl,
-        idCardFrontUrl:  input.idCardFrontUrl,
-        idCardBackUrl:   input.idCardBackUrl,
-        addressProofUrl: input.addressProofUrl,
-        licenseNumber:   licenseNumber || undefined,
-        licenseExpiry:   licenseExpiry || undefined,
-        age:             age || undefined,
-        idNumber:        idNumber || undefined,
-        idExpiry:        idExpiry || undefined,
-        address:         address || undefined,
-      });
+      await userRepository.updateUser(userId, { documentId: doc.id });
     }
 
-    return bookingDoc;
+    return doc;
+  }
+
+  // Links an existing approved profile document to a new booking with zero duplication [1]
+  async reuseDocumentsForBooking(userId: string, bookingId: string) {
+    const userDocs = await userRepository.findDocumentsByUserId(userId);
+    if (!userDocs || userDocs.status !== 'APPROVED') {
+      throw new AppError('No verified profile documents found to reuse.', ErrorCode.BAD_USER_INPUT);
+    }
+
+    // Link the existing document directly to the Booking table [1]
+    await documentRepository.linkDocumentToBooking(bookingId, userDocs.id);
+    return userDocs;
+  }
+
+  async hasApprovedDocuments(userId: string) {
+    const docs = await userRepository.findDocumentsByUserId(userId);
+    const hasApprovedDocuments = !!docs && docs.status === 'APPROVED';
+    return {
+      hasApprovedDocuments,
+      documents: hasApprovedDocuments ? docs : null,
+    };
   }
 }
 

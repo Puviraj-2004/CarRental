@@ -26,6 +26,13 @@ export const documentResolvers: any = {
       }
       return documentService.getByBookingId(bookingId);
     },
+
+    hasApprovedDocuments: async (_: unknown, __: any, ctx: GraphQLContext) => {
+      if (!ctx.userId) {
+        throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
+      }
+      return documentService.hasApprovedDocuments(ctx.userId);
+    },
   },
 
   Mutation: {
@@ -59,7 +66,7 @@ export const documentResolvers: any = {
     saveBookingDocuments: async (_: unknown, { bookingId, input, saveToProfile }: { 
       bookingId: string; 
       input: any; 
-      saveToProfile: boolean // <-- Forwarded parameter [1]
+      saveToProfile: boolean 
     }, ctx: GraphQLContext) => {
       if (!ctx.userId) {
         throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
@@ -74,8 +81,15 @@ export const documentResolvers: any = {
         userId: ctx.userId,
         bookingId,
         input,
-        saveToProfile, // <-- Passed [1]
+        saveToProfile, 
       });
+    },
+
+    reuseDocumentsForBooking: async (_: unknown, { bookingId }: { bookingId: string }, ctx: GraphQLContext) => {
+      if (!ctx.userId) {
+        throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
+      }
+      return documentService.reuseDocumentsForBooking(ctx.userId, bookingId);
     },
   },
 };

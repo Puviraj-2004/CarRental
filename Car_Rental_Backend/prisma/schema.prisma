@@ -60,6 +60,8 @@ model User {
   emailVerified Boolean     @default(false)
   phoneNumber   String?   
   role          Role        @default(USER)
+  
+  // User holds the foreign key pointing to their profile Documents [1]
   documentId    String?     @unique
   documents     Documents?  @relation("UserProfileDocuments", fields: [documentId], references: [id], onDelete: SetNull)
   
@@ -82,9 +84,10 @@ model RefreshToken {
 
 model Documents {
   id              String             @id @default(uuid())
+  
+  // Re-mapped: Documents only holds back-relations (no foreign keys here) [1]
   user            User?              @relation("UserProfileDocuments")
-  bookingId       String?            @unique
-  booking         Booking?           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookings        Booking[]          @relation("BookingDocuments") // Multiple bookings can reference this [1]
 
   licenseFrontUrl String?
   licenseBackUrl  String?
@@ -103,7 +106,6 @@ model Documents {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  @@index([bookingId])
   @@index([status])
 }
 
@@ -158,26 +160,30 @@ model CarImage {
 }
 
 model Booking {
-  id           String        @id @default(uuid())
-  userId       String?
-  carId        String
-  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  car          Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
-  startDate    DateTime
-  endDate      DateTime
-  numberOfDays Int
-  basePrice    Decimal       @default(0) @db.Decimal(10, 2)
-  totalPrice   Decimal       @default(0) @db.Decimal(10, 2)
-  guestName    String?
-  guestPhone   String?
-  notes        String?
-  status       BookingStatus @default(RESERVED)
-  type         BookingType   @default(RENTAL)
-  documents    Documents?
+  id             String        @id @default(uuid())
+  userId         String?
+  carId          String
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  car            Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+  startDate      DateTime
+  endDate        DateTime
+  numberOfDays   Int
+  basePrice      Decimal       @default(0) @db.Decimal(10, 2)
+  totalPrice     Decimal       @default(0) @db.Decimal(10, 2)
+  guestName      String?
+  guestPhone     String?
+  notes          String?
+  status         BookingStatus @default(RESERVED)
+  type           BookingType   @default(RENTAL)
+  
+  // Re-mapped: Booking now holds the foreign key pointing to the Documents snapshot [1]
+  documentId     String?       
+  documents      Documents?    @relation("BookingDocuments", fields: [documentId], references: [id], onDelete: SetNull)
+  
   reminderSentAt DateTime?                          
-  payment      Payment?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  payment        Payment?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([userId])
   @@index([carId])

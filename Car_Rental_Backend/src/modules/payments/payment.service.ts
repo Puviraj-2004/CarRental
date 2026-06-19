@@ -12,7 +12,7 @@ import { paymentRepository }      from './payment.repository';
 import type { PaymentWithMethod } from '../../prisma/types';
 
 export class PaymentService {
-  // ── Queries remain unchanged ...
+  // ... Queries remain unchanged ...
 
   async getPaymentById(
     id:      string,
@@ -85,11 +85,13 @@ export class PaymentService {
     userId:    string,
     isAdmin:   boolean,
   ): Promise<{ url: string; sessionId: string }> {
+    // ── 1. Load booking (Including related Documents snapshot concurrently) [1] ──
     const booking = await prisma.booking.findUnique({
       where:   { id: bookingId },
       include: {
-        car:  { include: { model: { include: { brand: true } } } },
-        user: true,
+        car:       { include: { model: { include: { brand: true } } } },
+        user:      true,
+        documents: true, // <-- Added: Resolves documents relation directly [1]
       },
     });
 
@@ -117,13 +119,9 @@ export class PaymentService {
       );
     }
 
-    // Enforces document upload guard before allowing checkout redirects [1]
+    // ── 3. Strict Document Gate (No more direct bookingId DB checks!) [1] ──
     if (!isAdmin) {
-      const bookingDocs = await prisma.documents.findUnique({
-        where: { bookingId },
-      });
-
-      if (!bookingDocs) {
+      if (!booking.documents) { // <-- Access pre-loaded relation instantly [1]
         throw new AppError(
           'Please attach identity documents to this booking before proceeding to payment.',
           ErrorCode.BAD_USER_INPUT,
@@ -145,7 +143,6 @@ export class PaymentService {
       });
       
       return {
-        // Corrected Redirect: Now points strictly to your /payment directory subpath [1]
         url:       `${env.frontendUrl}/payment/mock?bookingId=${bookingId}`,
         sessionId: `mock_session_${bookingId}`,
       };
@@ -178,9 +175,8 @@ export class PaymentService {
         },
       ],
       metadata:    { bookingId },
-      // Corrected Redirects: Points strictly to your /payment directory subpaths [1]
-      success_url: `${env.frontendUrl}/booking/${bookingId}/success`,
-      cancel_url:  `${env.frontendUrl}/booking/${bookingId}/cancel`,
+      success_url: `${env.frontendUrl}/payment/success?bookingId=${bookingId}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${env.frontendUrl}/payment/cancel?bookingId=${bookingId}`,
     });
 
     if (!session.url) {
@@ -204,7 +200,7 @@ export class PaymentService {
     return { url: session.url, sessionId: session.id };
   }
 
-  // ── New Mutation: Performs mock checkouts in local development [1]
+  // ── New Mutation: Performs mock checkouts in local development ─────────────
   async mockFinalizePayment(bookingId: string, success: boolean) {
     if (!env.mockStripe) {
       throw new AppError('Mock payment is only allowed in development.', ErrorCode.BAD_USER_INPUT);
@@ -234,7 +230,7 @@ export class PaymentService {
     return payment;
   }
 
-  // ... rest of the file (cancelAndRefund, refundForRejection, refundPayment) remain unchanged ...
+  // ── cancelAndRefund, refundForRejection, and refundPayment remain unchanged ──
   async cancelAndRefund(
     bookingId: string,
     userId:    string,
