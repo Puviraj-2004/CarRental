@@ -15,8 +15,6 @@ const BOOKING_INCLUDE = {
 } as const;
 
 export class BookingRepository {
-  // ... Queries remain unchanged ...
-
   findById(id: string): Promise<BookingWithRelations | null> {
     return prisma.booking.findUnique({ where: { id }, include: BOOKING_INCLUDE });
   }
@@ -41,28 +39,12 @@ export class BookingRepository {
     return buildPaginatedResult(items, totalCount, p.page, p.pageSize);
   }
 
+  // Updated: Accepts any valid Prisma input filter directly to prevent variable stripping [1.1.5]
   async findPaginated(
     p: NormalizedPagination,
-    filter?: {
-      status?:    BookingStatus;
-      type?:      BookingType;
-      userId?:    string;
-      carId?:     string;
-      startDate?: Date;
-      endDate?:   Date;
-    },
+    filter?: Prisma.BookingWhereInput, 
   ): Promise<PaginatedResult<BookingWithRelations>> {
-    const where: Prisma.BookingWhereInput = {};
-
-    if (filter?.status)  where.status  = filter.status;
-    if (filter?.type)    where.type    = filter.type;
-    if (filter?.userId)  where.userId  = filter.userId;
-    if (filter?.carId)   where.carId   = filter.carId;
-    if (filter?.startDate || filter?.endDate) {
-      where.startDate = {};
-      if (filter.startDate) (where.startDate as Prisma.DateTimeFilter).gte = filter.startDate;
-      if (filter.endDate)   (where.startDate as Prisma.DateTimeFilter).lte = filter.endDate;
-    }
+    const where: Prisma.BookingWhereInput = filter || {};
 
     const [items, totalCount] = await prisma.$transaction([
       prisma.booking.findMany({
@@ -78,7 +60,6 @@ export class BookingRepository {
     return buildPaginatedResult(items, totalCount, p.page, p.pageSize);
   }
 
-  /** Check if a car has any blocking bookings in the given date range. */
   hasConflict(
     carId:      string,
     startDate:  Date,
@@ -98,7 +79,6 @@ export class BookingRepository {
             ],
           },
           AND: [
-            // Updated: Changed lt to lte, and gt to gte to enforce same-day checkout conflict blocks [1]
             { startDate: { lte: endDate } },
             { endDate:   { gte: startDate } },
           ],
@@ -107,8 +87,6 @@ export class BookingRepository {
       })
       .then(Boolean);
   }
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
 
   create(data: {
     carId:       string;

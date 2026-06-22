@@ -2,6 +2,7 @@ import { documentService } from './document.service';
 import { OCRService } from './gemini.service'; 
 import { GraphQLContext } from '../../graphql/context';
 import { AppError, ErrorCode } from '../../core/errors/AppError';
+import { isAdmin } from '../../core/middleware/admin.middleware';
 
 const ocrService = new OCRService(); 
 
@@ -19,6 +20,31 @@ async function downloadFileBuffer(url: string): Promise<Buffer> {
 }
 
 export const documentResolvers: any = {
+  // Custom field resolvers to populate userId and bookingId on Documents type [1]
+  Documents: {
+    userId: async (parent: any, _: any, ctx: GraphQLContext) => {
+      const user = await ctx.prisma.user.findFirst({
+        where: { documentId: parent.id },
+        select: { id: true },
+      });
+      if (user) return user.id;
+
+      const booking = await ctx.prisma.booking.findFirst({
+        where: { documentId: parent.id },
+        select: { userId: true },
+      });
+      return booking?.userId || null;
+    },
+
+    bookingId: async (parent: any, _: any, ctx: GraphQLContext) => {
+      const booking = await ctx.prisma.booking.findFirst({
+        where: { documentId: parent.id },
+        select: { id: true },
+      });
+      return booking?.id || null;
+    }
+  },
+
   Query: {
     bookingDocuments: async (_: unknown, { bookingId }: { bookingId: string }, ctx: GraphQLContext) => {
       if (!ctx.userId) {
@@ -90,6 +116,12 @@ export const documentResolvers: any = {
         throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
       }
       return documentService.reuseDocumentsForBooking(ctx.userId, bookingId);
+    },
+
+    // Maps directly to client mutation [1]
+    adminVerifyDocuments: async (_: unknown, { userId, status }: { userId: string; status: any }, ctx: GraphQLContext) => {
+      isAdmin(ctx);
+      return documentService.adminVerifyDocuments(userId, status);
     },
   },
 };

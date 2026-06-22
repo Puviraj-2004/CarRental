@@ -46,13 +46,11 @@ export const AdminDocumentsContainer: React.FC<{ bookingId: string }> = ({ booki
   const { showToast } = useToast();
   const router = useRouter();
 
-  // 1. Fetch user documents linked to this bookingId [1]
   const { data, loading, error, refetch } = useQuery(GET_BOOKING_DOCUMENTS_QUERY, {
     variables: { bookingId },
     fetchPolicy: 'network-only',
   });
 
-  // 2. Verification Mutation (Enforces UNAUTHENTICATED error codes securely) [1]
   const [adminVerifyDocuments, { loading: loadingMutation }] = useMutation(
     ADMIN_VERIFY_DOCUMENTS_MUTATION
   );
@@ -63,7 +61,12 @@ export const AdminDocumentsContainer: React.FC<{ bookingId: string }> = ({ booki
         variables: { userId, status },
       });
       showToast(`Identity documents successfully marked as ${status}.`, 'success');
-      await refetch();
+      
+      // Prevent fetching a deleted document [1]
+      if (status === 'APPROVED') {
+        await refetch();
+      }
+      
       router.push('/admin/bookings'); // Safe redirect back to queue [1]
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Verification failed.', 'error');

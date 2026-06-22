@@ -6,6 +6,8 @@ enum VerificationStatus {
 
 type Documents {
   id:              ID!
+  userId:          ID    # <-- Added: Supports client queries safely
+  bookingId:       ID    # <-- Added: Supports client queries safely
   licenseFrontUrl: String
   licenseBackUrl:  String
   idCardFrontUrl:  String
@@ -52,15 +54,11 @@ type DocumentReuseStatus {
 }
 
 extend type Query {
-  # Fetches the Documents snapshot linked to a specific booking [1]
   bookingDocuments(bookingId: ID!): Documents
-
-  # Verifies if the customer has an approved profile document ready for reuse [1]
   hasApprovedDocuments: DocumentReuseStatus!
 }
 
 extend type Mutation {
-  # Step 1: Uploads files & returns OCR values for review [1]
   processDocumentOCR(
     licenseFrontUrl: String!,
     licenseBackUrl:  String!,
@@ -69,9 +67,10 @@ extend type Mutation {
     addressProofUrl: String!
   ): OCRPayload!
 
-  # Step 2: Saves values and dynamically links to Profile if checked [1]
   saveBookingDocuments(bookingId: ID!, input: DocumentsInput!, saveToProfile: Boolean!): Documents!
 
-  # Alternative Step: Links existing verified Profile Documents to the Booking (Zero Duplication!) [1]
   reuseDocumentsForBooking(bookingId: ID!): Documents!
+
+  # Maps exactly to client-side admin verify mutation
+  adminVerifyDocuments(userId: ID!, status: VerificationStatus!): Documents!
 }

@@ -1,5 +1,9 @@
+import { v2 as cloudinary } from 'cloudinary'; // Direct Cloudinary SDK import [2]
 import { documentRepository } from './document.repository';
 import { userRepository } from '../users/user.repository';
+import { bookingService } from '../bookings/booking.service';
+import { prisma } from '../../config/database'; 
+import logger from '../../config/logger';
 import { AppError, ErrorCode } from '../../core/errors/AppError';
 
 interface SaveBookingDocumentsInput {
@@ -36,6 +40,20 @@ const calculateAge = (birthDateStr: string | undefined | null): number | null =>
   return Math.abs(ageDate.getUTCFullYear() - 1970);
 };
 
+// Robust helper to extract Cloudinary public ID dynamically from URLs [2]
+function extractPublicIdFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parts = url.split('/upload/');
+    if (parts.length < 2) return null;
+    const pathWithFilename = parts[1].replace(/^v\d+\//, ''); // Removes version folder e.g. "v1234567/"
+    const lastDotIndex = pathWithFilename.lastIndexOf('.');
+    return lastDotIndex === -1 ? pathWithFilename : pathWithFilename.substring(0, lastDotIndex);
+  } catch {
+    return null;
+  }
+}
+
 export class DocumentService {
   async getByBookingId(bookingId: string) {
     return documentRepository.findByBookingId(bookingId);
@@ -51,7 +69,6 @@ export class DocumentService {
     const address = input.address || null;
     const age = calculateAge(input.birthDate);
 
-    // 1. Create a fresh Documents snapshot record [1]
     const doc = await documentRepository.create({
       licenseFrontUrl: input.licenseFrontUrl,
       licenseBackUrl:  input.licenseBackUrl,
@@ -67,10 +84,8 @@ export class DocumentService {
       status:          'PENDING',
     });
 
-    // 2. Link this document to the Booking [1]
     await documentRepository.linkDocumentToBooking(bookingId, doc.id);
 
-    // 3. If "Save to Profile" is checked, link this document to the User [1]
     if (saveToProfile) {
       await userRepository.updateUser(userId, { documentId: doc.id });
     }
@@ -78,14 +93,12 @@ export class DocumentService {
     return doc;
   }
 
-  // Links an existing approved profile document to a new booking with zero duplication [1]
   async reuseDocumentsForBooking(userId: string, bookingId: string) {
     const userDocs = await userRepository.findDocumentsByUserId(userId);
     if (!userDocs || userDocs.status !== 'APPROVED') {
       throw new AppError('No verified profile documents found to reuse.', ErrorCode.BAD_USER_INPUT);
     }
 
-    // Link the existing document directly to the Booking table [1]
     await documentRepository.linkDocumentToBooking(bookingId, userDocs.id);
     return userDocs;
   }
@@ -96,6 +109,103 @@ export class DocumentService {
     return {
       hasApprovedDocuments,
       documents: hasApprovedDocuments ? docs : null,
+    };
+  }
+
+  // Helper method to purge physically uploaded files from Cloudinary storage [2]
+  private async purgeFilesFromCloud(doc: any): Promise<void> {
+    const urls = [
+      doc.licenseFrontUrl,
+      doc.licenseBackUrl,
+      doc.idCardFrontUrl,
+      doc.idCardBackUrl,
+      doc.addressProofUrl
+    ];
+
+    const publicIds = urls
+      .map(url => extractPublicIdFromUrl(url))
+      .filter((id): id is string => !!id);
+
+    // Delete each asset from Cloudinary securely [2]
+    await Promise.all(
+      publicIds.map(async (publicId) => {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+          logger.info('Cloud asset purged successfully', { publicId });
+        } catch (err) {
+          logger.warn('Failed to delete asset from Cloudinary', { publicId, error: err instanceof Error ? err.message : String(err) });
+        }
+      })
+    );
+  }
+
+  // Triggers document rejection based on the associated User ID
+  async adminVerifyDocuments(userId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { documentId: true },
+    });
+
+    if (!user || !user.documentId) {
+      throw new AppError('No document linked to this user profile found.', ErrorCode.NOT_FOUND);
+    }
+
+    return this.executeVerificationOrRejectionPurge(user.documentId, status);
+  }
+
+  // Triggers document rejection based directly on Document ID
+  async adminUpdateDocumentStatus(documentId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    return this.executeVerificationOrRejectionPurge(documentId, status);
+  }
+
+  // Executes the cascading rejection, unlinking, cloud asset purge, and DB delete sequence [1, 2]
+  private async executeVerificationOrRejectionPurge(documentId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    const doc = await documentRepository.findById(documentId);
+    if (!doc) {
+      throw new AppError('Document record not found.', ErrorCode.NOT_FOUND);
+    }
+
+    if (status !== 'REJECTED') {
+      // Handle standard approval update normally
+      return documentRepository.update(documentId, { status });
+    }
+
+    // ── STEP 1: Reject any bookings linked to this document [1] ──
+    const bookings = await prisma.booking.findMany({
+      where: { documentId },
+      select: { id: true }
+    });
+
+    for (const b of bookings) {
+      try {
+        // Automatically voids/refunds payment and rejects booking [1]
+        await bookingService.adminUpdateBookingStatus(b.id, 'REJECTED');
+      } catch (err) {
+        logger.error('Failed to transition booking state during document rejection cascade', { bookingId: b.id, error: err });
+      }
+    }
+
+    // ── STEP 2: Safe Purge from Cloudinary Storage [2] ──
+    await this.purgeFilesFromCloud(doc);
+
+    // ── STEP 3: Unlink from User profile records [1] ──
+    await prisma.user.updateMany({
+      where: { documentId },
+      data: { documentId: null }
+    });
+
+    // ── STEP 4: Delete the Document record from the database ──
+    await prisma.documents.delete({
+      where: { id: documentId }
+    });
+
+    logger.info('Document and all associated records/files successfully purged and unlinked on rejection', { documentId });
+
+    // Returns a dummy rejected object structure since the DB record has been purged
+    return {
+      ...doc,
+      id: documentId,
+      status: 'REJECTED',
     };
   }
 }

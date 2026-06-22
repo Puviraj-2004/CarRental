@@ -16,6 +16,9 @@
   "license": "ISC",
   "dependencies": {
     "@apollo/client": "^3.14.0",
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.0",

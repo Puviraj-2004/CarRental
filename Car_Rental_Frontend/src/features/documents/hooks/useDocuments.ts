@@ -1,14 +1,11 @@
 import { useQuery, useMutation, FetchResult, useApolloClient } from '@apollo/client';
-import {  GET_CLOUDINARY_SIGNATURE } from '@/features/cars/graphql/queries';
+import { GET_CLOUDINARY_SIGNATURE } from '@/features/cars/graphql/queries';
 import { validateFileMime, validateFileExtension, validateFileSize } from '@/lib/fileValidation';
-import { gql } from '@apollo/client';
-import { PROCESS_DOCUMENT_OCR_MUTATION, SAVE_BOOKING_DOCUMENTS_MUTATION } from '../graphql/mutations';
-import { GET_MY_DOCUMENTS_QUERY } from '../graphql/queries';
+import { PROCESS_DOCUMENT_OCR_MUTATION, SAVE_BOOKING_DOCUMENTS_MUTATION, REUSE_DOCUMENTS_FOR_BOOKING_MUTATION } from '../graphql/mutations';
+import { HAS_APPROVED_DOCUMENTS_QUERY } from '../graphql/queries';
 
 export interface Documents {
   id:              string;
-  userId?:         string | null;
-  bookingId?:      string | null;
   licenseFrontUrl?:string | null;
   licenseBackUrl?: string | null;
   idCardFrontUrl?: string | null;
@@ -23,6 +20,11 @@ export interface Documents {
   status:          'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt:       string;
   updatedAt:       string;
+}
+
+export interface DocumentReuseStatus {
+  hasApprovedDocuments: boolean;
+  documents:            Documents | null;
 }
 
 export interface OCRResult {
@@ -57,26 +59,32 @@ export interface FinalDocumentsInput {
 }
 
 export interface UseDocumentsReturn {
-  myDocuments:           Documents | null;
-  loadingMyDocs:         boolean;
-  // Updated: Explicitly accepts the saveToProfile parameter [1]
-  executeSaveBooking:    (bookingId: string, input: FinalDocumentsInput, saveToProfile: boolean) => Promise<FetchResult<{ saveBookingDocuments: Documents }>>;
-  loadingSaveBooking:    boolean;
-  executeOCR:            (files: UploadFilesInput) => Promise<{ urls: any, ocr: OCRResult }>;
-  loadingOCR:            boolean;
+  hasApprovedDocumentsData: DocumentReuseStatus | null;
+  loadingApprovedDocs:      boolean;
+  executeSaveBooking:       (bookingId: string, input: FinalDocumentsInput, saveToProfile: boolean) => Promise<FetchResult<{ saveBookingDocuments: Documents }>>;
+  loadingSaveBooking:       boolean;
+  executeReuse:             (bookingId: string) => Promise<FetchResult<{ reuseDocumentsForBooking: Documents }>>;
+  loadingReuse:             boolean;
+  executeOCR:               (files: UploadFilesInput) => Promise<{ urls: any, ocr: OCRResult }>;
+  loadingOCR:               boolean;
 }
 
 export const useDocuments = (): UseDocumentsReturn => {
   const client = useApolloClient();
 
-  const { data: myDocsData, loading: loadingMyDocs } = useQuery<{ myDocuments: Documents | null }>(
-    GET_MY_DOCUMENTS_QUERY
+  const { data: approvedData, loading: loadingApprovedDocs } = useQuery<{ hasApprovedDocuments: DocumentReuseStatus }>(
+    HAS_APPROVED_DOCUMENTS_QUERY
   );
 
   const [saveBookingDocuments, { loading: loadingSaveBooking }] = useMutation<
     { saveBookingDocuments: Documents },
     { bookingId: string; input: any; saveToProfile: boolean }
   >(SAVE_BOOKING_DOCUMENTS_MUTATION);
+
+  const [reuseDocumentsForBooking, { loading: loadingReuse }] = useMutation<
+    { reuseDocumentsForBooking: Documents },
+    { bookingId: string }
+  >(REUSE_DOCUMENTS_FOR_BOOKING_MUTATION);
 
   const [processDocumentOCR, { loading: loadingOCR }] = useMutation<
     { processDocumentOCR: OCRResult },
@@ -92,7 +100,7 @@ export const useDocuments = (): UseDocumentsReturn => {
   const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
     validateFileExtension(file.name, 'verification_document');
     validateFileMime(file.type, 'verification_document');
-    validateFileSize(file.size, file.name, 'verification_document'); [2]
+    validateFileSize(file.size, file.name, 'verification_document');
 
     const { data } = await client.query({
       query: GET_CLOUDINARY_SIGNATURE,
@@ -153,18 +161,25 @@ export const useDocuments = (): UseDocumentsReturn => {
     };
   };
 
-  // Updated: Explicitly accepts the third "saveToProfile" parameter and passes it [1]
   const executeSaveBooking = async (bookingId: string, input: FinalDocumentsInput, saveToProfile: boolean) => {
     return await saveBookingDocuments({
       variables: { bookingId, input, saveToProfile },
     });
   };
 
+  const executeReuse = async (bookingId: string) => {
+    return await reuseDocumentsForBooking({
+      variables: { bookingId },
+    });
+  };
+
   return {
-    myDocuments: myDocsData?.myDocuments || null,
-    loadingMyDocs,
+    hasApprovedDocumentsData: approvedData?.hasApprovedDocuments || null,
+    loadingApprovedDocs,
     executeSaveBooking,
     loadingSaveBooking,
+    executeReuse,
+    loadingReuse,
     executeOCR,
     loadingOCR,
   };

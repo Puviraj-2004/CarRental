@@ -18,9 +18,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import InfoIcon from '@mui/icons-material/Info';
 import TextField from '@mui/material/TextField';
 import EditIcon from '@mui/icons-material/Edit';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 import Link from 'next/link';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 interface UploadBoxProps {
   label: string;
@@ -41,6 +45,8 @@ const UploadBox: React.FC<UploadBoxProps> = ({
   inputRef,
   disabled
 }) => {
+  const isPdf = file?.type === 'application/pdf' || file?.name.toLowerCase().endsWith('.pdf');
+
   return (
     <Box sx={{ mb: 2 }}>
       <FormLabel sx={{ fontWeight: 700, mb: 1, display: 'block', color: 'text.primary', fontSize: '13px' }}>
@@ -75,8 +81,15 @@ const UploadBox: React.FC<UploadBoxProps> = ({
       </Box>
 
       {previewUrl && (
-        <Box sx={{ mt: 1.5, position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid', borderColor: 'grey.200' }}>
-          <img src={previewUrl} alt="Preview" style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', display: 'block' }} />
+        <Box sx={{ mt: 1.5, position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid', borderColor: 'grey.200', p: isPdf ? 2 : 0, bgcolor: isPdf ? 'grey.100' : 'transparent' }}>
+          {isPdf ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center', py: 2 }}>
+              <PictureAsPdfIcon sx={{ color: 'error.main', fontSize: 32 }} />
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>PDF Document Uploaded</Typography>
+            </Box>
+          ) : (
+            <img src={previewUrl} alt="Preview" style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', display: 'block' }} />
+          )}
           <IconButton
             disabled={disabled}
             onClick={onRemove}
@@ -122,8 +135,16 @@ interface DocumentUploadViewProps {
   setBirthDate: (val: string) => void;
   billIssueDate: string;
   setBillIssueDate: (val: string) => void;
-  saveToProfile: boolean; 
-  setSaveToProfile: (val: boolean) => void; 
+
+  showReuseModal: boolean;
+  onConfirmReuse: () => void;
+  onDeclineReuse: () => void;
+  
+  showSaveConfirmModal: boolean;
+  onCloseConfirmModal: () => void;
+  onConfirmSaveWithProfile: () => void;
+  onConfirmSaveBookingOnly: () => void;
+  hasExistingProfileDoc: boolean;
 }
 
 export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
@@ -157,8 +178,16 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
   setBirthDate,
   billIssueDate,
   setBillIssueDate,
-  saveToProfile,
-  setSaveToProfile,
+
+  showReuseModal,
+  onConfirmReuse,
+  onDeclineReuse,
+  
+  showSaveConfirmModal,
+  onCloseConfirmModal,
+  onConfirmSaveWithProfile,
+  onConfirmSaveBookingOnly,
+  hasExistingProfileDoc,
 }) => {
   const [licFrontPreview, setLicFrontPreview] = useState<string | null>(null);
   const [licBackPreview, setLicBackPreview] = useState<string | null>(null);
@@ -210,14 +239,13 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
       
-      {/* Stepped Checkout Banner */}
       <Box sx={{ mb: 5, display: 'flex', gap: 1, alignItems: 'center', bgcolor: 'primary.50', p: 2, borderRadius: '12px', border: '1px solid', borderColor: 'primary.100' }}>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
           Step 1: Reservation (Complete)
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', mx: 1 }}>➔</Typography>
         <Typography variant="body2" sx={{ fontWeight: 800, color: 'secondary.main' }}>
-          Step 2: Document Verification (Active) [1]
+          Step 2: Document Verification (Active)
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', mx: 1 }}>➔</Typography>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
@@ -232,7 +260,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
         <Typography variant="body1" sx={{ color: 'text.secondary' }}>
           {phase === 'upload' 
             ? 'Please upload clear photos of your documents to trigger our AI scanner.' 
-            : 'Please verify and correct the information below extracted by our AI [1].'}
+            : 'Please verify and correct the information below extracted by our AI.'}
         </Typography>
       </Box>
 
@@ -241,7 +269,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
       <Box component="form" onSubmit={onSubmit}>
         <Grid container spacing={4}>
           
-          {/* ─── LEFT PANEL: DYNAMIC INTERACTION ZONE ───────────────────── */}
           <Grid item xs={12} md={7}>
             
             {phase === 'upload' ? (
@@ -328,7 +355,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
 
                 <Grid container spacing={3}>
                   
-                  {/* License Number */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -345,7 +371,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* License Expiry */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -372,7 +397,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* ID Card Number */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -389,7 +413,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* ID Card Expiry */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -416,7 +439,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* Driver Birth Date */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -443,7 +465,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* Proof of Address Date */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -470,7 +491,6 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* Full Verified Address */}
                   <Grid item xs={12}>
                     <FormControl fullWidth required>
                       <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
@@ -489,27 +509,11 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                     </FormControl>
                   </Grid>
 
-                  {/* Save to Profile Checkbox Block [1] */}
-                  <Grid item xs={12} sx={{ mt: 1 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={saveToProfile}
-                          onChange={(e) => setSaveToProfile(e.target.checked)}
-                          disabled={loading}
-                          color="primary"
-                        />
-                      }
-                      label="Save these verified documents to my user profile for future rentals [1]"
-                    />
-                  </Grid>
-
                 </Grid>
               </Card>
             )}
           </Grid>
 
-          {/* ─── RIGHT PANEL: INSTRUCTIONS & CONTROLS ───────────────────── */}
           <Grid item xs={12} md={5}>
             <Card variant="outlined" sx={{ p: 3, borderRadius: '16px', bgcolor: 'background.paper', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -517,20 +521,19 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                 Upload Guidelines
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', display: 'block', mb: 1.5, fontWeight: 500 }}>
-                • Images must be clear, unblurry, and fully readable [1].
+                • Images must be clear, unblurry, and fully readable.
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', display: 'block', mb: 1.5, fontWeight: 500 }}>
-                • Ensure no details or edges of your documents are cut off [1].
+                • Ensure no details or edges of your documents are cut off.
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', display: 'block', mb: 1.5, fontWeight: 500 }}>
-                • The Utility Bill / Proof of Address must be dated within the last 3 months [1].
+                • The Utility Bill / Proof of Address must be dated within the last 3 months.
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', display: 'block', mb: 1.5, fontWeight: 500 }}>
-                • Maximum file size allowed is 10 MB per file [2].
+                • Maximum file size allowed is 10 MB per file.
               </Typography>
             </Card>
 
-            {/* Action Buttons */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               
               {phase === 'upload' ? (
@@ -563,7 +566,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                   {loading ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CircularProgress size={20} color="inherit" />
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Saving details...</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Validating...</Typography>
                     </Box>
                   ) : (
                     'Confirm & Save Documents'
@@ -597,6 +600,88 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
 
         </Grid>
       </Box>
+
+      <Dialog
+        open={showReuseModal}
+        onClose={() => {}} 
+        disableEscapeKeyDown
+        aria-labelledby="reuse-dialog-title"
+        aria-describedby="reuse-dialog-description"
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle id="reuse-dialog-title" sx={{ fontWeight: 800 }}>
+          Use Saved Documents?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="reuse-dialog-description" sx={{ color: 'text.secondary' }}>
+            We found previously uploaded and approved verification documents associated with your profile. 
+            Would you like to auto-populate and reuse these saved documents for this booking?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button 
+            onClick={onDeclineReuse} 
+            variant="outlined" 
+            sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
+          >
+            No, upload new ones
+          </Button>
+          <Button 
+            onClick={onConfirmReuse} 
+            variant="contained" 
+            autoFocus 
+            sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
+          >
+            Yes, use saved documents
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showSaveConfirmModal}
+        onClose={onCloseConfirmModal}
+        aria-labelledby="confirm-save-title"
+        aria-describedby="confirm-save-description"
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle id="confirm-save-title" sx={{ fontWeight: 800 }}>
+          {hasExistingProfileDoc ? 'Update Saved Profile Documents?' : 'Save Documents to Profile?'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirm-save-description" sx={{ color: 'text.secondary' }}>
+            {hasExistingProfileDoc 
+              ? 'Do you want to overwrite your existing saved profile documents with these newly uploaded and verified documents?'
+              : 'Would you like to save these verified documents directly to your user profile so they can be reused automatically on future rentals?'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1, flexDirection: 'column' }}>
+          <Button 
+            onClick={onConfirmSaveWithProfile} 
+            variant="contained" 
+            fullWidth
+            sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
+          >
+            {hasExistingProfileDoc ? 'Yes, update existing saved documents' : 'Yes, save to my user profile'}
+          </Button>
+          <Button 
+            onClick={onConfirmSaveBookingOnly} 
+            variant="outlined" 
+            fullWidth
+            sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
+          >
+            No, only use them for this booking
+          </Button>
+          <Button 
+            onClick={onCloseConfirmModal} 
+            variant="text" 
+            fullWidth
+            sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px', color: 'text.secondary' }}
+          >
+            Cancel and edit details
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Container>
   );
 };

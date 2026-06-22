@@ -2,19 +2,35 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
 import { useDocuments } from '../hooks/useDocuments';
 import { DocumentUploadView } from './DocumentUploadView';
-import { validateFileMime, validateFileExtension, validateFileSize } from '@/lib/fileValidation';
 
 export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ bookingId }) => {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const router = useRouter();
 
-  const { executeOCR, loadingOCR, executeSaveBooking, loadingSaveBooking } = useDocuments();
+  const {
+    hasApprovedDocumentsData,
+    loadingApprovedDocs,
+    executeOCR,
+    loadingOCR,
+    executeSaveBooking,
+    loadingSaveBooking,
+    executeReuse,
+    loadingReuse
+  } = useDocuments();
+
   const [error, setError] = useState<string | null>(null);
+
+  // Modal / Selection Dialog States
+  const [showReuseModal, setShowReuseModal] = useState(false);
+  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
 
   // File States
   const [licFront, setLicFront] = useState<File | null>(null);
@@ -26,9 +42,6 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
   const [phase, setPhase] = useState<'upload' | 'review'>('upload');
   const [uploadedUrls, setUploadedUrls] = useState<any>(null);
 
-  // Controlled Checkbox state (Defaults to true to encourage verified profile generation) [1]
-  const [saveToProfile, setSaveToProfile] = useState(true); 
-
   // Form values
   const [licenseNumber, setLicenseNumber] = useState('');
   const [licenseExpiry, setLicenseExpiry] = useState('');
@@ -38,6 +51,7 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
   const [birthDate, setBirthDate] = useState('');
   const [billIssueDate, setBillIssueDate] = useState('');
 
+  // 1. Initialize checks for Booking ID
   useEffect(() => {
     if (!bookingId) {
       showToast('Missing booking target. Redirecting to fleet...', 'error');
@@ -45,6 +59,31 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
     }
   }, [bookingId, router, showToast]);
 
+  // 2. Intercept and trigger saved documents prompt as soon as the query finishes loading [1]
+  useEffect(() => {
+    if (!loadingApprovedDocs && hasApprovedDocumentsData?.hasApprovedDocuments) {
+      setShowReuseModal(true);
+    }
+  }, [hasApprovedDocumentsData, loadingApprovedDocs]);
+
+  // Action: Handle Document Reuse [1]
+  const handleConfirmReuse = async () => {
+    setError(null);
+    try {
+      await executeReuse(bookingId);
+      showToast('Profile documents linked to booking. Redirecting to payment...', 'success');
+      router.push(`/booking/${bookingId}/payment`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+      setShowReuseModal(false);
+    }
+  };
+
+  const handleDeclineReuse = () => {
+    setShowReuseModal(false);
+  };
+
+  // Action: Handle Files OCR Scan
   const handleExtractDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -80,13 +119,15 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
     }
   };
 
-  const handleSaveAndConfirm = async (e: React.FormEvent) => {
+  // Action: Validate Details & Trigger Update-Profile Prompt Step [1]
+  const handleValidateFormAndPrompt = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // License expiration check
     if (!licenseExpiry) {
       setError("Please specify your license's expiry date.");
       return;
@@ -97,6 +138,7 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       return;
     }
 
+    // ID card expiration check
     if (!idExpiry) {
       setError("Please specify your ID Card's expiry date.");
       return;
@@ -107,6 +149,23 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       return;
     }
 
+    // Age eligibility check (Minimum age is 18 years old)
+    if (!birthDate) {
+      setError("Please specify your Birth Date.");
+      return;
+    }
+    const birth = new Date(birthDate);
+    let calculatedAge = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      calculatedAge--;
+    }
+    if (calculatedAge < 18) {
+      setError("You must be at least 18 years old to rent a vehicle.");
+      return;
+    }
+
+    // Proof of address freshness check (Utility bill must be issued in last 90 days)
     if (!billIssueDate) {
       setError('Please specify the issue date of your proof of address.');
       return;
@@ -120,8 +179,16 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       return;
     }
 
+    // Validation passes. Trigger Profile Update modal to obtain explicit user consent [1].
+    setShowSaveConfirmModal(true);
+  };
+
+  // Action: Execute final Save Booking Documents with chosen Profile choice [1]
+  const handleFinalSave = async (userChoseToSaveProfile: boolean) => {
+    setShowSaveConfirmModal(false);
+    setError(null);
+
     try {
-      // Submits files, checked metadata, and saveToProfile boolean [1]
       await executeSaveBooking(bookingId, {
         ...uploadedUrls,
         licenseNumber,
@@ -130,7 +197,7 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
         idExpiry,
         address,
         birthDate
-      }, saveToProfile); // <-- Passed checkbox state [1]
+      }, userChoseToSaveProfile);
 
       showToast('Documents verified and saved. Redirecting to payment...', 'success');
       router.push(`/booking/${bookingId}/payment`); 
@@ -139,14 +206,27 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
     }
   };
 
+  // 3. Render a clean loader while checking the status to prevent premature form rendering
+  if (loadingApprovedDocs) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
+        <CircularProgress size={48} />
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+          Checking verification status...
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <DocumentUploadView
       t={t}
-      onSubmit={phase === 'upload' ? handleExtractDetails : handleSaveAndConfirm}
+      onSubmit={phase === 'upload' ? handleExtractDetails : handleValidateFormAndPrompt}
       error={error}
-      loading={loadingOCR || loadingSaveBooking}
+      loading={loadingOCR || loadingSaveBooking || loadingReuse}
       phase={phase}
       setPhase={setPhase}
+      
       licFront={licFront}
       setLicFront={setLicFront}
       licBack={licBack}
@@ -157,6 +237,7 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       setIdBack={setIdBack}
       addrProof={addrProof}
       setAddrProof={setAddrProof}
+      
       licenseNumber={licenseNumber}
       setLicenseNumber={setLicenseNumber}
       licenseExpiry={licenseExpiry}
@@ -171,8 +252,17 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       setBirthDate={setBirthDate}
       billIssueDate={billIssueDate}
       setBillIssueDate={setBillIssueDate}
-      saveToProfile={saveToProfile}         // <-- Passed checkbox value [1]
-      setSaveToProfile={setSaveToProfile}   // <-- Passed checkbox setter
+
+      // Modals State & Action mappings [1]
+      showReuseModal={showReuseModal}
+      onConfirmReuse={handleConfirmReuse}
+      onDeclineReuse={handleDeclineReuse}
+      
+      showSaveConfirmModal={showSaveConfirmModal}
+      onCloseConfirmModal={() => setShowSaveConfirmModal(false)}
+      onConfirmSaveWithProfile={() => handleFinalSave(true)}
+      onConfirmSaveBookingOnly={() => handleFinalSave(false)}
+      hasExistingProfileDoc={!!hasApprovedDocumentsData?.hasApprovedDocuments}
     />
   );
 };

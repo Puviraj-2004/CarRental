@@ -60,11 +60,8 @@ model User {
   emailVerified Boolean     @default(false)
   phoneNumber   String?   
   role          Role        @default(USER)
-  
-  // User holds the foreign key pointing to their profile Documents [1]
   documentId    String?     @unique
   documents     Documents?  @relation("UserProfileDocuments", fields: [documentId], references: [id], onDelete: SetNull)
-  
   refreshTokens RefreshToken[]
   bookings      Booking[]
 

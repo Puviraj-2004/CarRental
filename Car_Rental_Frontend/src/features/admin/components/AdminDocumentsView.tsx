@@ -54,7 +54,7 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
 
       <Grid container spacing={5}>
         
-        {/* ─── LEFT PANEL: PHYSICAL SCANS PREVIEW (50% WIDTH) ─────────── */}
+        {/* ─── LEFT PANEL: PHYSICAL SCANS PREVIEW ───────────────────── */}
         <Grid item xs={12} md={6}>
           <Box sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid', borderColor: 'divider', mb: 2, bgcolor: 'grey.100' }}>
             <img src={activeImage} alt="Document Scan" style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', display: 'block' }} />
@@ -82,11 +82,30 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
           </Grid>
         </Grid>
 
-        {/* ─── RIGHT PANEL: GOOGLE GEMINI AI METADATA AUDIT (50% WIDTH) ── */}
+        {/* ─── RIGHT PANEL: GOOGLE GEMINI AI METADATA AUDIT ─────────── */}
         <Grid item xs={12} md={6}>
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.5px' }}>
-            AI Verification Audit
-          </Typography>
+          {/* Dynamic Status Badge Header [1] */}
+          <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.5px' }}>
+              AI Verification Audit
+            </Typography>
+            {documents.status === 'APPROVED' && (
+              <Box sx={{ px: 1.5, py: 0.5, bgcolor: 'success.light', color: 'success.dark', borderRadius: '8px', fontSize: '11px', fontWeight: 800 }}>
+                APPROVED
+              </Box>
+            )}
+            {documents.status === 'REJECTED' && (
+              <Box sx={{ px: 1.5, py: 0.5, bgcolor: 'error.light', color: 'error.dark', borderRadius: '8px', fontSize: '11px', fontWeight: 800 }}>
+                REJECTED
+              </Box>
+            )}
+            {documents.status === 'PENDING' && (
+              <Box sx={{ px: 1.5, py: 0.5, bgcolor: 'warning.light', color: 'warning.dark', borderRadius: '8px', fontSize: '11px', fontWeight: 800 }}>
+                PENDING REVIEW
+              </Box>
+            )}
+          </Box>
+
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 4 }}>
             Verify the physical document photo scans on the left against Google Gemini's AI-extracted fields [1].
           </Typography>
@@ -113,7 +132,7 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
             </Grid>
           </Card>
 
-          {/* Verification CTA Controls [1] */}
+          {/* Verification CTA Controls with Disabled States [1] */}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <Button
@@ -121,7 +140,7 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
                 color="success"
                 fullWidth
                 size="large"
-                disabled={loading}
+                disabled={loading || documents.status === 'APPROVED'}
                 onClick={() => onVerify(documents.userId, 'APPROVED')}
                 startIcon={!loading && <CheckCircleIcon />}
                 sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
@@ -135,7 +154,7 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
                 color="error"
                 fullWidth
                 size="large"
-                disabled={loading}
+                disabled={loading || documents.status === 'REJECTED'}
                 onClick={() => onVerify(documents.userId, 'REJECTED')}
                 startIcon={!loading && <CancelIcon />}
                 sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}

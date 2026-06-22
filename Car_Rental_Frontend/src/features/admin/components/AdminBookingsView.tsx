@@ -83,7 +83,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
   return (
     <Box sx={{ py: 2 }}>
       
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.5px' }}>
           Fleet Bookings Queue
@@ -95,7 +94,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
 
       {error && <Alert severity="error" sx={{ mb: 4 }}>{error}</Alert>}
 
-      {/* Filter Bar */}
       <Card variant="outlined" sx={{ p: 3, mb: 4, borderRadius: '16px' }}>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={8}>
@@ -109,6 +107,7 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
             />
           </Grid>
           <Grid item xs={12} sm={4}>
+            {/* Status dropdown strictly reflects active, pre-filtered queue states [1.1.2, 1.1.5] */}
             <TextField
               select
               fullWidth
@@ -122,13 +121,11 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
               <MenuItem value="CONFIRMED">CONFIRMED</MenuItem>
               <MenuItem value="ONGOING">ONGOING</MenuItem>
               <MenuItem value="COMPLETED">COMPLETED</MenuItem>
-              <MenuItem value="CANCELLED">CANCELLED</MenuItem>
             </TextField>
           </Grid>
         </Grid>
       </Card>
 
-      {/* Results */}
       {loading && bookings.length === 0 ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
       ) : bookings.length === 0 ? (
@@ -179,7 +176,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
                       <TableCell sx={{ textAlign: 'right' }}>
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                           
-                          {/* Stepped CTA: Review KYC Documents [1] */}
                           {hasUploadedDocs && (
                             <Button
                               component={Link}
@@ -192,7 +188,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
                             </Button>
                           )}
 
-                          {/* Stepped CTA: Start Handover (Only clickable if paid and driver identity is approved) [1] */}
                           {b.status === 'CONFIRMED' && (
                             <Button
                               variant="contained"
@@ -205,7 +200,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
                             </Button>
                           )}
 
-                          {/* Stepped CTA: Complete Return */}
                           {b.status === 'ONGOING' && (
                             <Button
                               variant="contained"
@@ -218,7 +212,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
                             </Button>
                           )}
 
-                          {/* Stepped CTA: Cancel unpaid reservation */}
                           {b.status === 'RESERVED' && (
                             <Button
                               variant="outlined"
@@ -240,7 +233,6 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
             </Table>
           </Paper>
 
-          {/* Pagination */}
           {pageInfo && pageInfo.totalPages > 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
               <Pagination

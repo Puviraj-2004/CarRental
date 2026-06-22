@@ -1,9 +1,10 @@
-import { BookingStatus, BookingType, CarStatus } from '@prisma/client';
+import { BookingStatus, BookingType, CarStatus, PaymentStatus } from '@prisma/client';
 
 import { AppError, ErrorCode }   from '../../core/errors/AppError';
 import { normalizePagination }   from '../../core/utils/pagination';
 import { daysBetween }           from '../../core/utils/date';
 import { multiplyMoney }         from '../../core/utils/money';
+import { prisma }                from '../../config/database'; 
 import logger                    from '../../config/logger';
 import {
   MIN_BOOKING_DAYS,
@@ -17,15 +18,12 @@ import { notificationService, buildBookingEmailData } from '../notifications/not
 import type { BookingWithRelations } from '../../prisma/types';
 import type { PaginatedResult }      from '../../core/utils/pagination';
 
-// ─── Statuses from which a user may cancel ────────────────────────────────────
 const CANCELLABLE_STATUSES: BookingStatus[] = [
   BookingStatus.RESERVED,
   BookingStatus.CONFIRMED,
 ];
 
 export class BookingService {
-  // ── Queries ────────────────────────────────────────────────────────────────
-
   async getBookingById(id: string): Promise<BookingWithRelations | null> {
     return bookingRepository.findById(id);
   }
@@ -40,6 +38,7 @@ export class BookingService {
     );
   }
 
+  // ── Updated: Filters the Admin Queue strictly [1.1.5] ───────────────────
   async getAllBookings(
     pagination?: { page?: number; pageSize?: number },
     filter?: {
@@ -51,20 +50,37 @@ export class BookingService {
       endDate?:   string;
     },
   ): Promise<PaginatedResult<BookingWithRelations>> {
+    
+    // Construct advanced query to enforce your queue restrictions [1, 1.1.5]
+    const strictAdminQuery = {
+      // 1. Must have document uploaded
+      documentId: { not: null },
+      
+      // 2. Only show RENTAL type bookings
+      type: BookingType.RENTAL,
+      
+      // 3. Do NOT show cancelled or rejected bookings
+      status: {
+        notIn: [BookingStatus.CANCELLED, BookingStatus.REJECTED],
+      },
+      
+      // Must have an active authorized hold or paid payment [1.1.5]
+      payment: {
+        status: {
+          in: [PaymentStatus.PENDING, PaymentStatus.PAID],
+        },
+      },
+      
+      // Allow custom filter overrides if passed explicitly
+      userId: filter?.userId ?? undefined,
+      carId:  filter?.carId ?? undefined,
+    };
+
     return bookingRepository.findPaginated(
       normalizePagination(pagination),
-      {
-        status:    filter?.status,
-        type:      filter?.type,
-        userId:    filter?.userId,
-        carId:     filter?.carId,
-        startDate: filter?.startDate ? new Date(filter.startDate) : undefined,
-        endDate:   filter?.endDate   ? new Date(filter.endDate)   : undefined,
-      },
+      strictAdminQuery as any,
     );
   }
-
-  // ── Mutations ──────────────────────────────────────────────────────────────
 
   async createBooking(input: {
     carId:       string;
@@ -76,7 +92,6 @@ export class BookingService {
     notes?:      string;
     type?:       BookingType;
   }): Promise<BookingWithRelations> {
-    // ── 1. Parse & validate dates ──────────────────────────────────────────
     const start = new Date(input.startDate);
     const end   = new Date(input.endDate);
 
@@ -111,7 +126,6 @@ export class BookingService {
       );
     }
 
-    // ── 2. Guest validation for COURTESY type ─────────────────────────────
     const bookingType = input.type ?? BookingType.RENTAL;
     if (bookingType === BookingType.COURTESY && !input.userId) {
       if (!input.guestName || !input.guestPhone) {
@@ -122,7 +136,6 @@ export class BookingService {
       }
     }
 
-    // ── 3. Car availability ────────────────────────────────────────────────
     const car = await carRepository.findById(input.carId);
     if (!car) {
       throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
@@ -146,11 +159,9 @@ export class BookingService {
       );
     }
 
-    // ── 4. Price calculation ───────────────────────────────────────────────
     const basePrice  = Number(car.basePrice);
     const totalPrice = multiplyMoney(basePrice, numberOfDays).toNumber();
 
-    // ── 5. Create booking ──────────────────────────────────────────────────
     return bookingRepository.create({
       carId:       input.carId,
       userId:      input.userId,
@@ -176,7 +187,6 @@ export class BookingService {
       throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
     }
 
-    // Ownership check — admin bypasses
     if (!isAdmin && booking.userId !== userId) {
       throw new AppError(
         'Access denied. You do not own this booking.',
@@ -191,7 +201,6 @@ export class BookingService {
       );
     }
 
-    // Non-admins must respect the cancellation window
     if (!isAdmin) {
       const hoursUntilStart =
         (booking.startDate.getTime() - Date.now()) / (1000 * 60 * 60);
@@ -203,12 +212,10 @@ export class BookingService {
       }
     }
 
-    // ── Cancel the booking ─────────────────────────────────────────────────
     const updated = await bookingRepository.update(id, {
       status: BookingStatus.CANCELLED,
     });
 
-    // ── Process refund based on policy (non-blocking) ──────────────────────
     void paymentService
       .cancelAndRefund(id, userId, isAdmin)
       .catch((err) => {
@@ -218,7 +225,6 @@ export class BookingService {
         });
       });
 
-    // ── Send cancellation email (non-blocking) ─────────────────────────────
     if (updated.user?.email) {
       void notificationService
         .sendBookingCancelled(
@@ -277,7 +283,7 @@ export class BookingService {
     return bookingRepository.update(id, data);
   }
 
-async adminUpdateBookingStatus(
+  async adminUpdateBookingStatus(
     id:     string,
     status: BookingStatus,
   ): Promise<BookingWithRelations> {
@@ -290,24 +296,50 @@ async adminUpdateBookingStatus(
 
     const updated = await bookingRepository.update(id, { status });
 
-    // ── Handover: Mark car as RENTED ─────────────────────────────────────────
     if (status === BookingStatus.ONGOING) {
       await carRepository.update(booking.carId, { status: CarStatus.RENTED });
       logger.info('Handover processed: car marked as RENTED', { carId: booking.carId, bookingId: id });
     }
 
-    // ── Return: Mark car as AVAILABLE ────────────────────────────────────────
     if (status === BookingStatus.COMPLETED) {
       await carRepository.update(booking.carId, { status: CarStatus.AVAILABLE });
       logger.info('Return processed: car marked as AVAILABLE', { carId: booking.carId, bookingId: id });
     }
 
-    // ── Rejection: always full refund + email ──────────────────────────────
+    if (status === BookingStatus.CONFIRMED) {
+      if (booking.documentId) {
+        await prisma.documents.update({
+          where: { id: booking.documentId },
+          data: { status: 'APPROVED' },
+        });
+        logger.info('Booking confirmed: linked documents marked as APPROVED', { documentId: booking.documentId, bookingId: id });
+      }
+
+      await paymentService.capturePayment(id).catch((err) => {
+        logger.error('Failed to capture payment during booking confirmation', { bookingId: id, error: err.message });
+        throw err; 
+      });
+    }
+
     if (status === BookingStatus.REJECTED) {
+      if (booking.documentId) {
+        await prisma.documents.update({
+          where: { id: booking.documentId },
+          data: { status: 'REJECTED' },
+        });
+
+        await prisma.user.updateMany({
+          where: { documentId: booking.documentId },
+          data: { documentId: null },
+        });
+        
+        logger.info('Booking rejected: linked documents marked as REJECTED and unlinked from user profiles', { documentId: booking.documentId, bookingId: id });
+      }
+
       void paymentService
-        .refundForRejection(id)
+        .cancelOrVoidPayment(id)
         .catch((err) => {
-          logger.warn('Refund failed after rejection', {
+          logger.warn('Failed to release hold or refund after rejection', {
             bookingId: id,
             error:     err instanceof Error ? err.message : String(err),
           });
@@ -328,7 +360,6 @@ async adminUpdateBookingStatus(
       }
     }
 
-    // ── Admin cancellation: refund + email ─────────────────────────────────
     if (status === BookingStatus.CANCELLED) {
       void paymentService
         .cancelAndRefund(id, booking.userId ?? '', true)
@@ -356,8 +387,6 @@ async adminUpdateBookingStatus(
 
     return updated;
   }
-
-  // ── Status transition guard ────────────────────────────────────────────────
 
   private assertValidTransition(
     from: BookingStatus,

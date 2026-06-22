@@ -59,29 +59,30 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     create: { name: rawMethod },
   });
 
-  // Updated: Strictly uses Unchecked scalar properties (paymentMethodId) to prevent schema conflicts [1]
+  // Reverted to Immediate Payment: Sets payment status to 'PAID' directly upon checkout completion [1.1.5]
   await prisma.payment.upsert({
     where: { bookingId },
     update: { 
       status: 'PAID', 
       stripeId: String(paymentRef),
-      paymentMethodId: paymentMethod.id // <-- Uses raw scalar foreign key [1]
+      paymentMethodId: paymentMethod.id
     },
     create: {
       bookingId, 
       amount: (session.amount_total ?? 0) / 100,
       status: 'PAID',
       stripeId: String(paymentRef),
-      paymentMethodId: paymentMethod.id, // <-- Uses raw scalar foreign key [1]
+      paymentMethodId: paymentMethod.id,
     },
   });
 
+  // Reverted: Booking status immediately shifts to CONFIRMED [1]
   await prisma.booking.update({
     where: { id: bookingId },
     data: { status: 'CONFIRMED' },
   });
 
-  securityLogger.info('Booking confirmed via webhook', { bookingId });
+  securityLogger.info('Immediate payment captured: booking status is now CONFIRMED', { bookingId, paymentRef });
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge, prisma: PrismaClient) {
