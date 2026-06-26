@@ -50,8 +50,7 @@ export const ClientMockPayment: React.FC<{ bookingId: string }> = ({ bookingId }
       const paymentStatus = res.data?.mockFinalizePayment?.status;
 
       if (success && paymentStatus === 'PAID') {
-        showToast('Mock payment approved! Booking confirmed.', 'success');
-        // On success, redirect to your centralized receipt portal [1]
+        showToast('Payment successful! Booking confirmed.', 'success');
         router.push(`/booking/${bookingId}/success?bookingId=${bookingId}`);
       } else {
         setError('Mock Payment Declined: Insufficient funds or card expired [1].');

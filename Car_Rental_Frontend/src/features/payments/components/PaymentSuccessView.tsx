@@ -41,7 +41,7 @@ export const PaymentSuccessView: React.FC<PaymentSuccessViewProps> = ({
           Payment Successful!
         </Typography>
         <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-          Your car has been successfully booked and confirmed [1].
+          Your payment is complete and your booking is confirmed.
         </Typography>
       </Box>
 
