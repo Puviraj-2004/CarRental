@@ -26,16 +26,31 @@ export const getRedisClient = (): Redis | null => {
     redis = null;
   }
 
+  // Return existing client that's still connecting/reconnecting
+  if (redis) return redis;
+
+  return null;
+};
+
+/**
+ * Initializes the Redis client and waits for connection.
+ * Call once during server startup before the scheduler.
+ */
+export async function initRedis(): Promise<Redis | null> {
+  if (redis && redis.status === 'ready') return redis;
+
   const redisUrl = getRedisUrl();
   if (!redisUrl) return null;
 
-  if (redis) return redis;
+  if (redis) {
+    try { redis.disconnect(); } catch { /* ignore */ }
+    redis = null;
+  }
 
   try {
     redis = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,
       enableReadyCheck: true,
-      lazyConnect: true,
       connectTimeout: 5000,
       retryStrategy: (times) => {
         if (times > 3) {
@@ -58,12 +73,22 @@ export const getRedisClient = (): Redis | null => {
     redis.on('ready',  ()           => logger.info('Redis: connection established'));
     redis.on('end',    ()           => { logger.warn('Redis: connection ended'); redis = null; });
 
+    // Wait for the connection to be ready
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
+      redis!.once('ready', () => { clearTimeout(timeout); resolve(); });
+      redis!.once('error', (err) => { clearTimeout(timeout); reject(err); });
+    });
+
     return redis;
   } catch (err) {
-    logger.error('Redis: failed to create client', {
+    logger.error('Redis: failed to connect', {
       message: err instanceof Error ? err.message : String(err),
     });
+    if (redis) {
+      try { redis.disconnect(); } catch { /* ignore */ }
+    }
     redis = null;
     return null;
   }
-};
+}

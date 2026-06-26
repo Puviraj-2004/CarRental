@@ -6,7 +6,7 @@ export const MIN_BOOKING_DAYS = 1;
 export const MAX_BOOKING_DAYS = 90;
 
 export const RESERVATION_HOLD_MINUTES =
-  parseInt(process.env.RESERVATION_HOLD_MINUTES || '30', 10);
+  parseInt(process.env.RESERVATION_HOLD_MINUTES || '60', 10);
 
 export const PAYMENT_EXPIRY_HOURS =
   parseInt(process.env.PAYMENT_EXPIRY_HOURS || '24', 10);

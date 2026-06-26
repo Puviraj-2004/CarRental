@@ -1,20 +1,28 @@
 import { buildApp } from './app';
 import { env } from './config/env';
 import { prisma } from './config/database';
+import { initRedis, getRedisClient } from './config/redis';
 import logger from './config/logger';
 import { startScheduler } from './jobs/scheduler';
 
 
 export async function startServer(): Promise<void> {
   logger.info('Initialising Car Rental Backend');
-  
+
+  const { httpServer, apollo } = await buildApp();
+
+  // Connect Redis before starting the scheduler (requires ready connection)
+  await initRedis().catch((err) => {
+    logger.warn('Redis initialization failed, background jobs will not run', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+
   startScheduler().catch((err) => {
     logger.error('Failed to initialize background scheduler:', {
       error: err instanceof Error ? err.message : String(err),
     });
   });
-
-  const { httpServer, apollo } = await buildApp();
 
   await new Promise<void>((resolve) =>
     httpServer.listen({ port: env.port }, resolve),
@@ -43,6 +51,13 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+
+    const redis = getRedisClient();
+    if (redis) {
+      try { redis.disconnect(); } catch { /* ignore */ }
+      logger.info('Redis disconnected');
+    }
+
     logger.info('Graceful shutdown complete');
     process.exit(0);
   });

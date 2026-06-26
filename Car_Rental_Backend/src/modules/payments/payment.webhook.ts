@@ -49,40 +49,56 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const bookingId = session.metadata?.bookingId;
   if (!bookingId) return;
 
-  const paymentRef = session.payment_intent ?? session.id;
+  // Store the PaymentIntent ID (pi_...) for future capture/refund operations
+  const paymentIntentId = typeof session.payment_intent === 'string'
+    ? session.payment_intent
+    : session.payment_intent?.id ?? session.id;
+
   const rawMethod = session.payment_method_types?.[0] || 'card';
 
-  // Find or create the payment method
   const paymentMethod = await prisma.paymentMethod.upsert({
     where: { name: rawMethod },
     update: {},
     create: { name: rawMethod },
   });
 
-  // Reverted to Immediate Payment: Sets payment status to 'PAID' directly upon checkout completion [1.1.5]
+  // Verify booking is still in a valid state before updating
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { status: true },
+  });
+
+  if (!booking || booking.status === 'CANCELLED' || booking.status === 'REJECTED') {
+    securityLogger.warn('Webhook received for booking in terminal state, skipping', {
+      bookingId,
+      currentStatus: booking?.status,
+    });
+    return;
+  }
+
+  // Immediate capture — payment is complete, mark as PAID and confirm booking
   await prisma.payment.upsert({
     where: { bookingId },
-    update: { 
-      status: 'PAID', 
-      stripeId: String(paymentRef),
-      paymentMethodId: paymentMethod.id
+    update: {
+      status: 'PAID',
+      stripeId: paymentIntentId,
+      paymentMethodId: paymentMethod.id,
     },
     create: {
-      bookingId, 
+      bookingId,
       amount: (session.amount_total ?? 0) / 100,
       status: 'PAID',
-      stripeId: String(paymentRef),
+      stripeId: paymentIntentId,
       paymentMethodId: paymentMethod.id,
     },
   });
 
-  // Reverted: Booking status immediately shifts to CONFIRMED [1]
   await prisma.booking.update({
     where: { id: bookingId },
     data: { status: 'CONFIRMED' },
   });
 
-  securityLogger.info('Immediate payment captured: booking status is now CONFIRMED', { bookingId, paymentRef });
+  securityLogger.info('Payment captured and booking confirmed', { bookingId, paymentIntentId });
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge, prisma: PrismaClient) {
@@ -99,14 +115,29 @@ async function handleChargeRefunded(charge: Stripe.Charge, prisma: PrismaClient)
       where: { id: payment.id },
       data: { status: 'REFUNDED' },
     });
-    try {
-      await prisma.booking.update({
-        where: { id: payment.bookingId },
-        data: { status: 'CANCELLED' },
+
+    // Only transition to CANCELLED if booking is in a cancellable state
+    const booking = await prisma.booking.findUnique({
+      where: { id: payment.bookingId },
+      select: { status: true },
+    });
+
+    const cancellableOnRefund = ['RESERVED', 'CONFIRMED', 'ONGOING'];
+    if (booking && cancellableOnRefund.includes(booking.status)) {
+      try {
+        await prisma.booking.update({
+          where: { id: payment.bookingId },
+          data: { status: 'CANCELLED' },
+        });
+        securityLogger.info('Booking cancelled for refund', { bookingId: payment.bookingId });
+      } catch (err) {
+        securityLogger.warn('Could not cancel booking on refund', { error: err });
+      }
+    } else {
+      securityLogger.info('Refund processed but booking status unchanged (already in terminal state)', {
+        bookingId: payment.bookingId,
+        currentStatus: booking?.status,
       });
-      securityLogger.info('Booking cancelled for refund', { bookingId: payment.bookingId });
-    } catch (err) {
-      securityLogger.warn('Could not cancel booking on refund', { error: err });
     }
   } else {
     securityLogger.warn('Refund event: payment not found', { chargeId: charge.id });

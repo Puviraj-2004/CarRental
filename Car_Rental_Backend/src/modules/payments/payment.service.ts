@@ -114,6 +114,12 @@ export class PaymentService {
         ErrorCode.ALREADY_EXISTS,
       );
     }
+    if (existing?.status === PaymentStatus.PENDING) {
+      throw new AppError(
+        'A payment session is already in progress for this booking. Please complete or wait for the existing session to expire.',
+        ErrorCode.ALREADY_EXISTS,
+      );
+    }
 
     if (!isAdmin) {
       if (!booking.documents) { 
@@ -127,16 +133,16 @@ export class PaymentService {
     const totalPrice = Number(booking.totalPrice);
     const carLabel   = `${booking.car.model.brand.name} ${booking.car.model.name}`;
 
-    // Mock Hold setup [1.1.5]
+    // Mock payment setup
     if (env.mockStripe) {
-      securityLogger.info('Mock Stripe: placing authorization hold', { bookingId });
-      
+      securityLogger.info('Mock Stripe: immediate payment', { bookingId });
+
       await paymentRepository.upsertByBookingId(bookingId, {
         amount:   totalPrice,
         status:   PaymentStatus.PENDING,
         stripeId: `mock_session_${bookingId}`,
       });
-      
+
       return {
         url:       `${env.frontendUrl}/payment/mock?bookingId=${bookingId}`,
         sessionId: `mock_session_${bookingId}`,
@@ -151,14 +157,13 @@ export class PaymentService {
       );
     }
 
-    // Configures checkout session to authorization-hold mode [1.1.5, 1.2.1]
+    // Immediate capture — funds are charged when customer completes checkout
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode:                 'payment',
       customer_email:       booking.user?.email ?? undefined,
       payment_intent_data: {
-        capture_method: 'manual', // <-- Holds money without debiting [1.1.5, 1.2.1]
-        metadata:       { bookingId },
+        metadata: { bookingId },
       },
       line_items: [
         {
@@ -199,7 +204,7 @@ export class PaymentService {
     return { url: session.url, sessionId: session.id };
   }
 
-  // ── Mock Finalize: Updated to match real auth hold sequence [1.1.5] ──────
+  // ── Mock Finalize: Simulates immediate payment capture ──────
   async mockFinalizePayment(bookingId: string, success: boolean) {
     if (!env.mockStripe) {
       throw new AppError('Mock payment is only allowed in development.', ErrorCode.BAD_USER_INPUT);
@@ -210,21 +215,20 @@ export class PaymentService {
       throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
     }
 
-    // Hold state remains PENDING capture [1.1.5]
-    const status = success ? PaymentStatus.PENDING : PaymentStatus.FAILED;
+    const status = success ? PaymentStatus.PAID : PaymentStatus.FAILED;
 
     const payment = await paymentRepository.upsertByBookingId(bookingId, {
       amount: Number(booking.totalPrice),
       status,
-      stripeId: `mock_charge_success_${bookingId}`
+      stripeId: `mock_charge_${success ? 'success' : 'failed'}_${bookingId}`
     });
 
     if (success) {
       await prisma.booking.update({
         where: { id: bookingId },
-        data: { status: BookingStatus.RESERVED } // Still reserved until admin reviews [1.1.5]
+        data: { status: BookingStatus.CONFIRMED }
       });
-      securityLogger.info('Mock hold authorized: waiting for verification', { bookingId });
+      securityLogger.info('Mock payment captured: booking confirmed', { bookingId });
     }
 
     return payment;
@@ -260,9 +264,25 @@ export class PaymentService {
       throw new AppError('Payment service is not configured.', ErrorCode.CONFIGURATION_ERROR);
     }
 
+    // Resolve checkout session ID (cs_...) to PaymentIntent ID (pi_...)
+    let paymentIntentId = stripeId;
+    if (stripeId.startsWith('cs_')) {
+      const session = await stripe.checkout.sessions.retrieve(stripeId);
+      paymentIntentId = typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : session.payment_intent?.id ?? '';
+    }
+
+    if (!paymentIntentId) {
+      throw new AppError(
+        'Could not resolve PaymentIntent for this payment.',
+        ErrorCode.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     // Officially debits funds [1.1.5]
-    await stripe.paymentIntents.capture(stripeId);
-    securityLogger.info('Stripe payment hold captured successfully', { bookingId, stripeId });
+    await stripe.paymentIntents.capture(paymentIntentId);
+    securityLogger.info('Stripe payment hold captured successfully', { bookingId, stripeId: paymentIntentId });
 
     return paymentRepository.update(payment.id, { status: PaymentStatus.PAID });
   }

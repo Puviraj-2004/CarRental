@@ -23,8 +23,9 @@ export async function startScheduler(): Promise<void> {
   }
 
   const connection = {
-    host: redis.options?.host ?? '127.0.0.1',
-    port: redis.options?.port ?? 6379,
+    host:     redis.options?.host ?? '127.0.0.1',
+    port:     redis.options?.port ?? 6379,
+    password: redis.options?.password ?? undefined,
   };
 
   // ── 1. Create Queues ───────────────────────────────────────────────────────
