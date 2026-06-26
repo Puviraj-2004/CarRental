@@ -7,12 +7,13 @@ export async function runBookingExpirationJob(): Promise<void> {
   const now     = new Date();
   const cutoff  = new Date(now.getTime() - RESERVATION_HOLD_MINUTES * 60 * 1000);
 
-  // ── Condition 1 — start date passed ───────────────────────────────────────
-  // RESERVED or CONFIRMED bookings whose rental start date is in the past.
-  // These are no-shows or bookings that were never acted upon.
+  // ── Condition 1 — start date passed for unpaid reservations ────────────────
+  // Only RESERVED bookings whose start date has passed are no-shows.
+  // CONFIRMED bookings past start date are active rentals awaiting handover
+  // and should NOT be cancelled automatically.
   const noShows = await prisma.booking.updateMany({
     where: {
-      status:    { in: [BookingStatus.RESERVED, BookingStatus.CONFIRMED] },
+      status:    BookingStatus.RESERVED,
       startDate: { lt: now },
     },
     data: { status: BookingStatus.CANCELLED },

@@ -25,7 +25,7 @@ export const bookingResolvers: Partial<Resolvers> = {
   Query: {
     booking: (_: unknown, { id }: QueryBookingArgs, ctx: GraphQLContext) => {
       isAuthenticated(ctx);
-      return bookingService.getBookingById(id);
+      return bookingService.getBookingById(id, ctx.userId!, ctx.role === 'ADMIN');
     },
 
     myBookings: (_: unknown, { pagination }: QueryMyBookingsArgs, ctx: GraphQLContext) => {

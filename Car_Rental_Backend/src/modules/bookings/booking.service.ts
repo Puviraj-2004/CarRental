@@ -24,8 +24,18 @@ const CANCELLABLE_STATUSES: BookingStatus[] = [
 ];
 
 export class BookingService {
-  async getBookingById(id: string): Promise<BookingWithRelations | null> {
-    return bookingRepository.findById(id);
+  async getBookingById(id: string, userId: string, isAdmin: boolean): Promise<BookingWithRelations | null> {
+    const booking = await bookingRepository.findById(id);
+    if (!booking) return null;
+
+    if (!isAdmin && booking.userId !== userId) {
+      throw new AppError(
+        'Access denied. You do not own this booking.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+
+    return booking;
   }
 
   async getMyBookings(
@@ -147,33 +157,54 @@ export class BookingService {
       );
     }
 
-    const conflict = await bookingRepository.hasConflict(
-      input.carId,
-      start,
-      end,
-    );
-    if (conflict) {
-      throw new AppError(
-        'This car is already booked for the selected dates.',
-        ErrorCode.ALREADY_EXISTS,
-      );
-    }
-
     const basePrice  = Number(car.basePrice);
     const totalPrice = multiplyMoney(basePrice, numberOfDays).toNumber();
 
-    return bookingRepository.create({
-      carId:       input.carId,
-      userId:      input.userId,
-      startDate:   start,
-      endDate:     end,
-      numberOfDays,
-      basePrice,
-      totalPrice,
-      guestName:   input.guestName,
-      guestPhone:  input.guestPhone,
-      notes:       input.notes,
-      type:        bookingType,
+    // Atomic check-and-create inside a serializable transaction to prevent double-booking
+    return prisma.$transaction(async (tx) => {
+      // Row-level advisory lock on the car to serialize concurrent booking attempts
+      await tx.$queryRaw`SELECT id FROM "Car" WHERE id = ${input.carId} FOR UPDATE`;
+
+      const conflict = await tx.booking.findFirst({
+        where: {
+          carId: input.carId,
+          status: { in: [BookingStatus.RESERVED, BookingStatus.CONFIRMED, BookingStatus.ONGOING] },
+          AND: [
+            { startDate: { lte: end } },
+            { endDate:   { gte: start } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (conflict) {
+        throw new AppError(
+          'This car is already booked for the selected dates.',
+          ErrorCode.ALREADY_EXISTS,
+        );
+      }
+
+      return tx.booking.create({
+        data: {
+          carId:       input.carId,
+          userId:      input.userId,
+          startDate:   start,
+          endDate:     end,
+          numberOfDays,
+          basePrice,
+          totalPrice,
+          guestName:   input.guestName,
+          guestPhone:  input.guestPhone,
+          notes:       input.notes,
+          type:        bookingType,
+        },
+        include: {
+          car:       { include: { model: { include: { brand: true } }, images: true, fuelType: true } },
+          user:      true,
+          payment:   { include: { paymentMethod: true } },
+          documents: true,
+        },
+      });
     });
   }
 
@@ -216,14 +247,16 @@ export class BookingService {
       status: BookingStatus.CANCELLED,
     });
 
-    void paymentService
-      .cancelAndRefund(id, userId, isAdmin)
-      .catch((err) => {
-        logger.warn('Refund failed after cancellation', {
-          bookingId: id,
-          error:     err instanceof Error ? err.message : String(err),
-        });
+    // Await refund — surface failures instead of silently swallowing them
+    try {
+      await paymentService.cancelAndRefund(id, userId, isAdmin);
+    } catch (err) {
+      logger.error('REFUND FAILED after cancellation — requires manual resolution', {
+        bookingId: id,
+        userId,
+        error: err instanceof Error ? err.message : String(err),
       });
+    }
 
     if (updated.user?.email) {
       void notificationService

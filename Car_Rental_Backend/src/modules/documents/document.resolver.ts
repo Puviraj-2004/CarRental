@@ -6,7 +6,34 @@ import { isAdmin } from '../../core/middleware/admin.middleware';
 
 const ocrService = new OCRService(); 
 
+const ALLOWED_URL_HOSTS = [
+  'res.cloudinary.com',
+  'cloudinary.com',
+];
+
+function validateDocumentUrl(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (!ALLOWED_URL_HOSTS.some(host => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`))) {
+      throw new AppError(
+        'Document URLs must be hosted on Cloudinary.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+    if (parsed.protocol !== 'https:') {
+      throw new AppError(
+        'Document URLs must use HTTPS.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError('Invalid document URL.', ErrorCode.BAD_USER_INPUT);
+  }
+}
+
 async function downloadFileBuffer(url: string): Promise<Buffer> {
+  validateDocumentUrl(url);
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -15,7 +42,8 @@ async function downloadFileBuffer(url: string): Promise<Buffer> {
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
   } catch (err) {
-    throw new AppError(`Failed to retrieve document asset from storage: ${url}`, ErrorCode.INTERNAL_SERVER_ERROR);
+    if (err instanceof AppError) throw err;
+    throw new AppError(`Failed to retrieve document asset from storage.`, ErrorCode.INTERNAL_SERVER_ERROR);
   }
 }
 
@@ -50,6 +78,18 @@ export const documentResolvers: any = {
       if (!ctx.userId) {
         throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
       }
+
+      const booking = await ctx.prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { userId: true },
+      });
+      if (!booking) {
+        throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+      }
+      if (booking.userId !== ctx.userId && ctx.role !== 'ADMIN') {
+        throw new AppError('Access denied. You do not own this booking.', ErrorCode.FORBIDDEN);
+      }
+
       return documentService.getByBookingId(bookingId);
     },
 
@@ -66,7 +106,11 @@ export const documentResolvers: any = {
       licenseFrontUrl: string;
       idCardFrontUrl:  string;
       addressProofUrl: string;
-    }) => {
+    }, ctx: GraphQLContext) => {
+      if (!ctx.userId) {
+        throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
+      }
+
       const [licFrontBuf, idFrontBuf, addressBuf] = await Promise.all([
         downloadFileBuffer(licenseFrontUrl),
         downloadFileBuffer(idCardFrontUrl),
@@ -115,6 +159,18 @@ export const documentResolvers: any = {
       if (!ctx.userId) {
         throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
       }
+
+      const booking = await ctx.prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: { userId: true },
+      });
+      if (!booking) {
+        throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+      }
+      if (booking.userId !== ctx.userId && ctx.role !== 'ADMIN') {
+        throw new AppError('Access denied. You do not own this booking.', ErrorCode.FORBIDDEN);
+      }
+
       return documentService.reuseDocumentsForBooking(ctx.userId, bookingId);
     },
 
