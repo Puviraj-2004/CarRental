@@ -19,7 +19,26 @@ const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const GRACE_PERIOD_SECONDS = 60; // 60-second window to handle parallel requests [1]
 
 const refreshKey = (token: string) => `rt:${token}`;
-const rotatedKey = (token: string) => `rotated:rt:${token}`; 
+const rotatedKey = (token: string) => `rotated:rt:${token}`;
+
+// Lua script for atomic token rotation: GET + SET rotated + DEL active in one round-trip
+const ROTATE_LUA = `
+local active_key = KEYS[1]
+local rotated_key = KEYS[2]
+local grace_ttl = tonumber(ARGV[1])
+
+local payload = redis.call('GET', active_key)
+if not payload then
+  -- Check if already rotated (concurrent request within grace period)
+  local rotated = redis.call('GET', rotated_key)
+  return rotated
+end
+
+-- Atomically move to rotated key and delete active
+redis.call('SET', rotated_key, payload, 'EX', grace_ttl)
+redis.call('DEL', active_key)
+return payload
+`;
 
 /** Dev-only in-memory fallback */
 const devStore = new Map<string, { userId: string; role: Role; expiresAt: number }>();
@@ -79,26 +98,22 @@ export const rotateRefreshToken = async (
   const redis = getRedisClient();
   let payload: { userId: string; role: Role } | null = null;
 
-  // Step 1: Query Upstash Redis
+  // Step 1: Atomic rotation via Lua script (prevents race conditions)
   if (redis && redis.status === 'ready') {
     try {
-      const raw = await redis.get(refreshKey(oldToken));
+      const raw = await redis.eval(
+        ROTATE_LUA,
+        2,
+        refreshKey(oldToken),
+        rotatedKey(oldToken),
+        String(GRACE_PERIOD_SECONDS),
+      ) as string | null;
+
       if (raw) {
         payload = JSON.parse(raw) as { userId: string; role: Role };
-        
-        // Move to the rotated grace-period cache with a 60-second TTL [1]
-        await redis.set(rotatedKey(oldToken), raw, 'EX', GRACE_PERIOD_SECONDS);
-        // Evict from active store immediately [1]
-        await redis.del(refreshKey(oldToken));
-      } else {
-        // Fallback: Check if the token was rotated within the last 60 seconds (concurrency check) [1]
-        const rotatedRaw = await redis.get(rotatedKey(oldToken));
-        if (rotatedRaw) {
-          payload = JSON.parse(rotatedRaw) as { userId: string; role: Role };
-        }
       }
     } catch (err) {
-      console.error('Upstash Redis get failed during rotation, checking fallback:', err);
+      console.error('Redis rotation failed, checking fallback:', err);
     }
   }
 
