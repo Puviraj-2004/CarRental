@@ -69,9 +69,9 @@ export class BookingService {
       // 2. Only show RENTAL type bookings
       type: BookingType.RENTAL,
       
-      // 3. Do NOT show cancelled or rejected bookings
+      // 3. Do NOT show cancelled, rejected, or expired bookings
       status: {
-        notIn: [BookingStatus.CANCELLED, BookingStatus.REJECTED],
+        notIn: [BookingStatus.CANCELLED, BookingStatus.REJECTED, BookingStatus.EXPIRED],
       },
       
       // Must have an active authorized hold or paid payment [1.1.5]
@@ -434,12 +434,14 @@ export class BookingService {
       [BookingStatus.CONFIRMED]: [
         BookingStatus.ONGOING,
         BookingStatus.CANCELLED,
+        BookingStatus.EXPIRED,
       ],
       [BookingStatus.ONGOING]:   [
         BookingStatus.COMPLETED,
         BookingStatus.CANCELLED,
       ],
       [BookingStatus.COMPLETED]: [],
+      [BookingStatus.EXPIRED]:   [],
       [BookingStatus.CANCELLED]: [],
       [BookingStatus.REJECTED]:  [],
     };
@@ -450,6 +452,86 @@ export class BookingService {
         ErrorCode.BAD_USER_INPUT,
       );
     }
+  }
+
+  async extendBookingDates(
+    id:         string,
+    userId:     string,
+    isAdmin:    boolean,
+    newEndDate: string,
+  ): Promise<BookingWithRelations> {
+    const booking = await bookingRepository.findById(id);
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+
+    if (!isAdmin && booking.userId !== userId) {
+      throw new AppError(
+        'Access denied. You do not own this booking.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+
+    // Allow extension only for RESERVED and certain states that haven't started [1]
+    const allowedStatuses: BookingStatus[] = [BookingStatus.RESERVED];
+    if (!allowedStatuses.includes(booking.status)) {
+      throw new AppError(
+        `Cannot extend dates for a booking with status "${booking.status}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    const parsedNewEndDate = new Date(newEndDate);
+    if (isNaN(parsedNewEndDate.getTime())) {
+      throw new AppError('Invalid date format.', ErrorCode.BAD_USER_INPUT);
+    }
+
+    if (parsedNewEndDate <= booking.endDate) {
+      throw new AppError(
+        'New end date must be after the current end date.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    // Check for conflicts with other bookings [1]
+    const BLOCKING_STATUSES = [BookingStatus.RESERVED, BookingStatus.CONFIRMED, BookingStatus.ONGOING];
+    const conflictingBooking = await prisma.booking.findFirst({
+      where: {
+        carId: booking.carId,
+        id: { not: id },
+        status: { in: BLOCKING_STATUSES },
+        AND: [
+          { startDate: { lte: parsedNewEndDate } },
+          { endDate: { gte: booking.startDate } },
+        ],
+      },
+    });
+
+    if (conflictingBooking) {
+      throw new AppError(
+        'The requested dates conflict with another booking.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    // Recalculate pricing [1]
+    const newNumberOfDays = Math.ceil((parsedNewEndDate.getTime() - booking.startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const newTotalPrice = Number(booking.basePrice) * newNumberOfDays;
+
+    const updated = await bookingRepository.update(id, {
+      endDate: parsedNewEndDate,
+      numberOfDays: newNumberOfDays,
+      totalPrice: newTotalPrice,
+    });
+
+    logger.info('Booking dates extended', {
+      bookingId: id,
+      previousEndDate: booking.endDate,
+      newEndDate: parsedNewEndDate,
+      newNumberOfDays,
+    });
+
+    return updated;
   }
 }
 

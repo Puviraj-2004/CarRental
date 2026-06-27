@@ -111,8 +111,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ t, stats, loading,
                         borderRadius: '12px',
                         fontSize: '12px',
                         fontWeight: 700,
-                        bgcolor: booking.status === 'CONFIRMED' ? 'success.light' : 'warning.light',
-                        color: booking.status === 'CONFIRMED' ? 'success.dark' : 'warning.dark',
+                        bgcolor: booking.status === 'CONFIRMED' ? 'success.light' : booking.status === 'EXPIRED' ? 'error.light' : 'warning.light',
+                        color: booking.status === 'CONFIRMED' ? 'success.dark' : booking.status === 'EXPIRED' ? 'error.dark' : 'warning.dark',
                       }}
                     >
                       {booking.status}
@@ -143,8 +143,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ t, stats, loading,
                   borderRadius: '12px',
                   fontSize: '11px',
                   fontWeight: 700,
-                  bgcolor: booking.status === 'CONFIRMED' ? 'success.light' : 'warning.light',
-                  color: booking.status === 'CONFIRMED' ? 'success.dark' : 'warning.dark',
+                  bgcolor: booking.status === 'CONFIRMED' ? 'success.light' : booking.status === 'EXPIRED' ? 'error.light' : 'warning.light',
+                  color: booking.status === 'CONFIRMED' ? 'success.dark' : booking.status === 'EXPIRED' ? 'error.dark' : 'warning.dark',
                 }}
               >
                 {booking.status}

@@ -33,3 +33,14 @@ export const UPDATE_BOOKING_MUTATION = gql`
     }
   }
 `;
+
+export const EXTEND_BOOKING_DATES_MUTATION = gql`
+  mutation ExtendBookingDates($id: ID!, $newEndDate: String!) {
+    extendBookingDates(id: $id, newEndDate: $newEndDate) {
+      id
+      endDate
+      numberOfDays
+      totalPrice
+    }
+  }
+`;

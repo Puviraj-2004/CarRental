@@ -67,6 +67,10 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
         bgcolor = '#f3f4f6';
         color = '#1f2937';
         break;
+      case 'EXPIRED':
+        bgcolor = '#fef2f2';
+        color = '#dc2626';
+        break;
       case 'CANCELLED':
       case 'REJECTED':
         bgcolor = '#fef2f2';
@@ -121,6 +125,7 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
               <MenuItem value="CONFIRMED">CONFIRMED</MenuItem>
               <MenuItem value="ONGOING">ONGOING</MenuItem>
               <MenuItem value="COMPLETED">COMPLETED</MenuItem>
+              <MenuItem value="EXPIRED">EXPIRED</MenuItem>
             </TextField>
           </Grid>
         </Grid>

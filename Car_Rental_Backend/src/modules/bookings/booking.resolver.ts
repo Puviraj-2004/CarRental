@@ -4,6 +4,7 @@ import { isAuthenticated } from '../../core/middleware/auth.middleware';
 import { isAdmin }         from '../../core/middleware/admin.middleware';
 import { GraphQLContext }  from '../../graphql/context';
 import { bookingService }  from './booking.service';
+import { AppError, ErrorCode } from '../../core/errors/AppError';
 import type {
   Resolvers,
   QueryMyBookingsArgs,
@@ -115,6 +116,22 @@ export const bookingResolvers: Partial<Resolvers> = {
     ) => {
       isAdmin(ctx);
       return bookingService.adminUpdateBookingStatus(id, status as BookingStatus);
+    },
+
+    extendBookingDates: (
+      _: unknown,
+      { id, newEndDate }: { id: string; newEndDate: string },
+      ctx: GraphQLContext,
+    ) => {
+      if (!ctx.userId) {
+        throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
+      }
+      return bookingService.extendBookingDates(
+        id,
+        ctx.userId,
+        ctx.role === 'ADMIN',
+        newEndDate,
+      );
     },
   },
 };

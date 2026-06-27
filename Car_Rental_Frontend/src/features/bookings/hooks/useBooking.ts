@@ -1,5 +1,5 @@
 import { useMutation, useQuery, FetchResult } from '@apollo/client';
-import { CREATE_BOOKING_MUTATION, CANCEL_BOOKING_MUTATION } from '../graphql/mutations';
+import { CREATE_BOOKING_MUTATION, CANCEL_BOOKING_MUTATION, EXTEND_BOOKING_DATES_MUTATION } from '../graphql/mutations';
 import { GET_BOOKING_QUERY } from '../graphql/queries';
 
 export interface Booking {
@@ -14,7 +14,7 @@ export interface Booking {
   guestName?:     string | null;
   guestPhone?:    string | null;
   notes?:         string | null;
-  status:         'RESERVED' | 'CONFIRMED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
+  status:         'RESERVED' | 'CONFIRMED' | 'ONGOING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED' | 'REJECTED';
   type:           'RENTAL' | 'COURTESY';
   reminderSentAt?: string | null;
   createdAt:      string;
@@ -71,6 +71,8 @@ export interface UseBookingReturn {
   loadingCreate:    boolean;
   executeCancel:    (id: string) => Promise<FetchResult<{ cancelBooking: Booking }>>;
   loadingCancel:    boolean;
+  executeExtend:    (id: string, newEndDate: string) => Promise<FetchResult<{ extendBookingDates: Booking }>>;
+  loadingExtend:    boolean;
 }
 
 export const useBooking = (bookingId?: string): UseBookingReturn => {
@@ -90,6 +92,11 @@ export const useBooking = (bookingId?: string): UseBookingReturn => {
     CANCEL_BOOKING_MUTATION
   );
 
+  const [extendBookingDates, { loading: loadingExtend }] = useMutation<
+    { extendBookingDates: Booking },
+    { id: string; newEndDate: string }
+  >(EXTEND_BOOKING_DATES_MUTATION);
+
   const executeCreate = async (input: CreateBookingInput): Promise<FetchResult<CreateBookingData>> => {
     return await createBooking({
       variables: { input },
@@ -102,6 +109,12 @@ export const useBooking = (bookingId?: string): UseBookingReturn => {
     });
   };
 
+  const executeExtend = async (id: string, newEndDate: string): Promise<FetchResult<{ extendBookingDates: Booking }>> => {
+    return await extendBookingDates({
+      variables: { id, newEndDate },
+    });
+  };
+
   return {
     booking: data?.booking || null,
     loadingQuery,
@@ -109,5 +122,7 @@ export const useBooking = (bookingId?: string): UseBookingReturn => {
     loadingCreate,
     executeCancel,
     loadingCancel,
+    executeExtend,
+    loadingExtend,
   };
 };

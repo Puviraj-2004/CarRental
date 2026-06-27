@@ -49,7 +49,62 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Typography>
         <List component="nav" disablePadding onClick={handleDrawerToggle}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {adminMenuItems.map((item) => {
+            {adminMenuItems.map((item, idx) => {
+              // Handle group items
+              if ('groupLabelKey' in item) {
+                return (
+                  <Box key={`group-${idx}`} sx={{ mt: 2 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: 'text.secondary',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        px: 2,
+                        py: 1,
+                        display: 'block',
+                      }}
+                    >
+                      {t(item.groupLabelKey)}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {item.items.map((subItem) => {
+                        const isActive = pathname === subItem.path;
+                        return (
+                          <ListItemButton
+                            key={subItem.path}
+                            component={Link}
+                            href={subItem.path}
+                            sx={{
+                              borderRadius: '8px',
+                              bgcolor: isActive ? 'primary.main' : 'transparent',
+                              color: isActive ? 'primary.contrastText' : 'text.primary',
+                              '&:hover': {
+                                bgcolor: isActive ? 'primary.dark' : 'grey.100',
+                              },
+                              px: 2,
+                              py: 1,
+                              ml: 1,
+                            }}
+                          >
+                            <ListItemText
+                              primary={t(subItem.labelKey)}
+                              primaryTypographyProps={{
+                                fontWeight: isActive ? 700 : 500,
+                                fontSize: '13px',
+                              }}
+                            />
+                          </ListItemButton>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                );
+              }
+
+              // Handle regular menu items
               const isActive = pathname === item.path;
               return (
                 <ListItemButton

@@ -114,11 +114,10 @@ export class PaymentService {
         ErrorCode.ALREADY_EXISTS,
       );
     }
+    
+    // Allow retry: delete previous PENDING payment so user can create a new session [1]
     if (existing?.status === PaymentStatus.PENDING) {
-      throw new AppError(
-        'A payment session is already in progress for this booking. Please complete or wait for the existing session to expire.',
-        ErrorCode.ALREADY_EXISTS,
-      );
+      await prisma.payment.delete({ where: { id: existing.id } });
     }
 
     if (!isAdmin) {

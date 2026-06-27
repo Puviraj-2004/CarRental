@@ -68,7 +68,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     select: { status: true },
   });
 
-  if (!booking || booking.status === 'CANCELLED' || booking.status === 'REJECTED') {
+  if (!booking || booking.status === 'CANCELLED' || booking.status === 'REJECTED' || booking.status === 'EXPIRED') {
     securityLogger.warn('Webhook received for booking in terminal state, skipping', {
       bookingId,
       currentStatus: booking?.status,

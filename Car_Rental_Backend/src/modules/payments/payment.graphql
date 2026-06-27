@@ -36,10 +36,16 @@ extend type Query {
   paymentByBooking(bookingId: ID!):        Payment
   myPayments(pagination: PaginationInput): PaginatedPayments!
   payments(pagination: PaginationInput):   PaginatedPayments!
+  paymentMethods: [PaymentMethod!]!
 }
 
 extend type Mutation {
   createCheckoutSession(bookingId: ID!): CheckoutSession!
   refundPayment(paymentId: ID!):         Payment!
   mockFinalizePayment(bookingId: String!, success: Boolean!): Payment!
+
+  # ── PaymentMethod CRUD Operations ──────────────────────────
+  createPaymentMethod(name: String!): PaymentMethod!
+  updatePaymentMethod(id: ID!, name: String!): PaymentMethod!
+  deletePaymentMethod(id: ID!): Boolean!
 }

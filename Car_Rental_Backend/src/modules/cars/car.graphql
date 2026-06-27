@@ -114,4 +114,19 @@ extend type Mutation {
   updateCarStatus(id: ID!, status: CarStatus!): Car!
   updateCarPricing(id: ID!, basePrice: Float!): Car!
   scheduleCarMaintenance(id: ID!): Car!
+
+  # ── Brand CRUD Operations ──────────────────────────────────
+  createBrand(name: String!): Brand!
+  updateBrand(id: ID!, name: String!): Brand!
+  deleteBrand(id: ID!): Boolean!
+
+  # ── Model CRUD Operations ──────────────────────────────────
+  createModel(name: String!, brandId: ID!): VehicleModel!
+  updateModel(id: ID!, name: String, brandId: ID): VehicleModel!
+  deleteModel(id: ID!): Boolean!
+
+  # ── FuelType CRUD Operations ───────────────────────────────
+  createFuelType(name: String!): FuelType!
+  updateFuelType(id: ID!, name: String!): FuelType!
+  deleteFuelType(id: ID!): Boolean!
 }

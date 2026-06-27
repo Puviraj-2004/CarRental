@@ -187,5 +187,103 @@ export const carResolvers: Partial<Resolvers> = {
       isAdmin(ctx);
       return carService.scheduleCarMaintenance(id);
     },
+
+    // ── Brand CRUD ─────────────────────────────────────────────────────────
+    createBrand: async (
+      _: unknown,
+      { name }: { name: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return ctx.prisma.brand.create({ data: { name } });
+    },
+
+    updateBrand: async (
+      _: unknown,
+      { id, name }: { id: string; name: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return ctx.prisma.brand.update({ where: { id }, data: { name } });
+    },
+
+    deleteBrand: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      await ctx.prisma.brand.delete({ where: { id } });
+      return true;
+    },
+
+    // ── Model CRUD ─────────────────────────────────────────────────────────
+    createModel: async (
+      _: unknown,
+      { name, brandId }: { name: string; brandId: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return ctx.prisma.vehicleModel.create({
+        data: { name, brandId },
+        include: { brand: true },
+      });
+    },
+
+    updateModel: async (
+      _: unknown,
+      { id, name, brandId }: { id: string; name?: string | null; brandId?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      const data: { name?: string; brandId?: string } = {};
+      if (name !== undefined && name !== null) data.name = name;
+      if (brandId !== undefined && brandId !== null) data.brandId = brandId;
+      
+      return ctx.prisma.vehicleModel.update({
+        where: { id },
+        data,
+        include: { brand: true },
+      });
+    },
+
+    deleteModel: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      await ctx.prisma.vehicleModel.delete({ where: { id } });
+      return true;
+    },
+
+    // ── FuelType CRUD ──────────────────────────────────────────────────────
+    createFuelType: async (
+      _: unknown,
+      { name }: { name: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return ctx.prisma.fuelType.create({ data: { name } });
+    },
+
+    updateFuelType: async (
+      _: unknown,
+      { id, name }: { id: string; name: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return ctx.prisma.fuelType.update({ where: { id }, data: { name } });
+    },
+
+    deleteFuelType: async (
+      _: unknown,
+      { id }: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      await ctx.prisma.fuelType.delete({ where: { id } });
+      return true;
+    },
   },
 };

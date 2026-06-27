@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -14,6 +14,7 @@ import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 import Divider from '@mui/material/Divider';
 import Link from 'next/link';
+import { RefundPolicyDialog } from './RefundPolicyDialog';
 
 interface BookingViewProps {
   t: (path: string) => string;
@@ -44,6 +45,38 @@ export const BookingView: React.FC<BookingViewProps> = ({
   error,
   loading,
 }) => {
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
+
+  const handleReserveClick = (e: React.MouseEvent) => {
+    // Find the form
+    const form = document.querySelector('form') as HTMLFormElement;
+    if (!form) return;
+
+    // Get form values
+    const formData = new FormData(form);
+    const nameInput = formData.get('guestName') as string;
+    const phoneInput = formData.get('guestPhone') as string;
+
+    // Validate required fields
+    if (!nameInput?.trim() || !phoneInput?.trim()) {
+      // Let the form validation handle it - try to submit to trigger browser validation
+      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+      form.dispatchEvent(submitEvent);
+      return;
+    }
+
+    // If valid, show policy dialog
+    setPolicyDialogOpen(true);
+  };
+
+  const handlePolicyConfirm = () => {
+    setPolicyDialogOpen(false);
+    // Trigger form submission
+    const form = document.querySelector('form') as HTMLFormElement;
+    if (form) {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+  };
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
       
@@ -220,7 +253,8 @@ export const BookingView: React.FC<BookingViewProps> = ({
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Button
-                  type="submit"
+                  type="button"
+                  onClick={handleReserveClick}
                   variant="contained"
                   fullWidth
                   size="large"
@@ -254,6 +288,14 @@ export const BookingView: React.FC<BookingViewProps> = ({
 
         </Grid>
       </Box>
+
+      <RefundPolicyDialog
+        open={policyDialogOpen}
+        onConfirm={handlePolicyConfirm}
+        onCancel={() => setPolicyDialogOpen(false)}
+        estimatedTotal={estimatedTotal}
+        bookingDuration={bookingDuration}
+      />
     </Container>
   );
 };

@@ -3,6 +3,7 @@ enum BookingStatus {
   CONFIRMED
   ONGOING
   COMPLETED
+  EXPIRED
   CANCELLED
   REJECTED
 }
@@ -76,4 +77,5 @@ extend type Mutation {
   cancelBooking(id: ID!):                                     Booking!
   updateBooking(id: ID!, input: UpdateBookingInput!):         Booking!
   adminUpdateBookingStatus(id: ID!, status: BookingStatus!):  Booking!
+  extendBookingDates(id: ID!, newEndDate: String!):           Booking!
 }

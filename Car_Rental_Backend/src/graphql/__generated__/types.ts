@@ -63,6 +63,7 @@ export type BookingStatus =
   | 'CANCELLED'
   | 'COMPLETED'
   | 'CONFIRMED'
+  | 'EXPIRED'
   | 'ONGOING'
   | 'REJECTED'
   | 'RESERVED';
@@ -227,10 +228,19 @@ export type Mutation = {
   cancelBooking: Booking;
   changePassword: Scalars['Boolean']['output'];
   createBooking: Booking;
+  createBrand: Brand;
   createCheckoutSession: CheckoutSession;
+  createFuelType: FuelType;
+  createModel: VehicleModel;
+  createPaymentMethod: PaymentMethod;
+  deleteBrand: Scalars['Boolean']['output'];
   deleteCar: Scalars['Boolean']['output'];
   deleteCarImage: Scalars['Boolean']['output'];
+  deleteFuelType: Scalars['Boolean']['output'];
+  deleteModel: Scalars['Boolean']['output'];
+  deletePaymentMethod: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
+  extendBookingDates: Booking;
   login: LoginPayload;
   logout?: Maybe<Scalars['Boolean']['output']>;
   mockFinalizePayment: Payment;
@@ -245,9 +255,13 @@ export type Mutation = {
   scheduleCarMaintenance: Car;
   setPrimaryImage: Car;
   updateBooking: Booking;
+  updateBrand: Brand;
   updateCar: Car;
   updateCarPricing: Car;
   updateCarStatus: Car;
+  updateFuelType: FuelType;
+  updateModel: VehicleModel;
+  updatePaymentMethod: PaymentMethod;
   updateUserRole: User;
   uploadCarImages: Car;
   verifyOTP: VerifyOtpPayload;
@@ -287,8 +301,34 @@ export type MutationCreateBookingArgs = {
 };
 
 
+export type MutationCreateBrandArgs = {
+  name: Scalars['String']['input'];
+};
+
+
 export type MutationCreateCheckoutSessionArgs = {
   bookingId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateFuelTypeArgs = {
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationCreateModelArgs = {
+  brandId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationCreatePaymentMethodArgs = {
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteBrandArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -302,8 +342,29 @@ export type MutationDeleteCarImageArgs = {
 };
 
 
+export type MutationDeleteFuelTypeArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteModelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeletePaymentMethodArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteUserArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationExtendBookingDatesArgs = {
+  id: Scalars['ID']['input'];
+  newEndDate: Scalars['String']['input'];
 };
 
 
@@ -386,6 +447,12 @@ export type MutationUpdateBookingArgs = {
 };
 
 
+export type MutationUpdateBrandArgs = {
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+
 export type MutationUpdateCarArgs = {
   id: Scalars['ID']['input'];
   input: UpdateCarInput;
@@ -401,6 +468,25 @@ export type MutationUpdateCarPricingArgs = {
 export type MutationUpdateCarStatusArgs = {
   id: Scalars['ID']['input'];
   status: CarStatus;
+};
+
+
+export type MutationUpdateFuelTypeArgs = {
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateModelArgs = {
+  brandId?: InputMaybe<Scalars['ID']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdatePaymentMethodArgs = {
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
 };
 
 
@@ -529,6 +615,7 @@ export type Query = {
   myPayments: PaginatedPayments;
   payment?: Maybe<Payment>;
   paymentByBooking?: Maybe<Payment>;
+  paymentMethods: Array<PaymentMethod>;
   payments: PaginatedPayments;
   user?: Maybe<User>;
   users: PaginatedUsers;
@@ -996,10 +1083,19 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   cancelBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationCancelBookingArgs, 'id'>>;
   changePassword?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationChangePasswordArgs, 'currentPassword' | 'newPassword'>>;
   createBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationCreateBookingArgs, 'input'>>;
+  createBrand?: Resolver<ResolversTypes['Brand'], ParentType, ContextType, RequireFields<MutationCreateBrandArgs, 'name'>>;
   createCheckoutSession?: Resolver<ResolversTypes['CheckoutSession'], ParentType, ContextType, RequireFields<MutationCreateCheckoutSessionArgs, 'bookingId'>>;
+  createFuelType?: Resolver<ResolversTypes['FuelType'], ParentType, ContextType, RequireFields<MutationCreateFuelTypeArgs, 'name'>>;
+  createModel?: Resolver<ResolversTypes['VehicleModel'], ParentType, ContextType, RequireFields<MutationCreateModelArgs, 'brandId' | 'name'>>;
+  createPaymentMethod?: Resolver<ResolversTypes['PaymentMethod'], ParentType, ContextType, RequireFields<MutationCreatePaymentMethodArgs, 'name'>>;
+  deleteBrand?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteBrandArgs, 'id'>>;
   deleteCar?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarArgs, 'id'>>;
   deleteCarImage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteCarImageArgs, 'imageId'>>;
+  deleteFuelType?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteFuelTypeArgs, 'id'>>;
+  deleteModel?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteModelArgs, 'id'>>;
+  deletePaymentMethod?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeletePaymentMethodArgs, 'id'>>;
   deleteUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteUserArgs, 'id'>>;
+  extendBookingDates?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationExtendBookingDatesArgs, 'id' | 'newEndDate'>>;
   login?: Resolver<ResolversTypes['LoginPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
   logout?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
   mockFinalizePayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationMockFinalizePaymentArgs, 'bookingId' | 'success'>>;
@@ -1014,9 +1110,13 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   scheduleCarMaintenance?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationScheduleCarMaintenanceArgs, 'id'>>;
   setPrimaryImage?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationSetPrimaryImageArgs, 'carId' | 'imageId'>>;
   updateBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationUpdateBookingArgs, 'id' | 'input'>>;
+  updateBrand?: Resolver<ResolversTypes['Brand'], ParentType, ContextType, RequireFields<MutationUpdateBrandArgs, 'id' | 'name'>>;
   updateCar?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUpdateCarArgs, 'id' | 'input'>>;
   updateCarPricing?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUpdateCarPricingArgs, 'basePrice' | 'id'>>;
   updateCarStatus?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUpdateCarStatusArgs, 'id' | 'status'>>;
+  updateFuelType?: Resolver<ResolversTypes['FuelType'], ParentType, ContextType, RequireFields<MutationUpdateFuelTypeArgs, 'id' | 'name'>>;
+  updateModel?: Resolver<ResolversTypes['VehicleModel'], ParentType, ContextType, RequireFields<MutationUpdateModelArgs, 'id'>>;
+  updatePaymentMethod?: Resolver<ResolversTypes['PaymentMethod'], ParentType, ContextType, RequireFields<MutationUpdatePaymentMethodArgs, 'id' | 'name'>>;
   updateUserRole?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<MutationUpdateUserRoleArgs, 'id' | 'role'>>;
   uploadCarImages?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUploadCarImagesArgs, 'carId' | 'images'>>;
   verifyOTP?: Resolver<ResolversTypes['VerifyOTPPayload'], ParentType, ContextType, RequireFields<MutationVerifyOtpArgs, 'email' | 'otp'>>;
@@ -1107,6 +1207,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   myPayments?: Resolver<ResolversTypes['PaginatedPayments'], ParentType, ContextType, Partial<QueryMyPaymentsArgs>>;
   payment?: Resolver<Maybe<ResolversTypes['Payment']>, ParentType, ContextType, RequireFields<QueryPaymentArgs, 'id'>>;
   paymentByBooking?: Resolver<Maybe<ResolversTypes['Payment']>, ParentType, ContextType, RequireFields<QueryPaymentByBookingArgs, 'bookingId'>>;
+  paymentMethods?: Resolver<Array<ResolversTypes['PaymentMethod']>, ParentType, ContextType>;
   payments?: Resolver<ResolversTypes['PaginatedPayments'], ParentType, ContextType, Partial<QueryPaymentsArgs>>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'id'>>;
   users?: Resolver<ResolversTypes['PaginatedUsers'], ParentType, ContextType, Partial<QueryUsersArgs>>;

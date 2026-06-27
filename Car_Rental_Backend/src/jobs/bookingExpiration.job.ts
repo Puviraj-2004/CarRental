@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, CarStatus } from '@prisma/client';
 import { prisma }                        from '../config/database';
 import { RESERVATION_HOLD_MINUTES }      from '../core/constants/booking';
 import logger                            from '../config/logger';
@@ -44,6 +44,36 @@ export async function runBookingExpirationJob(): Promise<void> {
     logger.info('BookingExpiration: cancelled unpaid reservations', {
       count:       unpaid.count,
       holdMinutes: RESERVATION_HOLD_MINUTES,
+    });
+  }
+
+  // ── Condition 3 — end date passed for confirmed bookings (never picked up) ──
+  // CONFIRMED bookings whose endDate has passed without transitioning to ONGOING
+  // are no-shows after payment. Mark as EXPIRED and release the car.
+  const noShowConfirmed = await prisma.booking.findMany({
+    where: {
+      status:  BookingStatus.CONFIRMED,
+      endDate: { lt: now },
+    },
+    select: { id: true, carId: true },
+  });
+
+  if (noShowConfirmed.length > 0) {
+    for (const booking of noShowConfirmed) {
+      await prisma.$transaction([
+        prisma.booking.update({
+          where: { id: booking.id },
+          data:  { status: BookingStatus.EXPIRED },
+        }),
+        prisma.car.update({
+          where: { id: booking.carId },
+          data:  { status: CarStatus.AVAILABLE },
+        }),
+      ]);
+    }
+
+    logger.info('BookingExpiration: auto-expired confirmed bookings past end date', {
+      count: noShowConfirmed.length,
     });
   }
 }

@@ -13,7 +13,7 @@ export interface RecentBooking {
   guestEmail: string | null;
   guestPhone: string | null;
   totalPrice: number;
-  status:     'RESERVED' | 'CONFIRMED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
+  status:     'RESERVED' | 'CONFIRMED' | 'ONGOING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED' | 'REJECTED';
   createdAt:  string;
   user: {
     id:       string;
