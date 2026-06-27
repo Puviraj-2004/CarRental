@@ -19,6 +19,7 @@ export interface RecentBooking {
     id:       string;
     fullName: string;
     email:    string;
+    phoneNumber: string | null;
   } | null;
   car: {
     brand: { name: string };
@@ -27,11 +28,19 @@ export interface RecentBooking {
 }
 
 export interface DashboardStats {
-  totalUsers:     number;
-  totalCars:      number;
-  totalBookings:  number;
-  totalRevenue:   number;
-  availableCars:  number;
+  totalUsers: number;
+  totalCars: number;
+  totalBookings: number;
+  totalRevenue: number;
+  availableCars: number;
+  pendingDocuments: number;
+  pendingPayments: number;
+  reservedBookings: number;
+  confirmedBookings: number;
+  ongoingBookings: number;
+  completedBookings: number;
+  cancelledBookings: number;
+  rejectedBookings: number;
   recentBookings: RecentBooking[];
 }
 

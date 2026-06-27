@@ -13,7 +13,7 @@ function PageLoader() {
   );
 }
 
-export default function AdminBookingsPage() {
+export default function AdminOnlineBookingsPage() {
   return (
     <Suspense fallback={<PageLoader />}>
       <AdminBookingsContainer

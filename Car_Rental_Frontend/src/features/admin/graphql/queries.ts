@@ -8,6 +8,14 @@ export const GET_DASHBOARD_STATS_QUERY = gql`
       totalBookings
       totalRevenue
       availableCars
+      pendingDocuments
+      pendingPayments
+      reservedBookings
+      confirmedBookings
+      ongoingBookings
+      completedBookings
+      cancelledBookings
+      rejectedBookings
       recentBookings {
         id
         isWalkIn

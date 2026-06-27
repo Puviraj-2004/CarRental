@@ -1,0 +1,86 @@
+type AdminDashboardCar {
+  brand: Brand!
+  model: VehicleModel!
+}
+
+type AdminDashboardBooking {
+  id: ID!
+  isWalkIn: Boolean!
+  guestName: String
+  guestEmail: String
+  guestPhone: String
+  totalPrice: Float!
+  status: BookingStatus!
+  reminderSentAt: DateTime
+  createdAt: DateTime!
+  user: User
+  car: AdminDashboardCar!
+}
+
+type DashboardStats {
+  totalUsers: Int!
+  totalCars: Int!
+  totalBookings: Int!
+  totalRevenue: Float!
+  availableCars: Int!
+  pendingDocuments: Int!
+  pendingPayments: Int!
+  reservedBookings: Int!
+  confirmedBookings: Int!
+  ongoingBookings: Int!
+  completedBookings: Int!
+  cancelledBookings: Int!
+  rejectedBookings: Int!
+  recentBookings: [AdminDashboardBooking!]!
+}
+
+input AdminReportFilterInput {
+  startDate: String
+  endDate: String
+}
+
+type AdminReportMoneyMetric {
+  count: Int!
+  amount: Float!
+}
+
+type AdminReportBookingLanes {
+  online: Int!
+  onsite: Int!
+  courtesy: Int!
+}
+
+type AdminReportStatusBreakdown {
+  reserved: Int!
+  confirmed: Int!
+  ongoing: Int!
+  completed: Int!
+  cancelled: Int!
+  rejected: Int!
+  expired: Int!
+}
+
+type AdminReportPaymentMethod {
+  id: ID
+  name: String!
+  count: Int!
+  amount: Float!
+}
+
+type AdminReports {
+  totalRevenue: Float!
+  paid: AdminReportMoneyMetric!
+  refunded: AdminReportMoneyMetric!
+  pendingPayments: AdminReportMoneyMetric!
+  bookingLanes: AdminReportBookingLanes!
+  bookingStatuses: AdminReportStatusBreakdown!
+  pendingDocuments: Int!
+  availableCars: Int!
+  rentedCars: Int!
+  paymentMethods: [AdminReportPaymentMethod!]!
+}
+
+extend type Query {
+  dashboardStats: DashboardStats!
+  adminReports(filter: AdminReportFilterInput): AdminReports!
+}

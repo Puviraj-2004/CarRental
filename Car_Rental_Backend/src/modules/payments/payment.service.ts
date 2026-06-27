@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, BookingType, PaymentStatus } from '@prisma/client';
 
 import { AppError, ErrorCode }    from '../../core/errors/AppError';
 import { normalizePagination }    from '../../core/utils/pagination';
@@ -203,6 +203,90 @@ export class PaymentService {
     return { url: session.url, sessionId: session.id };
   }
 
+  async adminRecordBookingPayment(input: {
+    bookingId: string;
+    paymentMethodId: string;
+    amount: number;
+    adminId: string;
+  }): Promise<PaymentWithMethod> {
+    const booking = await prisma.booking.findUnique({
+      where: { id: input.bookingId },
+      select: { id: true, type: true },
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+    if (booking.type === BookingType.COURTESY) {
+      throw new AppError('Courtesy bookings do not require payment.', ErrorCode.BAD_USER_INPUT);
+    }
+    if (input.amount <= 0) {
+      throw new AppError('Payment amount must be greater than zero.', ErrorCode.BAD_USER_INPUT);
+    }
+
+    const method = await prisma.paymentMethod.findUnique({
+      where: { id: input.paymentMethodId },
+    });
+    if (!method) {
+      throw new AppError('Payment method not found.', ErrorCode.NOT_FOUND);
+    }
+
+    const payment = await paymentRepository.upsertByBookingId(input.bookingId, {
+      amount: input.amount,
+      status: PaymentStatus.PAID,
+      paymentMethodId: input.paymentMethodId,
+    });
+
+    securityLogger.info('Admin recorded booking payment', {
+      bookingId: input.bookingId,
+      paymentId: payment.id,
+      paymentMethodId: input.paymentMethodId,
+      amount: input.amount,
+      adminId: input.adminId,
+    });
+
+    return payment;
+  }
+
+  async adminRefundBookingPayment(
+    bookingId: string,
+    adminId:   string,
+  ): Promise<PaymentWithMethod> {
+    const booking = await prisma.booking.findUnique({
+      where:   { id: bookingId },
+      include: { payment: true },
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+    if (booking.type === BookingType.COURTESY) {
+      throw new AppError('Courtesy bookings do not have refundable payments.', ErrorCode.BAD_USER_INPUT);
+    }
+    if (!booking.payment) {
+      throw new AppError('No payment record found for this booking.', ErrorCode.NOT_FOUND);
+    }
+    if (booking.payment.status !== PaymentStatus.PAID) {
+      throw new AppError(
+        `Cannot refund a payment with status "${booking.payment.status}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    if (!booking.payment.stripeId) {
+      securityLogger.info('Admin refunded locally recorded booking payment', {
+        bookingId,
+        paymentId: booking.payment.id,
+        adminId,
+      });
+      return paymentRepository.update(booking.payment.id, {
+        status: PaymentStatus.REFUNDED,
+      });
+    }
+
+    return this.refundPayment(booking.payment.id, true);
+  }
+
   // ── Mock Finalize: Simulates immediate payment capture ──────
   async mockFinalizePayment(bookingId: string, success: boolean) {
     if (!env.mockStripe) {
@@ -382,6 +466,17 @@ export class PaymentService {
           refundAmount,
           userId,
           isAdmin,
+        });
+        return paymentRepository.update(payment.id, {
+          status: PaymentStatus.REFUNDED,
+        });
+      }
+
+      if (!payment.stripeId && isAdmin) {
+        securityLogger.info('Admin refunded locally recorded booking payment during cancellation', {
+          bookingId,
+          paymentId: payment.id,
+          userId,
         });
         return paymentRepository.update(payment.id, {
           status: PaymentStatus.REFUNDED,

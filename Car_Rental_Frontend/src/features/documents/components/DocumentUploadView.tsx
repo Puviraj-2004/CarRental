@@ -145,6 +145,7 @@ interface DocumentUploadViewProps {
   onConfirmSaveWithProfile: () => void;
   onConfirmSaveBookingOnly: () => void;
   hasExistingProfileDoc: boolean;
+  adminMode?: boolean;
 }
 
 export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
@@ -188,6 +189,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
   onConfirmSaveWithProfile,
   onConfirmSaveBookingOnly,
   hasExistingProfileDoc,
+  adminMode = false,
 }) => {
   const [licFrontPreview, setLicFrontPreview] = useState<string | null>(null);
   const [licBackPreview, setLicBackPreview] = useState<string | null>(null);
@@ -249,7 +251,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', mx: 1 }}>➔</Typography>
         <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-          Step 3: Payment (Pending)
+          {adminMode ? 'Step 3: Admin Review' : 'Step 3: Payment (Pending)'}
         </Typography>
       </Box>
 
@@ -259,7 +261,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
         </Typography>
         <Typography variant="body1" sx={{ color: 'text.secondary' }}>
           {phase === 'upload' 
-            ? 'Please upload clear photos of your documents to trigger our AI scanner.' 
+            ? 'Please upload clear photos of the documents to trigger the AI scanner.' 
             : 'Please verify and correct the information below extracted by our AI.'}
         </Typography>
       </Box>
@@ -588,7 +590,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
 
               <Button
                 component={Link}
-                href="/cars"
+                href={adminMode ? '/admin/bookings/onsite' : '/cars'}
                 variant="outlined"
                 disabled={loading}
                 sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
@@ -601,6 +603,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
         </Grid>
       </Box>
 
+      {!adminMode && (
       <Dialog
         open={showReuseModal}
         onClose={() => {}} 
@@ -636,7 +639,9 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
+      {!adminMode && (
       <Dialog
         open={showSaveConfirmModal}
         onClose={onCloseConfirmModal}
@@ -681,6 +686,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+      )}
 
     </Container>
   );

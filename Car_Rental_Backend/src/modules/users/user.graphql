@@ -22,6 +22,7 @@ enum DocumentSide {
 
 type User {
   id:            ID!
+  fullName:      String
   email:         String!
   emailVerified: Boolean!
   phoneNumber:   String
@@ -68,6 +69,10 @@ type DocumentReuseStatus {
   documents:            Documents
 }
 
+input UpdateProfileInput {
+  phoneNumber: String
+}
+
 extend type Query {
   me:                               User
   user(id: ID!):                    User
@@ -78,6 +83,7 @@ extend type Query {
 }
 
 extend type Mutation {
+  updateMyProfile(input: UpdateProfileInput!): User!
   changePassword(currentPassword: String!, newPassword: String!): Boolean!
   updateUserRole(id: ID!, role: Role!):                           User!
   deleteUser(id: ID!):                                           Boolean!

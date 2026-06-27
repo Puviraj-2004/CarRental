@@ -1,90 +1,110 @@
-// import { useState, useCallback } from 'react';
-// import { useQuery, useMutation } from '@apollo/client';
-// import { GET_USERS_QUERY } from '@/lib/graphql/queries';
-// import { DELETE_USER_MUTATION, UPDATE_USER_ROLE_MUTATION } from '@/lib/graphql/mutations';
+'use client';
 
-// export interface User {
-//   id: string;
-//   email: string;
-//   fullName: string | null;
-//   phoneNumber: string | null;
-//   role: 'USER' | 'ADMIN';
-//   createdAt: string;
-//   updatedAt: string;
-// }
+import { useCallback, useState } from 'react';
+import { gql, useMutation, useQuery } from '@apollo/client';
 
-// export interface AdminUsersFilter {
-//   search: string;
-//   role: string;
-// }
+export const GET_USERS_QUERY = gql`
+  query GetUsers($pagination: PaginationInput) {
+    users(pagination: $pagination) {
+      items {
+        id
+        fullName
+        email
+        emailVerified
+        phoneNumber
+        role
+        documents {
+          id
+          status
+        }
+        bookings {
+          id
+          status
+        }
+      }
+      pageInfo {
+        totalCount
+        totalPages
+        currentPage
+        hasNextPage
+        hasPreviousPage
+      }
+    }
+  }
+`;
 
-// const DEFAULT_PAGE_SIZE = 20;
+export const UPDATE_USER_ROLE_MUTATION = gql`
+  mutation UpdateUserRole($id: ID!, $role: Role!) {
+    updateUserRole(id: $id, role: $role) {
+      id
+      role
+    }
+  }
+`;
 
-// export const useAdminUsers = () => {
-//   const [filters, setFilters] = useState<AdminUsersFilter>({
-//     search: '',
-//     role: ''
-//   });
+export const DELETE_USER_MUTATION = gql`
+  mutation DeleteUser($id: ID!) {
+    deleteUser(id: $id)
+  }
+`;
 
-//   const [page, setPage] = useState(1);
-//   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+export interface AdminUser {
+  id: string;
+  fullName: string | null;
+  email: string;
+  emailVerified: boolean;
+  phoneNumber: string | null;
+  role: 'USER' | 'ADMIN';
+  documents: { id: string; status: 'PENDING' | 'APPROVED' | 'REJECTED' } | null;
+  bookings: Array<{ id: string; status: string }>;
+}
 
-//   // Main Data Query with pagination + server-side search
-//   const { loading, error, data, refetch } = useQuery(GET_USERS_QUERY, {
-//     variables: {
-//       pagination: {
-//         page,
-//         pageSize,
-//         search: filters.search || undefined,
-//       },
-//     },
-//     fetchPolicy: 'cache-and-network'
-//   });
+export const useAdminUsers = () => {
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
 
-//   // Mutations
-//   const [deleteUser, { loading: isDeleting }] = useMutation(DELETE_USER_MUTATION, {
-//     onCompleted: () => refetch(),
-//   });
+  const { data, loading, error, refetch } = useQuery(GET_USERS_QUERY, {
+    variables: {
+      pagination: {
+        page,
+        pageSize: 10,
+        search: searchQuery || undefined,
+      },
+    },
+    fetchPolicy: 'network-only',
+  });
 
-//   const [updateUserRole, { loading: isUpdatingRole }] = useMutation(UPDATE_USER_ROLE_MUTATION, {
-//     onCompleted: () => refetch(),
-//   });
+  const [updateUserRoleMutation, { loading: updatingRole }] = useMutation(
+    UPDATE_USER_ROLE_MUTATION,
+    { onCompleted: () => refetch() },
+  );
+  const [deleteUserMutation, { loading: deleting }] = useMutation(
+    DELETE_USER_MUTATION,
+    { onCompleted: () => refetch() },
+  );
 
-//   const resetFilters = () => {
-//     setFilters({ search: '', role: '' });
-//     setPage(1);
-//   };
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setPage(1);
+  }, []);
 
-//   const handleSearchChange = useCallback((search: string) => {
-//     setFilters(prev => ({ ...prev, search }));
-//     setPage(1);
-//   }, []);
+  const allUsers: AdminUser[] = data?.users?.items ?? [];
+  const users = allUsers.filter((user) => roleFilter === 'ALL' || user.role === roleFilter);
 
-//   const paginatedResult = data?.users;
-//   const allUsers = paginatedResult?.items || [];
-
-//   // Client-side role filter (lightweight, no need for server roundtrip)
-//   const filteredUsers = allUsers.filter((user: User) => {
-//     const matchesRole = !filters.role || user.role === filters.role;
-//     return matchesRole;
-//   });
-
-//   return {
-//     users: filteredUsers,
-//     allUsers,
-//     pageInfo: paginatedResult?.pageInfo,
-//     page,
-//     pageSize,
-//     setPage,
-//     setPageSize,
-//     filters,
-//     setFilters,
-//     resetFilters,
-//     setSearchQuery: handleSearchChange,
-//     deleteUser,
-//     updateUserRole,
-//     loading: loading || isDeleting || isUpdatingRole,
-//     error,
-//     refetch
-//   };
-// };
+  return {
+    users,
+    pageInfo: data?.users?.pageInfo,
+    page,
+    setPage,
+    searchQuery,
+    setSearchQuery: handleSearchChange,
+    roleFilter,
+    setRoleFilter,
+    loading: loading || updatingRole || deleting,
+    error,
+    updateUserRole: (id: string, role: 'USER' | 'ADMIN') =>
+      updateUserRoleMutation({ variables: { id, role } }),
+    deleteUser: (id: string) => deleteUserMutation({ variables: { id } }),
+  };
+};

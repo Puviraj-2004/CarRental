@@ -69,11 +69,12 @@ export interface UseDocumentsReturn {
   loadingOCR:               boolean;
 }
 
-export const useDocuments = (): UseDocumentsReturn => {
+export const useDocuments = (options?: { skipApprovedDocuments?: boolean }): UseDocumentsReturn => {
   const client = useApolloClient();
 
   const { data: approvedData, loading: loadingApprovedDocs } = useQuery<{ hasApprovedDocuments: DocumentReuseStatus }>(
-    HAS_APPROVED_DOCUMENTS_QUERY
+    HAS_APPROVED_DOCUMENTS_QUERY,
+    { skip: options?.skipApprovedDocuments }
   );
 
   const [saveBookingDocuments, { loading: loadingSaveBooking }] = useMutation<
@@ -175,7 +176,7 @@ export const useDocuments = (): UseDocumentsReturn => {
 
   return {
     hasApprovedDocumentsData: approvedData?.hasApprovedDocuments || null,
-    loadingApprovedDocs,
+    loadingApprovedDocs: options?.skipApprovedDocuments ? false : loadingApprovedDocs,
     executeSaveBooking,
     loadingSaveBooking,
     executeReuse,

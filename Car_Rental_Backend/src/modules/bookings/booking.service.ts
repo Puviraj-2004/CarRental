@@ -54,41 +54,58 @@ export class BookingService {
     filter?: {
       status?:    BookingStatus;
       type?:      BookingType;
+      lane?:      string | null;
       userId?:    string;
       carId?:     string;
       startDate?: string;
       endDate?:   string;
     },
   ): Promise<PaginatedResult<BookingWithRelations>> {
-    
-    // Construct advanced query to enforce your queue restrictions [1, 1.1.5]
-    const strictAdminQuery = {
-      // 1. Must have document uploaded
-      documentId: { not: null },
-      
-      // 2. Only show RENTAL type bookings
-      type: BookingType.RENTAL,
-      
-      // 3. Do NOT show cancelled, rejected, or expired bookings
-      status: {
-        notIn: [BookingStatus.CANCELLED, BookingStatus.REJECTED, BookingStatus.EXPIRED],
-      },
-      
-      // Must have an active authorized hold or paid payment [1.1.5]
-      payment: {
-        status: {
-          in: [PaymentStatus.PENDING, PaymentStatus.PAID],
-        },
-      },
-      
-      // Allow custom filter overrides if passed explicitly
+    const p = normalizePagination(pagination);
+    const where: any = {
+      status: filter?.status ?? undefined,
+      type:   filter?.type   ?? undefined,
       userId: filter?.userId ?? undefined,
-      carId:  filter?.carId ?? undefined,
+      carId:  filter?.carId  ?? undefined,
     };
 
+    if (filter?.lane === 'ONLINE') {
+      where.type = BookingType.RENTAL;
+      where.userId = { not: null };
+    }
+
+    if (filter?.lane === 'ONSITE') {
+      where.type = BookingType.RENTAL;
+      where.userId = null;
+    }
+
+    if (filter?.lane === 'COURTESY') {
+      where.type = BookingType.COURTESY;
+    }
+
+    if (filter?.startDate) {
+      where.startDate = { gte: new Date(filter.startDate) };
+    }
+
+    if (filter?.endDate) {
+      where.endDate = { lte: new Date(filter.endDate) };
+    }
+
+    if (p.search) {
+      where.OR = [
+        { id: { contains: p.search, mode: 'insensitive' } },
+        { guestName: { contains: p.search, mode: 'insensitive' } },
+        { guestPhone: { contains: p.search, mode: 'insensitive' } },
+        { user: { email: { contains: p.search, mode: 'insensitive' } } },
+        { car: { plateNumber: { contains: p.search, mode: 'insensitive' } } },
+        { car: { model: { name: { contains: p.search, mode: 'insensitive' } } } },
+        { car: { model: { brand: { name: { contains: p.search, mode: 'insensitive' } } } } },
+      ];
+    }
+
     return bookingRepository.findPaginated(
-      normalizePagination(pagination),
-      strictAdminQuery as any,
+      p,
+      where,
     );
   }
 
@@ -137,10 +154,10 @@ export class BookingService {
     }
 
     const bookingType = input.type ?? BookingType.RENTAL;
-    if (bookingType === BookingType.COURTESY && !input.userId) {
+    if (!input.userId) {
       if (!input.guestName || !input.guestPhone) {
         throw new AppError(
-          'Guest name and phone are required for courtesy bookings without a user account.',
+          'Guest name and phone are required for bookings without a user account.',
           ErrorCode.BAD_USER_INPUT,
         );
       }
@@ -158,7 +175,9 @@ export class BookingService {
     }
 
     const basePrice  = Number(car.basePrice);
-    const totalPrice = multiplyMoney(basePrice, numberOfDays).toNumber();
+    const totalPrice = bookingType === BookingType.COURTESY
+      ? 0
+      : multiplyMoney(basePrice, numberOfDays).toNumber();
 
     // Atomic check-and-create inside a serializable transaction to prevent double-booking
     return prisma.$transaction(async (tx) => {
@@ -327,6 +346,14 @@ export class BookingService {
 
     this.assertValidTransition(booking.status, status);
 
+    if (
+      booking.type === BookingType.RENTAL &&
+      !booking.userId &&
+      (status === BookingStatus.CONFIRMED || status === BookingStatus.ONGOING)
+    ) {
+      this.assertOnsiteRentalReady(booking);
+    }
+
     const updated = await bookingRepository.update(id, { status });
 
     if (status === BookingStatus.ONGOING) {
@@ -348,10 +375,12 @@ export class BookingService {
         logger.info('Booking confirmed: linked documents marked as APPROVED', { documentId: booking.documentId, bookingId: id });
       }
 
-      await paymentService.capturePayment(id).catch((err) => {
-        logger.error('Failed to capture payment during booking confirmation', { bookingId: id, error: err.message });
-        throw err; 
-      });
+      if (booking.type === BookingType.RENTAL && booking.payment) {
+        await paymentService.capturePayment(id).catch((err) => {
+          logger.error('Failed to capture payment during booking confirmation', { bookingId: id, error: err.message });
+          throw err; 
+        });
+      }
     }
 
     if (status === BookingStatus.REJECTED) {
@@ -369,14 +398,16 @@ export class BookingService {
         logger.info('Booking rejected: linked documents marked as REJECTED and unlinked from user profiles', { documentId: booking.documentId, bookingId: id });
       }
 
-      void paymentService
-        .cancelOrVoidPayment(id)
-        .catch((err) => {
-          logger.warn('Failed to release hold or refund after rejection', {
-            bookingId: id,
-            error:     err instanceof Error ? err.message : String(err),
+      if (booking.type === BookingType.RENTAL && booking.payment) {
+        void paymentService
+          .cancelOrVoidPayment(id)
+          .catch((err) => {
+            logger.warn('Failed to release hold or refund after rejection', {
+              bookingId: id,
+              error:     err instanceof Error ? err.message : String(err),
+            });
           });
-        });
+      }
 
       if (updated.user?.email) {
         void notificationService
@@ -394,14 +425,16 @@ export class BookingService {
     }
 
     if (status === BookingStatus.CANCELLED) {
-      void paymentService
-        .cancelAndRefund(id, booking.userId ?? '', true)
-        .catch((err) => {
-          logger.warn('Refund failed after admin cancellation', {
-            bookingId: id,
-            error:     err instanceof Error ? err.message : String(err),
+      if (booking.type === BookingType.RENTAL && booking.payment) {
+        void paymentService
+          .cancelAndRefund(id, booking.userId ?? '', true)
+          .catch((err) => {
+            logger.warn('Refund failed after admin cancellation', {
+              bookingId: id,
+              error:     err instanceof Error ? err.message : String(err),
+            });
           });
-        });
+      }
 
       if (updated.user?.email) {
         void notificationService
@@ -449,6 +482,29 @@ export class BookingService {
     if (!ALLOWED[from]?.includes(to)) {
       throw new AppError(
         `Invalid status transition: "${from}" → "${to}".`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+  }
+
+  private assertOnsiteRentalReady(booking: BookingWithRelations): void {
+    if (!booking.guestName?.trim() || !booking.guestPhone?.trim()) {
+      throw new AppError(
+        'Onsite rentals require guest name and phone before confirmation or start.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    if (!booking.documents || booking.documents.status !== 'APPROVED') {
+      throw new AppError(
+        'Onsite rentals require approved documents before confirmation or start.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    if (!booking.payment || booking.payment.status !== PaymentStatus.PAID) {
+      throw new AppError(
+        'Onsite rentals require a paid payment record before confirmation or start.',
         ErrorCode.BAD_USER_INPUT,
       );
     }

@@ -41,18 +41,20 @@ export const bookingResolvers: Partial<Resolvers> = {
 
     bookings: (_: unknown, { pagination, filter }: QueryBookingsArgs, ctx: GraphQLContext) => {
       isAdmin(ctx);
+      const filterInput = filter as (typeof filter & { lane?: string | null }) | null | undefined;
       return bookingService.getAllBookings(
         pagination != null
           ? { page: pagination.page ?? undefined, pageSize: pagination.pageSize ?? undefined }
           : undefined,
-        filter != null
+        filterInput != null
           ? {
-              status:    (filter.status    ?? undefined) as BookingStatus | undefined,
-              type:      (filter.type      ?? undefined) as BookingType   | undefined,
-              userId:    filter.userId    ?? undefined,
-              carId:     filter.carId     ?? undefined,
-              startDate: filter.startDate ?? undefined,
-              endDate:   filter.endDate   ?? undefined,
+              status:    (filterInput.status    ?? undefined) as BookingStatus | undefined,
+              type:      (filterInput.type      ?? undefined) as BookingType   | undefined,
+              lane:      filterInput.lane       ?? undefined,
+              userId:    filterInput.userId    ?? undefined,
+              carId:     filterInput.carId     ?? undefined,
+              startDate: filterInput.startDate ?? undefined,
+              endDate:   filterInput.endDate   ?? undefined,
             }
           : undefined,
       );
@@ -65,16 +67,37 @@ export const bookingResolvers: Partial<Resolvers> = {
       { input }: MutationCreateBookingArgs,
       ctx: GraphQLContext,
     ) => {
+      if (input.type === BookingType.COURTESY && ctx.role !== 'ADMIN') {
+        throw new AppError('Courtesy bookings can only be created by admins.', ErrorCode.FORBIDDEN);
+      }
+
       // Authenticated users attach their userId; unauthenticated guests use guestName/Phone
       return bookingService.createBooking({
         carId:      input.carId,
-        userId:     ctx.userId ?? undefined,
+        userId:     ctx.role === 'ADMIN' && input.type === BookingType.COURTESY ? undefined : (ctx.userId ?? undefined),
         startDate:  input.startDate,
         endDate:    input.endDate,
         guestName:  input.guestName  ?? undefined,
         guestPhone: input.guestPhone ?? undefined,
         notes:      input.notes      ?? undefined,
         type:       (input.type ?? undefined) as BookingType | undefined,
+      });
+    },
+
+    adminCreateBooking: (
+      _: unknown,
+      { input }: MutationCreateBookingArgs,
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return bookingService.createBooking({
+        carId:      input.carId,
+        startDate:  input.startDate,
+        endDate:    input.endDate,
+        guestName:  input.guestName  ?? undefined,
+        guestPhone: input.guestPhone ?? undefined,
+        notes:      input.notes      ?? undefined,
+        type:       (input.type ?? BookingType.RENTAL) as BookingType,
       });
     },
 

@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary'; // Direct Cloudinary SDK import [2]
+import { BookingStatus, BookingType } from '@prisma/client';
 import { documentRepository } from './document.repository';
 import { userRepository } from '../users/user.repository';
 import { bookingService } from '../bookings/booking.service';
@@ -156,6 +157,70 @@ export class DocumentService {
   // Triggers document rejection based directly on Document ID
   async adminUpdateDocumentStatus(documentId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') {
     return this.executeVerificationOrRejectionPurge(documentId, status);
+  }
+
+  async adminVerifyBookingDocuments(bookingId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, documentId: true, status: true, type: true, userId: true },
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+    if (!booking.documentId) {
+      throw new AppError('No document linked to this booking found.', ErrorCode.NOT_FOUND);
+    }
+
+    if (status === 'APPROVED') {
+      const approved = await documentRepository.update(booking.documentId, { status });
+      const isOnsiteRental = booking.type === BookingType.RENTAL && !booking.userId;
+      if (booking.status === BookingStatus.RESERVED && !isOnsiteRental) {
+        await bookingService.adminUpdateBookingStatus(bookingId, BookingStatus.CONFIRMED);
+        return documentRepository.findById(booking.documentId);
+      }
+      return approved;
+    }
+
+    if (status === 'REJECTED') {
+      return this.rejectBookingDocumentsForReupload(booking.id, booking.documentId);
+    }
+
+    return this.executeVerificationOrRejectionPurge(booking.documentId, status);
+  }
+
+  private async rejectBookingDocumentsForReupload(bookingId: string, documentId: string) {
+    const doc = await documentRepository.findById(documentId);
+    if (!doc) {
+      throw new AppError('Document record not found.', ErrorCode.NOT_FOUND);
+    }
+
+    await this.purgeFilesFromCloud(doc);
+
+    await prisma.booking.updateMany({
+      where: { id: bookingId, documentId },
+      data:  { documentId: null },
+    });
+
+    await prisma.user.updateMany({
+      where: { documentId },
+      data:  { documentId: null },
+    });
+
+    await prisma.documents.delete({
+      where: { id: documentId },
+    });
+
+    logger.info('Booking document rejected and cleared for reupload', {
+      bookingId,
+      documentId,
+    });
+
+    return {
+      ...doc,
+      id: documentId,
+      status: 'REJECTED',
+    };
   }
 
   // Executes the cascading rejection, unlinking, cloud asset purge, and DB delete sequence [1, 2]

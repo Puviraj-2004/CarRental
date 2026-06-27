@@ -1,4 +1,4 @@
-import { BookingStatus, PaymentStatus, CarStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, CarStatus, BookingType } from '@prisma/client';
 import { prisma }                        from '../config/database';
 import { RESERVATION_HOLD_MINUTES }      from '../core/constants/booking';
 import logger                            from '../config/logger';
@@ -28,21 +28,24 @@ export async function runBookingExpirationJob(): Promise<void> {
   // ── Condition 2 — hold expired without payment ────────────────────────────
   // RESERVED bookings older than RESERVATION_HOLD_MINUTES with no completed
   // payment. User did not pay or upload documents in time.
-  const unpaid = await prisma.booking.updateMany({
+  const incompleteReservations = await prisma.booking.updateMany({
     where: {
       status:    BookingStatus.RESERVED,
+      type:      BookingType.RENTAL,
       createdAt: { lt: cutoff },
       OR: [
         { payment: null },
         { payment: { status: { in: [PaymentStatus.PENDING, PaymentStatus.FAILED] } } },
+        { documents: null },
+        { documents: { status: { not: 'APPROVED' } } },
       ],
     },
     data: { status: BookingStatus.CANCELLED },
   });
 
-  if (unpaid.count > 0) {
-    logger.info('BookingExpiration: cancelled unpaid reservations', {
-      count:       unpaid.count,
+  if (incompleteReservations.count > 0) {
+    logger.info('BookingExpiration: cancelled incomplete rental reservations', {
+      count:       incompleteReservations.count,
       holdMinutes: RESERVATION_HOLD_MINUTES,
     });
   }

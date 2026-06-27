@@ -13,13 +13,15 @@ function PageLoader() {
   );
 }
 
-export default function AdminBookingsPage() {
+export default function AdminCourtesyBookingsPage() {
   return (
     <Suspense fallback={<PageLoader />}>
       <AdminBookingsContainer
-        lane="ONLINE"
-        title="Online Bookings"
-        subtitle="Manage customer-created rental bookings with user accounts, payment, and document verification."
+        lane="COURTESY"
+        title="Courtesy Bookings"
+        subtitle="Manage admin-only courtesy bookings. These reservations block availability but do not require payment."
+        createHref="/admin/bookings/courtesy/new"
+        createLabel="Create Courtesy Booking"
       />
     </Suspense>
   );

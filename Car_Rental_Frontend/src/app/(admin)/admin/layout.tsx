@@ -28,6 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const handleLogout = (): void => {
+    if (!window.confirm('Do you want to logout?')) return;
     signOut({ callbackUrl: '/' });
   };
 
@@ -201,8 +202,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           flexGrow: 1,
           p: { xs: 3, md: 4 },
           pt: { xs: '84px', lg: 4 }, // Shift content down on mobile to clear fixed AppBar
-          width: { lg: 'calc(100% - 240px)' },
-          marginLeft: { lg: '240px' }, // <-- Added: Creates space to offset the fixed AdminSidebar [1]
+          width: { lg: 'calc(100% - var(--admin-sidebar-width, 240px))' },
+          marginLeft: { lg: 'var(--admin-sidebar-width, 240px)' },
+          transition: 'margin-left 0.2s ease, width 0.2s ease',
           boxSizing: 'border-box'
         }}
       >

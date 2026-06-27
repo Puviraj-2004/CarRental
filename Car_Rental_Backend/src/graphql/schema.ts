@@ -11,6 +11,7 @@ import { carResolvers }  from '../modules/cars/car.resolver';
 import { bookingResolvers } from '../modules/bookings/booking.resolver';
 import { paymentResolvers } from '../modules/payments/payment.resolver';
 import { documentResolvers } from '../modules/documents/document.resolver'; 
+import { adminResolvers } from '../modules/admin/admin.resolver';
 
 function loadSDL(relativePath: string) {
   const content = readFileSync(join(__dirname, relativePath), 'utf8');
@@ -24,6 +25,7 @@ const carTypeDefs     = loadSDL('../modules/cars/car.graphql');
 const bookingTypeDefs  = loadSDL('../modules/bookings/booking.graphql');
 const paymentTypeDefs  = loadSDL('../modules/payments/payment.graphql');
 const documentTypeDefs = loadSDL('../modules/documents/document.graphql'); // <-- Loaded
+const adminTypeDefs    = loadSDL('../modules/admin/admin.graphql');
 
 const resolverModules: Resolvers[] = [
   { DateTime: DateTimeResolver } as unknown as Resolvers,
@@ -33,6 +35,7 @@ const resolverModules: Resolvers[] = [
   bookingResolvers  as unknown as Resolvers,
   paymentResolvers  as unknown as Resolvers,
   documentResolvers as unknown as Resolvers, // <-- Registered
+  adminResolvers as unknown as Resolvers,
 ];
 
 export const typeDefs  = mergeTypeDefs([
@@ -42,7 +45,8 @@ export const typeDefs  = mergeTypeDefs([
   carTypeDefs, 
   bookingTypeDefs, 
   paymentTypeDefs,
-  documentTypeDefs // <-- Merged [1]
+  documentTypeDefs, // <-- Merged [1]
+  adminTypeDefs,
 ]);
 
 export const resolvers = mergeResolvers(resolverModules);

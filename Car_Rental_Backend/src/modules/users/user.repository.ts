@@ -60,6 +60,7 @@ export class UserRepository {
       email?:         string;
       password?:      string;
       emailVerified?: boolean;
+      phoneNumber?:   string | null;
       role?:          Role;
       documentId?:    string | null; 
     },

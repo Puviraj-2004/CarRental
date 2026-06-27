@@ -19,6 +19,10 @@ export const GET_ADMIN_BOOKINGS_QUERY = gql`
         guestName
         guestPhone
         createdAt
+        payment {
+          id
+          status
+        }
         user {
           id
           email
@@ -73,7 +77,9 @@ export interface UseAdminBookingsReturn {
   loadingUpdate:    boolean;
 }
 
-export const useAdminBookings = (): UseAdminBookingsReturn => {
+export type AdminBookingLane = 'ONLINE' | 'ONSITE' | 'COURTESY';
+
+export const useAdminBookings = (lane?: AdminBookingLane): UseAdminBookingsReturn => {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -85,7 +91,10 @@ export const useAdminBookings = (): UseAdminBookingsReturn => {
         pageSize: 10,
         search: searchQuery || undefined,
       },
-      filter: statusFilter !== 'ALL' ? { status: statusFilter } : undefined,
+      filter: {
+        ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+        ...(lane ? { lane } : {}),
+      },
     },
     fetchPolicy: 'network-only',
   });

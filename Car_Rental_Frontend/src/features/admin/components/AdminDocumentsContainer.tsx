@@ -33,8 +33,8 @@ export const GET_BOOKING_DOCUMENTS_QUERY = gql`
 `;
 
 export const ADMIN_VERIFY_DOCUMENTS_MUTATION = gql`
-  mutation AdminVerifyDocuments($userId: ID!, $status: VerificationStatus!) {
-    adminVerifyDocuments(userId: $userId, status: $status) {
+  mutation AdminVerifyBookingDocuments($bookingId: ID!, $status: VerificationStatus!) {
+    adminVerifyBookingDocuments(bookingId: $bookingId, status: $status) {
       id
       status
     }
@@ -55,19 +55,24 @@ export const AdminDocumentsContainer: React.FC<{ bookingId: string }> = ({ booki
     ADMIN_VERIFY_DOCUMENTS_MUTATION
   );
 
-  const handleVerify = async (userId: string, status: 'APPROVED' | 'REJECTED') => {
+  const handleVerify = async (_userId: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       await adminVerifyDocuments({
-        variables: { userId, status },
+        variables: { bookingId, status },
       });
-      showToast(`Identity documents successfully marked as ${status}.`, 'success');
+      showToast(
+        status === 'REJECTED'
+          ? 'Documents rejected. Reupload is required before the booking expires.'
+          : `Identity documents successfully marked as ${status}.`,
+        'success',
+      );
       
       // Prevent fetching a deleted document [1]
       if (status === 'APPROVED') {
         await refetch();
       }
       
-      router.push('/admin/bookings'); // Safe redirect back to queue [1]
+      router.push(`/admin/bookings/${bookingId}`);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Verification failed.', 'error');
     }

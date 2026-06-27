@@ -97,6 +97,18 @@ export class UserService {
     return userRepository.findPaginated(normalizePagination(pagination));
   }
 
+  async updateMyProfile(userId: string, input: { phoneNumber?: string | null }) {
+    const user = await userRepository.findById(userId);
+    if (!user) throw new AppError('User not found.', ErrorCode.NOT_FOUND);
+
+    const phoneNumber = input.phoneNumber?.trim() || null;
+    if (phoneNumber && !/^[+]?[\d\s().-]{7,20}$/.test(phoneNumber)) {
+      throw new AppError('Phone number format is invalid.', ErrorCode.BAD_USER_INPUT);
+    }
+
+    return userRepository.updateUser(userId, { phoneNumber });
+  }
+
   async isEmailAvailable(email: string): Promise<boolean> {
     const normalized = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return false;

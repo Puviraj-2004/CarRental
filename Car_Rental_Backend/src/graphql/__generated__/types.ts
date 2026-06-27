@@ -26,6 +26,83 @@ export type AddCarInput = {
   status?: InputMaybe<CarStatus>;
 };
 
+export type AdminBookingLane =
+  | 'COURTESY'
+  | 'ONLINE'
+  | 'ONSITE';
+
+export type AdminDashboardBooking = {
+  __typename?: 'AdminDashboardBooking';
+  car: AdminDashboardCar;
+  createdAt: Scalars['DateTime']['output'];
+  guestEmail?: Maybe<Scalars['String']['output']>;
+  guestName?: Maybe<Scalars['String']['output']>;
+  guestPhone?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  isWalkIn: Scalars['Boolean']['output'];
+  reminderSentAt?: Maybe<Scalars['DateTime']['output']>;
+  status: BookingStatus;
+  totalPrice: Scalars['Float']['output'];
+  user?: Maybe<User>;
+};
+
+export type AdminDashboardCar = {
+  __typename?: 'AdminDashboardCar';
+  brand: Brand;
+  model: VehicleModel;
+};
+
+export type AdminReportBookingLanes = {
+  __typename?: 'AdminReportBookingLanes';
+  courtesy: Scalars['Int']['output'];
+  online: Scalars['Int']['output'];
+  onsite: Scalars['Int']['output'];
+};
+
+export type AdminReportFilterInput = {
+  endDate?: InputMaybe<Scalars['String']['input']>;
+  startDate?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type AdminReportMoneyMetric = {
+  __typename?: 'AdminReportMoneyMetric';
+  amount: Scalars['Float']['output'];
+  count: Scalars['Int']['output'];
+};
+
+export type AdminReportPaymentMethod = {
+  __typename?: 'AdminReportPaymentMethod';
+  amount: Scalars['Float']['output'];
+  count: Scalars['Int']['output'];
+  id?: Maybe<Scalars['ID']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type AdminReportStatusBreakdown = {
+  __typename?: 'AdminReportStatusBreakdown';
+  cancelled: Scalars['Int']['output'];
+  completed: Scalars['Int']['output'];
+  confirmed: Scalars['Int']['output'];
+  expired: Scalars['Int']['output'];
+  ongoing: Scalars['Int']['output'];
+  rejected: Scalars['Int']['output'];
+  reserved: Scalars['Int']['output'];
+};
+
+export type AdminReports = {
+  __typename?: 'AdminReports';
+  availableCars: Scalars['Int']['output'];
+  bookingLanes: AdminReportBookingLanes;
+  bookingStatuses: AdminReportStatusBreakdown;
+  paid: AdminReportMoneyMetric;
+  paymentMethods: Array<AdminReportPaymentMethod>;
+  pendingDocuments: Scalars['Int']['output'];
+  pendingPayments: AdminReportMoneyMetric;
+  refunded: AdminReportMoneyMetric;
+  rentedCars: Scalars['Int']['output'];
+  totalRevenue: Scalars['Float']['output'];
+};
+
 export type Booking = {
   __typename?: 'Booking';
   basePrice: Scalars['Float']['output'];
@@ -53,6 +130,7 @@ export type Booking = {
 export type BookingFilterInput = {
   carId?: InputMaybe<Scalars['ID']['input']>;
   endDate?: InputMaybe<Scalars['String']['input']>;
+  lane?: InputMaybe<AdminBookingLane>;
   startDate?: InputMaybe<Scalars['String']['input']>;
   status?: InputMaybe<BookingStatus>;
   type?: InputMaybe<BookingType>;
@@ -147,6 +225,24 @@ export type CreateBookingInput = {
   type?: InputMaybe<BookingType>;
 };
 
+export type DashboardStats = {
+  __typename?: 'DashboardStats';
+  availableCars: Scalars['Int']['output'];
+  cancelledBookings: Scalars['Int']['output'];
+  completedBookings: Scalars['Int']['output'];
+  confirmedBookings: Scalars['Int']['output'];
+  ongoingBookings: Scalars['Int']['output'];
+  pendingDocuments: Scalars['Int']['output'];
+  pendingPayments: Scalars['Int']['output'];
+  recentBookings: Array<AdminDashboardBooking>;
+  rejectedBookings: Scalars['Int']['output'];
+  reservedBookings: Scalars['Int']['output'];
+  totalBookings: Scalars['Int']['output'];
+  totalCars: Scalars['Int']['output'];
+  totalRevenue: Scalars['Float']['output'];
+  totalUsers: Scalars['Int']['output'];
+};
+
 export type DocumentReuseStatus = {
   __typename?: 'DocumentReuseStatus';
   documents?: Maybe<Documents>;
@@ -223,7 +319,11 @@ export type LoginPayload = {
 export type Mutation = {
   __typename?: 'Mutation';
   addCar: Car;
+  adminCreateBooking: Booking;
+  adminRecordBookingPayment: Payment;
+  adminRefundBookingPayment: Payment;
   adminUpdateBookingStatus: Booking;
+  adminVerifyBookingDocuments: Documents;
   adminVerifyDocuments: Documents;
   cancelBooking: Booking;
   changePassword: Scalars['Boolean']['output'];
@@ -261,6 +361,7 @@ export type Mutation = {
   updateCarStatus: Car;
   updateFuelType: FuelType;
   updateModel: VehicleModel;
+  updateMyProfile: User;
   updatePaymentMethod: PaymentMethod;
   updateUserRole: User;
   uploadCarImages: Car;
@@ -273,9 +374,32 @@ export type MutationAddCarArgs = {
 };
 
 
+export type MutationAdminCreateBookingArgs = {
+  input: CreateBookingInput;
+};
+
+
+export type MutationAdminRecordBookingPaymentArgs = {
+  amount: Scalars['Float']['input'];
+  bookingId: Scalars['ID']['input'];
+  paymentMethodId: Scalars['ID']['input'];
+};
+
+
+export type MutationAdminRefundBookingPaymentArgs = {
+  bookingId: Scalars['ID']['input'];
+};
+
+
 export type MutationAdminUpdateBookingStatusArgs = {
   id: Scalars['ID']['input'];
   status: BookingStatus;
+};
+
+
+export type MutationAdminVerifyBookingDocumentsArgs = {
+  bookingId: Scalars['ID']['input'];
+  status: VerificationStatus;
 };
 
 
@@ -484,6 +608,11 @@ export type MutationUpdateModelArgs = {
 };
 
 
+export type MutationUpdateMyProfileArgs = {
+  input: UpdateProfileInput;
+};
+
+
 export type MutationUpdatePaymentMethodArgs = {
   id: Scalars['ID']['input'];
   name: Scalars['String']['input'];
@@ -595,6 +724,7 @@ export type PaymentStatus =
 
 export type Query = {
   __typename?: 'Query';
+  adminReports: AdminReports;
   availableCars: PaginatedCars;
   booking?: Maybe<Booking>;
   bookingDocuments?: Maybe<Documents>;
@@ -605,6 +735,7 @@ export type Query = {
   cars: PaginatedCars;
   carsByStatus: PaginatedCars;
   cloudinarySignature: CloudinarySignature;
+  dashboardStats: DashboardStats;
   fuelTypes: Array<FuelType>;
   hasApprovedDocuments: DocumentReuseStatus;
   isEmailAvailable: Scalars['Boolean']['output'];
@@ -619,6 +750,11 @@ export type Query = {
   payments: PaginatedPayments;
   user?: Maybe<User>;
   users: PaginatedUsers;
+};
+
+
+export type QueryAdminReportsArgs = {
+  filter?: InputMaybe<AdminReportFilterInput>;
 };
 
 
@@ -755,12 +891,17 @@ export type UpdateCarInput = {
   primaryImage?: InputMaybe<ImageInput>;
 };
 
+export type UpdateProfileInput = {
+  phoneNumber?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type User = {
   __typename?: 'User';
   bookings: Array<Booking>;
   documents?: Maybe<Documents>;
   email: Scalars['String']['output'];
   emailVerified: Scalars['Boolean']['output'];
+  fullName?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   phoneNumber?: Maybe<Scalars['String']['output']>;
   role: Role;
@@ -859,6 +1000,15 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   AddCarInput: AddCarInput;
+  AdminBookingLane: AdminBookingLane;
+  AdminDashboardBooking: ResolverTypeWrapper<Omit<AdminDashboardBooking, 'car' | 'user'> & { car: ResolversTypes['AdminDashboardCar'], user?: Maybe<ResolversTypes['User']> }>;
+  AdminDashboardCar: ResolverTypeWrapper<Omit<AdminDashboardCar, 'model'> & { model: ResolversTypes['VehicleModel'] }>;
+  AdminReportBookingLanes: ResolverTypeWrapper<AdminReportBookingLanes>;
+  AdminReportFilterInput: AdminReportFilterInput;
+  AdminReportMoneyMetric: ResolverTypeWrapper<AdminReportMoneyMetric>;
+  AdminReportPaymentMethod: ResolverTypeWrapper<AdminReportPaymentMethod>;
+  AdminReportStatusBreakdown: ResolverTypeWrapper<AdminReportStatusBreakdown>;
+  AdminReports: ResolverTypeWrapper<AdminReports>;
   Booking: ResolverTypeWrapper<BookingWithRelations>;
   BookingFilterInput: BookingFilterInput;
   BookingStatus: BookingStatus;
@@ -873,6 +1023,7 @@ export type ResolversTypes = ResolversObject<{
   CheckoutSession: ResolverTypeWrapper<CheckoutSession>;
   CloudinarySignature: ResolverTypeWrapper<CloudinarySignature>;
   CreateBookingInput: CreateBookingInput;
+  DashboardStats: ResolverTypeWrapper<Omit<DashboardStats, 'recentBookings'> & { recentBookings: Array<ResolversTypes['AdminDashboardBooking']> }>;
   DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>;
   DocumentReuseStatus: ResolverTypeWrapper<Omit<DocumentReuseStatus, 'documents'> & { documents?: Maybe<ResolversTypes['Documents']> }>;
   DocumentSide: DocumentSide;
@@ -908,6 +1059,7 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   UpdateBookingInput: UpdateBookingInput;
   UpdateCarInput: UpdateCarInput;
+  UpdateProfileInput: UpdateProfileInput;
   Upload: ResolverTypeWrapper<Scalars['Upload']['output']>;
   User: ResolverTypeWrapper<UserWithRelations>;
   VehicleModel: ResolverTypeWrapper<ModelWithBrand>;
@@ -918,6 +1070,14 @@ export type ResolversTypes = ResolversObject<{
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   AddCarInput: AddCarInput;
+  AdminDashboardBooking: Omit<AdminDashboardBooking, 'car' | 'user'> & { car: ResolversParentTypes['AdminDashboardCar'], user?: Maybe<ResolversParentTypes['User']> };
+  AdminDashboardCar: Omit<AdminDashboardCar, 'model'> & { model: ResolversParentTypes['VehicleModel'] };
+  AdminReportBookingLanes: AdminReportBookingLanes;
+  AdminReportFilterInput: AdminReportFilterInput;
+  AdminReportMoneyMetric: AdminReportMoneyMetric;
+  AdminReportPaymentMethod: AdminReportPaymentMethod;
+  AdminReportStatusBreakdown: AdminReportStatusBreakdown;
+  AdminReports: AdminReports;
   Booking: BookingWithRelations;
   BookingFilterInput: BookingFilterInput;
   Boolean: Scalars['Boolean']['output'];
@@ -929,6 +1089,7 @@ export type ResolversParentTypes = ResolversObject<{
   CheckoutSession: CheckoutSession;
   CloudinarySignature: CloudinarySignature;
   CreateBookingInput: CreateBookingInput;
+  DashboardStats: Omit<DashboardStats, 'recentBookings'> & { recentBookings: Array<ResolversParentTypes['AdminDashboardBooking']> };
   DateTime: Scalars['DateTime']['output'];
   DocumentReuseStatus: Omit<DocumentReuseStatus, 'documents'> & { documents?: Maybe<ResolversParentTypes['Documents']> };
   Documents: PrismaDocuments;
@@ -960,10 +1121,71 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String']['output'];
   UpdateBookingInput: UpdateBookingInput;
   UpdateCarInput: UpdateCarInput;
+  UpdateProfileInput: UpdateProfileInput;
   Upload: Scalars['Upload']['output'];
   User: UserWithRelations;
   VehicleModel: ModelWithBrand;
   VerifyOTPPayload: VerifyOtpPayload;
+}>;
+
+export type AdminDashboardBookingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminDashboardBooking'] = ResolversParentTypes['AdminDashboardBooking']> = ResolversObject<{
+  car?: Resolver<ResolversTypes['AdminDashboardCar'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  guestEmail?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  guestName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  guestPhone?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isWalkIn?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  reminderSentAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['BookingStatus'], ParentType, ContextType>;
+  totalPrice?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+}>;
+
+export type AdminDashboardCarResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminDashboardCar'] = ResolversParentTypes['AdminDashboardCar']> = ResolversObject<{
+  brand?: Resolver<ResolversTypes['Brand'], ParentType, ContextType>;
+  model?: Resolver<ResolversTypes['VehicleModel'], ParentType, ContextType>;
+}>;
+
+export type AdminReportBookingLanesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminReportBookingLanes'] = ResolversParentTypes['AdminReportBookingLanes']> = ResolversObject<{
+  courtesy?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  online?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  onsite?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+}>;
+
+export type AdminReportMoneyMetricResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminReportMoneyMetric'] = ResolversParentTypes['AdminReportMoneyMetric']> = ResolversObject<{
+  amount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+}>;
+
+export type AdminReportPaymentMethodResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminReportPaymentMethod'] = ResolversParentTypes['AdminReportPaymentMethod']> = ResolversObject<{
+  amount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+}>;
+
+export type AdminReportStatusBreakdownResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminReportStatusBreakdown'] = ResolversParentTypes['AdminReportStatusBreakdown']> = ResolversObject<{
+  cancelled?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  completed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  confirmed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  expired?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  ongoing?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  rejected?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  reserved?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+}>;
+
+export type AdminReportsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['AdminReports'] = ResolversParentTypes['AdminReports']> = ResolversObject<{
+  availableCars?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  bookingLanes?: Resolver<ResolversTypes['AdminReportBookingLanes'], ParentType, ContextType>;
+  bookingStatuses?: Resolver<ResolversTypes['AdminReportStatusBreakdown'], ParentType, ContextType>;
+  paid?: Resolver<ResolversTypes['AdminReportMoneyMetric'], ParentType, ContextType>;
+  paymentMethods?: Resolver<Array<ResolversTypes['AdminReportPaymentMethod']>, ParentType, ContextType>;
+  pendingDocuments?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  pendingPayments?: Resolver<ResolversTypes['AdminReportMoneyMetric'], ParentType, ContextType>;
+  refunded?: Resolver<ResolversTypes['AdminReportMoneyMetric'], ParentType, ContextType>;
+  rentedCars?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalRevenue?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
 }>;
 
 export type BookingResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Booking'] = ResolversParentTypes['Booking']> = ResolversObject<{
@@ -1032,6 +1254,23 @@ export type CloudinarySignatureResolvers<ContextType = GraphQLContext, ParentTyp
   timestamp?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 }>;
 
+export type DashboardStatsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['DashboardStats'] = ResolversParentTypes['DashboardStats']> = ResolversObject<{
+  availableCars?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  cancelledBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  completedBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  confirmedBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  ongoingBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  pendingDocuments?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  pendingPayments?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  recentBookings?: Resolver<Array<ResolversTypes['AdminDashboardBooking']>, ParentType, ContextType>;
+  rejectedBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  reservedBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalBookings?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalCars?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalRevenue?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  totalUsers?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+}>;
+
 export interface DateTimeScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTime'], any> {
   name: 'DateTime';
 }
@@ -1078,7 +1317,11 @@ export type LoginPayloadResolvers<ContextType = GraphQLContext, ParentType exten
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
   addCar?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationAddCarArgs, 'input'>>;
+  adminCreateBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationAdminCreateBookingArgs, 'input'>>;
+  adminRecordBookingPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationAdminRecordBookingPaymentArgs, 'amount' | 'bookingId' | 'paymentMethodId'>>;
+  adminRefundBookingPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationAdminRefundBookingPaymentArgs, 'bookingId'>>;
   adminUpdateBookingStatus?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationAdminUpdateBookingStatusArgs, 'id' | 'status'>>;
+  adminVerifyBookingDocuments?: Resolver<ResolversTypes['Documents'], ParentType, ContextType, RequireFields<MutationAdminVerifyBookingDocumentsArgs, 'bookingId' | 'status'>>;
   adminVerifyDocuments?: Resolver<ResolversTypes['Documents'], ParentType, ContextType, RequireFields<MutationAdminVerifyDocumentsArgs, 'status' | 'userId'>>;
   cancelBooking?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationCancelBookingArgs, 'id'>>;
   changePassword?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationChangePasswordArgs, 'currentPassword' | 'newPassword'>>;
@@ -1116,6 +1359,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   updateCarStatus?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUpdateCarStatusArgs, 'id' | 'status'>>;
   updateFuelType?: Resolver<ResolversTypes['FuelType'], ParentType, ContextType, RequireFields<MutationUpdateFuelTypeArgs, 'id' | 'name'>>;
   updateModel?: Resolver<ResolversTypes['VehicleModel'], ParentType, ContextType, RequireFields<MutationUpdateModelArgs, 'id'>>;
+  updateMyProfile?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<MutationUpdateMyProfileArgs, 'input'>>;
   updatePaymentMethod?: Resolver<ResolversTypes['PaymentMethod'], ParentType, ContextType, RequireFields<MutationUpdatePaymentMethodArgs, 'id' | 'name'>>;
   updateUserRole?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<MutationUpdateUserRoleArgs, 'id' | 'role'>>;
   uploadCarImages?: Resolver<ResolversTypes['Car'], ParentType, ContextType, RequireFields<MutationUploadCarImagesArgs, 'carId' | 'images'>>;
@@ -1187,6 +1431,7 @@ export type PaymentMethodResolvers<ContextType = GraphQLContext, ParentType exte
 }>;
 
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
+  adminReports?: Resolver<ResolversTypes['AdminReports'], ParentType, ContextType, Partial<QueryAdminReportsArgs>>;
   availableCars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryAvailableCarsArgs, 'endDate' | 'startDate'>>;
   booking?: Resolver<Maybe<ResolversTypes['Booking']>, ParentType, ContextType, RequireFields<QueryBookingArgs, 'id'>>;
   bookingDocuments?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType, RequireFields<QueryBookingDocumentsArgs, 'bookingId'>>;
@@ -1197,6 +1442,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   cars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, Partial<QueryCarsArgs>>;
   carsByStatus?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryCarsByStatusArgs, 'status'>>;
   cloudinarySignature?: Resolver<ResolversTypes['CloudinarySignature'], ParentType, ContextType, RequireFields<QueryCloudinarySignatureArgs, 'folder'>>;
+  dashboardStats?: Resolver<ResolversTypes['DashboardStats'], ParentType, ContextType>;
   fuelTypes?: Resolver<Array<ResolversTypes['FuelType']>, ParentType, ContextType>;
   hasApprovedDocuments?: Resolver<ResolversTypes['DocumentReuseStatus'], ParentType, ContextType>;
   isEmailAvailable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsEmailAvailableArgs, 'email'>>;
@@ -1238,6 +1484,7 @@ export type UserResolvers<ContextType = GraphQLContext, ParentType extends Resol
   documents?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   emailVerified?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  fullName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   phoneNumber?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   role?: Resolver<ResolversTypes['Role'], ParentType, ContextType>;
@@ -1255,6 +1502,13 @@ export type VerifyOtpPayloadResolvers<ContextType = GraphQLContext, ParentType e
 }>;
 
 export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
+  AdminDashboardBooking?: AdminDashboardBookingResolvers<ContextType>;
+  AdminDashboardCar?: AdminDashboardCarResolvers<ContextType>;
+  AdminReportBookingLanes?: AdminReportBookingLanesResolvers<ContextType>;
+  AdminReportMoneyMetric?: AdminReportMoneyMetricResolvers<ContextType>;
+  AdminReportPaymentMethod?: AdminReportPaymentMethodResolvers<ContextType>;
+  AdminReportStatusBreakdown?: AdminReportStatusBreakdownResolvers<ContextType>;
+  AdminReports?: AdminReportsResolvers<ContextType>;
   Booking?: BookingResolvers<ContextType>;
   Brand?: BrandResolvers<ContextType>;
   CalendarDay?: CalendarDayResolvers<ContextType>;
@@ -1262,6 +1516,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   CarImage?: CarImageResolvers<ContextType>;
   CheckoutSession?: CheckoutSessionResolvers<ContextType>;
   CloudinarySignature?: CloudinarySignatureResolvers<ContextType>;
+  DashboardStats?: DashboardStatsResolvers<ContextType>;
   DateTime?: GraphQLScalarType;
   DocumentReuseStatus?: DocumentReuseStatusResolvers<ContextType>;
   Documents?: DocumentsResolvers<ContextType>;

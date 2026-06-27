@@ -76,10 +76,11 @@ export class PaymentRepository {
   // ── Mutations ──────────────────────────────────────────────────────────────
 
   create(data: {
-    bookingId: string;
-    amount:    number;
-    status?:   PaymentStatus;
-    stripeId?: string;
+    bookingId:        string;
+    amount:           number;
+    status?:          PaymentStatus;
+    stripeId?:        string;
+    paymentMethodId?: string;
   }): Promise<PaymentWithMethod> {
     return prisma.payment.create({
       data:    { ...data, status: data.status ?? PaymentStatus.PENDING },
@@ -104,11 +105,17 @@ export class PaymentRepository {
       amount:    number;
       status:    PaymentStatus;
       stripeId?: string;
+      paymentMethodId?: string;
     },
   ): Promise<PaymentWithMethod> {
     return prisma.payment.upsert({
       where:   { bookingId },
-      update:  { status: data.status, stripeId: data.stripeId },
+      update:  {
+        amount: data.amount,
+        status: data.status,
+        stripeId: data.stripeId,
+        paymentMethodId: data.paymentMethodId,
+      },
       create:  { bookingId, ...data },
       include: PAYMENT_INCLUDE,
     });

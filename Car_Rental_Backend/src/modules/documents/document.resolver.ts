@@ -179,5 +179,10 @@ export const documentResolvers: any = {
       isAdmin(ctx);
       return documentService.adminVerifyDocuments(userId, status);
     },
+
+    adminVerifyBookingDocuments: async (_: unknown, { bookingId, status }: { bookingId: string; status: any }, ctx: GraphQLContext) => {
+      isAdmin(ctx);
+      return documentService.adminVerifyBookingDocuments(bookingId, status);
+    },
   },
 };

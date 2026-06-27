@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useIsNativeApp } from '@/hooks/useIsNativeApp';
 
 interface NavItem {
   labelKey: string;
@@ -16,17 +17,11 @@ interface NavItem {
 export const BottomNav: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
+  const isNativeApp = useIsNativeApp();
+
+  if (!isNativeApp) return null;
 
   const navItems: NavItem[] = [
-    {
-      labelKey: 'navbar.home',
-      path: '/',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '24px', height: '24px' }}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.445 1.152-.445 1.592 0L21.75 12M13.5 20.25V12a.75.75 0 0 0-.75-.75h-1.5a.75.75 0 0 0-.75.75v8.25m-9-8.25h16.5" />
-        </svg>
-      ),
-    },
     {
       labelKey: 'navbar.cars',
       path: '/cars',
@@ -88,7 +83,7 @@ export const BottomNav: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               textDecoration: 'none',
-              width: '25%',
+              flex: 1,
               height: '100%',
               color: isActive ? 'primary.main' : 'text.secondary',
               transition: 'color 0.2s',

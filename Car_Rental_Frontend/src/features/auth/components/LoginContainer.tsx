@@ -1,16 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useIsNativeApp } from '@/hooks/useIsNativeApp';
 import { LoginView } from './LoginView';
 
 export const LoginContainer: React.FC = () => {
   const { t } = useLanguage();
   const router = useRouter();
+  const isNativeApp = useIsNativeApp();
+  const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (!isNativeApp || status !== 'authenticated') return;
+    router.replace(session?.user?.role === 'ADMIN' ? '/admin/dashboard' : '/cars');
+  }, [isNativeApp, router, session?.user?.role, status]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -31,7 +39,13 @@ export const LoginContainer: React.FC = () => {
       if (res?.error) {
         setError(t('auth.login.errorInvalid'));
       } else {
-        router.refresh(); // Triggers Next.js Middleware check to route user to /home or dashboard
+        if (isNativeApp) {
+          const session = await getSession();
+          router.replace(session?.user?.role === 'ADMIN' ? '/admin/dashboard' : '/cars');
+          return;
+        }
+
+        router.refresh();
       }
     } catch {
       setError(t('common.error'));

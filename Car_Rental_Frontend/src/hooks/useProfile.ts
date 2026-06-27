@@ -1,52 +1,90 @@
-// 'use client';
+'use client';
 
-// import { useQuery, useMutation } from '@apollo/client';
-// import { GET_ME_QUERY } from '@/lib/graphql/queries';
-// import { UPDATE_USER_MUTATION } from '@/lib/graphql/mutations';
-// import { useSession } from 'next-auth/react';
+import { gql, useMutation, useQuery } from '@apollo/client';
 
-// export interface ProfileData {
-//   id: string;
-//   fullName: string | null;
-//   email: string;
-//   phoneNumber: string | null;
-//   dateOfBirth: string | null;
-//   fullAddress: string | null;
-//   role: string;
-// }
+export const GET_ME_QUERY = gql`
+  query GetMe {
+    me {
+      id
+      fullName
+      email
+      emailVerified
+      phoneNumber
+      role
+      documents {
+        id
+        status
+        licenseNumber
+        licenseExpiry
+        idNumber
+        idExpiry
+        address
+      }
+    }
+  }
+`;
 
-// export interface UpdateProfileInput {
-//   fullName?: string;
-//   phoneNumber?: string;
-//   dateOfBirth?: string;
-//   fullAddress?: string;
-// }
+export const UPDATE_MY_PROFILE_MUTATION = gql`
+  mutation UpdateMyProfile($input: UpdateProfileInput!) {
+    updateMyProfile(input: $input) {
+      id
+      fullName
+      email
+      phoneNumber
+      role
+    }
+  }
+`;
 
-// export const useProfile = () => {
-//   const { data: session } = useSession();
+export const CHANGE_PASSWORD_MUTATION = gql`
+  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+    changePassword(currentPassword: $currentPassword, newPassword: $newPassword)
+  }
+`;
 
-//   const { data, loading, error, refetch } = useQuery(GET_ME_QUERY, {
-//     skip: !session?.accessToken,
-//     fetchPolicy: 'cache-and-network',
-//   });
+export interface ProfileData {
+  id: string;
+  fullName: string | null;
+  email: string;
+  emailVerified: boolean;
+  phoneNumber: string | null;
+  role: 'USER' | 'ADMIN';
+  documents: {
+    id: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    licenseNumber: string | null;
+    licenseExpiry: string | null;
+    idNumber: string | null;
+    idExpiry: string | null;
+    address: string | null;
+  } | null;
+}
 
-//   const [updateUserMutation, { loading: updating }] = useMutation(UPDATE_USER_MUTATION, {
-//     refetchQueries: [{ query: GET_ME_QUERY }],
-//   });
+export const useProfile = () => {
+  const { data, loading, error, refetch } = useQuery<{ me: ProfileData | null }>(
+    GET_ME_QUERY,
+    { fetchPolicy: 'cache-and-network' },
+  );
 
-//   const profile: ProfileData | null = data?.me || null;
+  const [updateProfileMutation, { loading: updating }] = useMutation(
+    UPDATE_MY_PROFILE_MUTATION,
+    { onCompleted: () => refetch() },
+  );
 
-//   const updateProfile = async (input: UpdateProfileInput) => {
-//     const result = await updateUserMutation({ variables: { input } });
-//     return result.data?.updateUser;
-//   };
+  const [changePasswordMutation, { loading: changingPassword }] = useMutation(
+    CHANGE_PASSWORD_MUTATION,
+  );
 
-//   return {
-//     profile,
-//     loading,
-//     error,
-//     updating,
-//     updateProfile,
-//     refetch,
-//   };
-// };
+  return {
+    profile: data?.me ?? null,
+    loading,
+    error,
+    updating,
+    changingPassword,
+    updateProfile: (input: { phoneNumber: string }) =>
+      updateProfileMutation({ variables: { input } }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      changePasswordMutation({ variables: { currentPassword, newPassword } }),
+    refetch,
+  };
+};

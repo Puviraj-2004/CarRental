@@ -73,4 +73,5 @@ extend type Mutation {
 
   # Maps exactly to client-side admin verify mutation
   adminVerifyDocuments(userId: ID!, status: VerificationStatus!): Documents!
+  adminVerifyBookingDocuments(bookingId: ID!, status: VerificationStatus!): Documents!
 }

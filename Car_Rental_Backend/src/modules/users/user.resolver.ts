@@ -11,6 +11,7 @@ import type { Resolvers, QueryUsersArgs } from '../../graphql/__generated__/type
 
 export const userResolvers: Partial<Resolvers> = {
   User: {
+    fullName: (parent: { email?: string | null }) => parent.email?.split('@')[0] ?? null,
     phoneNumber: (parent) => parent.phoneNumber ?? null,
   },
 
@@ -64,6 +65,17 @@ export const userResolvers: Partial<Resolvers> = {
   },
 
   Mutation: {
+    updateMyProfile: (
+      _: unknown,
+      { input }: { input: { phoneNumber?: string | null } },
+      ctx: GraphQLContext,
+    ) => {
+      isAuthenticated(ctx);
+      return userService.updateMyProfile(ctx.userId!, {
+        phoneNumber: input.phoneNumber ?? null,
+      });
+    },
+
     changePassword: (
       _: unknown,
       { currentPassword, newPassword }: {

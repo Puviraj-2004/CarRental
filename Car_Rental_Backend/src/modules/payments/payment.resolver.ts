@@ -25,6 +25,29 @@ export const paymentResolvers: any = {
       return paymentService.createCheckoutSession(bookingId, ctx.userId, ctx.role === 'ADMIN');
     },
 
+    adminRecordBookingPayment: async (
+      _: unknown,
+      { bookingId, paymentMethodId, amount }: { bookingId: string; paymentMethodId: string; amount: number },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return paymentService.adminRecordBookingPayment({
+        bookingId,
+        paymentMethodId,
+        amount,
+        adminId: ctx.userId!,
+      });
+    },
+
+    adminRefundBookingPayment: async (
+      _: unknown,
+      { bookingId }: { bookingId: string },
+      ctx: GraphQLContext,
+    ) => {
+      isAdmin(ctx);
+      return paymentService.adminRefundBookingPayment(bookingId, ctx.userId!);
+    },
+
     mockFinalizePayment: async (_: unknown, { bookingId, success }: { bookingId: string; success: boolean }, ctx: GraphQLContext) => {
       if (!ctx.userId) {
         throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);

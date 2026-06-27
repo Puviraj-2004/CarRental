@@ -41,6 +41,8 @@ extend type Query {
 
 extend type Mutation {
   createCheckoutSession(bookingId: ID!): CheckoutSession!
+  adminRecordBookingPayment(bookingId: ID!, paymentMethodId: ID!, amount: Float!): Payment!
+  adminRefundBookingPayment(bookingId: ID!): Payment!
   refundPayment(paymentId: ID!):         Payment!
   mockFinalizePayment(bookingId: String!, success: Boolean!): Payment!
 

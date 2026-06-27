@@ -5,7 +5,23 @@ import { useAdminBookings } from '@/features/bookings/hooks/useAdminBookings';
 import { AdminBookingsView } from './AdminBookingsView';
 import { useToast } from '@/lib/ToastContext';
 
-export const AdminBookingsContainer: React.FC = () => {
+type AdminBookingLane = 'ONLINE' | 'ONSITE' | 'COURTESY';
+
+interface AdminBookingsContainerProps {
+  lane?: AdminBookingLane;
+  title?: string;
+  subtitle?: string;
+  createHref?: string;
+  createLabel?: string;
+}
+
+export const AdminBookingsContainer: React.FC<AdminBookingsContainerProps> = ({
+  lane,
+  title = 'Bookings',
+  subtitle = 'Manage reservations, customer details, payments, documents, and handovers.',
+  createHref,
+  createLabel,
+}) => {
   const { showToast } = useToast();
   
   const {
@@ -21,7 +37,7 @@ export const AdminBookingsContainer: React.FC = () => {
     setStatusFilter,
     executeUpdateStatus,
     loadingUpdate,
-  } = useAdminBookings();
+  } = useAdminBookings(lane);
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
@@ -34,6 +50,11 @@ export const AdminBookingsContainer: React.FC = () => {
 
   return (
     <AdminBookingsView
+      title={title}
+      subtitle={subtitle}
+      lane={lane}
+      createHref={createHref}
+      createLabel={createLabel}
       bookings={bookings}
       pageInfo={pageInfo}
       page={page}

@@ -56,6 +56,8 @@ export const Navbar: React.FC = () => {
   };
 
   const handleLogout = async (): Promise<void> => {       
+    if (!window.confirm('Do you want to logout?')) return;
+
     try {
       if (session?.refreshToken) {
         await logoutMutation({ variables: { refreshToken: session.refreshToken } });

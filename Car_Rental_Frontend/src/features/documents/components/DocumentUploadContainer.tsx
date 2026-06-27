@@ -10,7 +10,11 @@ import { useToast } from '@/lib/ToastContext';
 import { useDocuments } from '../hooks/useDocuments';
 import { DocumentUploadView } from './DocumentUploadView';
 
-export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ bookingId }) => {
+export const DocumentUploadContainer: React.FC<{
+  bookingId: string;
+  adminMode?: boolean;
+  returnTo?: string;
+}> = ({ bookingId, adminMode = false, returnTo }) => {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const router = useRouter();
@@ -24,7 +28,7 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
     loadingSaveBooking,
     executeReuse,
     loadingReuse
-  } = useDocuments();
+  } = useDocuments({ skipApprovedDocuments: adminMode });
 
   const [error, setError] = useState<string | null>(null);
 
@@ -55,16 +59,16 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
   useEffect(() => {
     if (!bookingId) {
       showToast('Missing booking target. Redirecting to fleet...', 'error');
-      router.push('/cars');
+      router.push(adminMode ? '/admin/bookings/onsite' : '/cars');
     }
   }, [bookingId, router, showToast]);
 
   // 2. Intercept and trigger saved documents prompt as soon as the query finishes loading [1]
   useEffect(() => {
-    if (!loadingApprovedDocs && hasApprovedDocumentsData?.hasApprovedDocuments) {
+    if (!adminMode && !loadingApprovedDocs && hasApprovedDocumentsData?.hasApprovedDocuments) {
       setShowReuseModal(true);
     }
-  }, [hasApprovedDocumentsData, loadingApprovedDocs]);
+  }, [adminMode, hasApprovedDocumentsData, loadingApprovedDocs]);
 
   // Action: Handle Document Reuse [1]
   const handleConfirmReuse = async () => {
@@ -179,6 +183,11 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       return;
     }
 
+    if (adminMode) {
+      void handleFinalSave(false);
+      return;
+    }
+
     // Validation passes. Trigger Profile Update modal to obtain explicit user consent [1].
     setShowSaveConfirmModal(true);
   };
@@ -197,10 +206,10 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
         idExpiry,
         address,
         birthDate
-      }, userChoseToSaveProfile);
+      }, adminMode ? false : userChoseToSaveProfile);
 
-      showToast('Documents verified and saved. Redirecting to payment...', 'success');
-      router.push(`/booking/${bookingId}/payment`); 
+      showToast('Documents saved for this booking.', 'success');
+      router.push(adminMode ? (returnTo || `/admin/bookings/${bookingId}`) : `/booking/${bookingId}/payment`); 
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'));
     }
@@ -263,6 +272,7 @@ export const DocumentUploadContainer: React.FC<{ bookingId: string }> = ({ booki
       onConfirmSaveWithProfile={() => handleFinalSave(true)}
       onConfirmSaveBookingOnly={() => handleFinalSave(false)}
       hasExistingProfileDoc={!!hasApprovedDocumentsData?.hasApprovedDocuments}
+      adminMode={adminMode}
     />
   );
 };
