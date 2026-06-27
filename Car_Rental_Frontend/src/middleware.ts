@@ -6,27 +6,38 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
     const userRole = token?.role;
+    const isAdminUser = userRole === "ADMIN";
+    const isAdminRoute = pathname.startsWith("/admin");
+    const isUserOnlyRoute =
+      pathname.startsWith("/booking") ||
+      pathname.startsWith("/bookingRecords") ||
+      pathname.startsWith("/profile");
 
     // Block non-admins from admin routes
-    if (pathname.startsWith("/admin") && userRole !== "ADMIN") {
-      return NextResponse.redirect(new URL("/", req.url));
+    if (isAdminRoute && !isAdminUser) {
+      return NextResponse.redirect(new URL(token ? "/cars" : "/login", req.url));
+    }
+
+    // Admin accounts should stay in the admin workspace, not user booking flows
+    if (token && isAdminUser && isUserOnlyRoute) {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
 
     // Redirect authenticated users away from auth pages
     const authPages = ["/login", "/register", "/verify-otp"];
     if (authPages.includes(pathname) && token) {
-      const redirectUrl = userRole === "ADMIN" ? "/admin/cars" : "/";
+      const redirectUrl = isAdminUser ? "/admin/dashboard" : "/cars";
       return NextResponse.redirect(new URL(redirectUrl, req.url));
     }
 
     // Redirect admin users from home to admin dashboard
-    if (token && pathname === "/" && userRole === "ADMIN") {
-      return NextResponse.redirect(new URL("/admin/cars", req.url));
+    if (token && pathname === "/" && isAdminUser) {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
 
     const guestOnlyPages = ["/login", "/register", "/verify-otp", "/about"]; 
     if (guestOnlyPages.includes(pathname) && token) {
-      const redirectUrl = userRole === "ADMIN" ? "/admin/cars" : "/";
+      const redirectUrl = isAdminUser ? "/admin/dashboard" : "/cars";
       return NextResponse.redirect(new URL(redirectUrl, req.url));
     }
 
@@ -58,7 +69,19 @@ export default withAuth(
           return true;
         }
 
-        // Everything else requires authentication
+        if (pathname.startsWith("/admin")) {
+          return token?.role === "ADMIN";
+        }
+
+        if (
+          pathname.startsWith("/booking") ||
+          pathname.startsWith("/bookingRecords") ||
+          pathname.startsWith("/profile")
+        ) {
+          return !!token && token.role !== "ADMIN";
+        }
+
+        // Everything else covered by this middleware requires authentication
         return !!token;
       },
     },
@@ -70,11 +93,9 @@ export const config = {
     "/",
     "/about",
     "/admin/:path*",
-    "/booking",
+    "/booking/:path*",
     "/bookingRecords",
-    "/dashboard/:path*",
     "/login",
-    "/payment/:path*",
     "/profile/:path*",
     "/register",
     "/verification/:path*",

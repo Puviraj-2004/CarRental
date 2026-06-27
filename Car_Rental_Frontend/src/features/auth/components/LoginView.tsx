@@ -1,11 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import Container from '@mui/material/Container';
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 
 interface LoginViewProps {
@@ -18,137 +25,121 @@ interface LoginViewProps {
 export const LoginView: React.FC<LoginViewProps> = ({ t, onSubmit, error, loading }) => {
   const [showPassword, setShowPassword] = useState(false);
 
-  const togglePasswordVisibility = () => {
-    setShowPassword((prev) => !prev);
-  };
-
   return (
-    <Container maxWidth="xs" sx={{ py: 8 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
-          {t('auth.login.title')}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 4, textAlign: 'center' }}>
-          {t('auth.login.subtitle')}
-        </Typography>
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 7 } }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 440px' },
+          minHeight: { md: 'calc(100vh - 160px)' },
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          overflow: 'hidden',
+          bgcolor: 'background.paper',
+          boxShadow: '0 24px 80px rgba(15, 23, 42, 0.10)',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'relative',
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'flex-end',
+            minHeight: 620,
+            p: 5,
+            color: 'common.white',
+            backgroundImage: 'linear-gradient(180deg, rgba(2, 6, 23, 0.15), rgba(2, 6, 23, 0.78)), url("/images/auth/login.jpg")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <Box sx={{ maxWidth: 500 }}>
+            <Typography variant="overline" sx={{ fontWeight: 900 }}>
+              {t('auth.login.eyebrow')}
+            </Typography>
+            <Typography variant="h3" component="p" sx={{ mt: 1, fontWeight: 900, lineHeight: 1.05 }}>
+              {t('auth.login.imageTitle')}
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 2, color: 'rgba(255,255,255,0.82)' }}>
+              {t('auth.login.imageSubtitle')}
+            </Typography>
+          </Box>
+        </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
-            {error}
-          </Alert>
-        )}
+        <Stack justifyContent="center" sx={{ px: { xs: 3, sm: 5 }, py: { xs: 5, md: 7 } }}>
+          <Box sx={{ width: '100%', maxWidth: 420, mx: 'auto' }}>
+            <Typography variant="overline" sx={{ color: 'primary.main', fontWeight: 900 }}>
+              {t('auth.login.eyebrow')}
+            </Typography>
+            <Typography variant="h4" component="h1" sx={{ mt: 1, fontWeight: 900 }}>
+              {t('auth.login.title')}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
+              {t('auth.login.subtitle')}
+            </Typography>
 
-        <Box component="form" onSubmit={onSubmit} sx={{ width: '100%' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <input
-              name="email"
-              type="email"
-              required
-              placeholder={t('auth.login.email')}
-              style={{
-                padding: '12px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                fontSize: '16px',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            />
-            
-            {/* Password input container with integrated eye-toggle */}
-            <div style={{ position: 'relative', width: '100%' }}>
-              <input
+            {error && (
+              <Alert severity="error" sx={{ mt: 3 }}>
+                {error}
+              </Alert>
+            )}
+
+            <Stack component="form" onSubmit={onSubmit} spacing={2.25} sx={{ mt: 4 }}>
+              <TextField
+                name="email"
+                type="email"
+                label={t('auth.login.email')}
+                autoComplete="email"
+                required
+                fullWidth
+              />
+              <TextField
                 name="password"
                 type={showPassword ? 'text' : 'password'}
+                label={t('auth.login.password')}
+                autoComplete="current-password"
                 required
-                placeholder={t('auth.login.password')}
-                style={{
-                  padding: '12px',
-                  paddingRight: '44px', // Space for the eye button
-                  borderRadius: '6px',
-                  border: '1px solid #ccc',
-                  fontSize: '16px',
-                  width: '100%',
-                  boxSizing: 'border-box'
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        aria-label={showPassword ? t('auth.login.hidePassword') : t('auth.login.showPassword')}
+                        onClick={() => setShowPassword((prev) => !prev)}
+                      >
+                        {showPassword ? <VisibilityOffRoundedIcon /> : <VisibilityRoundedIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
                 }}
               />
-              <button
-                type="button"
-                onClick={togglePasswordVisibility}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: '#666'
-                }}
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={loading}
+                sx={{ py: 1.45, borderRadius: 2, fontWeight: 900, textTransform: 'none' }}
               >
-                {showPassword ? (
-                  // Eye Open SVG
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    style={{ width: '20px', height: '20px' }}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                    />
-                  </svg>
-                ) : (
-                  // Eye Closed (Slashed) SVG
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    style={{ width: '20px', height: '20px' }}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
-                    />
-                  </svg>
-                )}
-              </button>
-            </div>
+                {loading ? <CircularProgress color="inherit" size={22} /> : t('auth.login.submit')}
+              </Button>
+            </Stack>
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={loading}
-              sx={{ py: 1.5, mt: 1, fontWeight: 600 }}
-            >
-              {t('auth.login.submit')}
-            </Button>
-          </div>
-        </Box>
-
-        <Box sx={{ mt: 3, display: 'flex', gap: '4px', fontSize: '14px' }}>
-          <Typography sx={{ color: 'text.secondary' }}>{t('auth.login.noAccount')}</Typography>
-          <Link href="/register" style={{ fontWeight: 600, color: '#1976d2', textDecoration: 'none' }}>
-            {t('auth.login.registerLink')}
-          </Link>
-        </Box>
+            <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mt: 3 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {t('auth.login.noAccount')}
+              </Typography>
+              <Typography
+                component={Link}
+                href="/register"
+                variant="body2"
+                sx={{ color: 'primary.main', fontWeight: 800, textDecoration: 'none' }}
+              >
+                {t('auth.login.registerLink')}
+              </Typography>
+            </Stack>
+          </Box>
+        </Stack>
       </Box>
     </Container>
   );

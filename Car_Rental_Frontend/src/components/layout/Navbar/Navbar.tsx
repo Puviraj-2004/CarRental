@@ -1,62 +1,78 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useMutation } from '@apollo/client';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded';
+import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
+import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
+import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
-import IconButton from '@mui/material/IconButton';
+import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Divider from '@mui/material/Divider';
+import Stack from '@mui/material/Stack';
+import Toolbar from '@mui/material/Toolbar';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
-import { useMutation } from '@apollo/client';           
-import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations'; 
+import { signOut, useSession } from 'next-auth/react';
+import { useThemeMode } from '@/app/providers';
+import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
 import { useLanguage } from '@/lib/LanguageContext';
 import { LanguageSwitcher } from '../LanguageSwitcher';
-import { useThemeMode } from '@/app/providers'; // <-- Imported dynamic theme hook [1]
 
 interface NavItem {
   labelKey: string;
-  defaultLabel: string;
   path: string;
   authRequired?: boolean;
-  adminOnly?: boolean;
   guestOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { labelKey: 'navbar.home', defaultLabel: 'Home', path: '/' },
-  { labelKey: 'navbar.cars', defaultLabel: 'Cars', path: '/cars' },
-  { labelKey: 'navbar.about', defaultLabel: 'About Us', path: '/about', guestOnly: true },
-  { labelKey: 'navbar.bookings', defaultLabel: 'My Bookings', path: '/bookingRecords', authRequired: true },
-  { labelKey: 'navbar.profile', defaultLabel: 'Profile', path: '/profile', authRequired: true },
+  { labelKey: 'navbar.home', path: '/' },
+  { labelKey: 'navbar.cars', path: '/cars' },
+  { labelKey: 'navbar.about', path: '/about', guestOnly: true },
+  { labelKey: 'navbar.bookings', path: '/bookingRecords', authRequired: true },
+  { labelKey: 'navbar.profile', path: '/profile', authRequired: true },
 ];
 
 export const Navbar: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const { mode, toggleTheme } = useThemeMode(); // <-- Connected Mode state & Toggler [1]
+  const { mode, toggleTheme } = useThemeMode();
   const { data: session, status } = useSession();
-  const [logoutMutation] = useMutation(LOGOUT_MUTATION);  
-
+  const [logoutMutation] = useMutation(LOGOUT_MUTATION);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAuthenticated = status === 'authenticated';
   const isAdmin = session?.user?.role === 'ADMIN';
 
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.authRequired && !isAuthenticated) return false;
+    if (item.guestOnly && isAuthenticated) return false;
+    return true;
+  });
+
+  const isActivePath = (path: string) => pathname === path || (path !== '/' && pathname?.startsWith(path));
+
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
   };
 
-  const handleLogout = async (): Promise<void> => {       
-    if (!window.confirm('Do you want to logout?')) return;
+  const handleLogout = async (): Promise<void> => {
+    if (!window.confirm(t('navbar.logoutConfirm'))) return;
 
     try {
       if (session?.refreshToken) {
@@ -69,200 +85,225 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const visibleNavItems = navItems.filter((item) => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.authRequired && !isAuthenticated) return false;
-    if (item.guestOnly && isAuthenticated) return false;
-    return true;
-  });
+  const themeIcon = mode === 'dark' ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />;
 
-  // Render SVGs inline for absolute cross-platform rendering safety
-  const renderThemeIcon = () => {
-    if (mode === 'dark') {
-      // Sun Icon
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m0 13.5V21m9.75-9h-2.25m-13.5 0H3m14.01-6.49-1.59 1.59M8.22 15.78l-1.59 1.59m12.42 1.59-1.59-1.59M8.22 8.22 6.63 6.63M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />
-        </svg>
-      );
-    }
-    // Moon Icon
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-      </svg>
-    );
-  };
-
-  const mobileDrawerContent = (
-    <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      <Box sx={{ flexGrow: 1 }}>
-        <Typography 
-          variant="h6" 
-          component={Link} 
-          href="/" 
+  const drawerContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 2 }}>
+        <Stack
+          component={Link}
+          href="/"
+          direction="row"
+          alignItems="center"
+          spacing={1}
           onClick={handleDrawerToggle}
-          sx={{ fontWeight: 900, textDecoration: 'none', color: 'primary.main', display: 'block', mb: 3 }}
+          sx={{ color: 'text.primary', textDecoration: 'none' }}
         >
-          {t('common.appName') || 'BlueDrive'}
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        <List component="nav" disablePadding>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {visibleNavItems.map((item) => {
-              const isActive = pathname === item.path;
-              return (
-                <ListItemButton
-                  key={item.path}
-                  component={Link}
-                  href={item.path}
-                  onClick={handleDrawerToggle}
-                  sx={{
-                    borderRadius: '8px',
-                    bgcolor: isActive ? 'primary.main' : 'transparent',
-                    color: isActive ? 'primary.contrastText' : 'text.primary',
-                    '&:hover': { bgcolor: isActive ? 'primary.dark' : 'grey.100' }
-                  }}
-                >
-                  <ListItemText
-                    primary={t(item.labelKey) || item.defaultLabel}
-                    primaryTypographyProps={{ fontWeight: isActive ? 700 : 500, fontSize: '15px' }}
-                  />
-                </ListItemButton>
-              );
-            })}
-
-            {isAdmin && (
-              <ListItemButton
-                component={Link}
-                href="/admin/dashboard"
-                onClick={handleDrawerToggle}
-                sx={{
-                  borderRadius: '8px',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  color: 'primary.main',
-                  mt: 1
-                }}
-              >
-                <ListItemText
-                  primary="Admin Dashboard"
-                  primaryTypographyProps={{ fontWeight: 700, fontSize: '15px' }}
-                />
-              </ListItemButton>
-            )}
+          <Box
+            sx={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 38,
+              height: 38,
+              borderRadius: 2,
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+            }}
+          >
+            <DirectionsCarRoundedIcon fontSize="small" />
           </Box>
-        </List>
-      </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+            {t('common.appName')}
+          </Typography>
+        </Stack>
+        <IconButton aria-label={t('navbar.closeMenu')} onClick={handleDrawerToggle}>
+          <CloseRoundedIcon />
+        </IconButton>
+      </Stack>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 'auto', pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
-          {/* Mobile Theme Toggle Button */}
-          <IconButton onClick={toggleTheme} color="primary">
-            {renderThemeIcon()}
-          </IconButton>
+      <Divider />
+
+      <List component="nav" sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 2 }}>
+        {visibleNavItems.map((item) => {
+          const isActive = isActivePath(item.path);
+          return (
+            <ListItemButton
+              key={item.path}
+              component={Link}
+              href={item.path}
+              onClick={handleDrawerToggle}
+              sx={{
+                mb: 0.75,
+                borderRadius: 2,
+                color: isActive ? 'primary.main' : 'text.primary',
+                bgcolor: isActive ? 'action.selected' : 'transparent',
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <ListItemText
+                primary={t(item.labelKey)}
+                primaryTypographyProps={{ fontWeight: isActive ? 800 : 600 }}
+              />
+            </ListItemButton>
+          );
+        })}
+
+        {isAdmin && (
+          <ListItemButton
+            component={Link}
+            href="/admin/dashboard"
+            onClick={handleDrawerToggle}
+            sx={{ mt: 1, borderRadius: 2, border: '1px solid', borderColor: 'primary.main' }}
+          >
+            <ListItemIcon sx={{ color: 'primary.main', minWidth: 36 }}>
+              <DashboardRoundedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={t('navbar.dashboard')}
+              primaryTypographyProps={{ color: 'primary.main', fontWeight: 800 }}
+            />
+          </ListItemButton>
+        )}
+      </List>
+
+      <Stack spacing={2} sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Tooltip title={t('navbar.toggleTheme')}>
+            <IconButton onClick={toggleTheme} color="primary">
+              {themeIcon}
+            </IconButton>
+          </Tooltip>
           <LanguageSwitcher />
-        </Box>
+        </Stack>
+
         {isAuthenticated ? (
           <Button
-            variant="contained"
-            color="error"
             fullWidth
+            color="error"
+            variant="contained"
+            startIcon={<LogoutRoundedIcon />}
             onClick={() => {
-              handleDrawerToggle();
-              handleLogout();
+              setMobileOpen(false);
+              void handleLogout();
             }}
-            sx={{ fontWeight: 700, textTransform: 'none', py: 1.2, borderRadius: '8px' }}
+            sx={{ py: 1.2, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
           >
-            {t('navbar.logout') || 'Log Out'}
+            {t('navbar.logout')}
           </Button>
         ) : (
           <Button
-            variant="contained"
+            fullWidth
             component={Link}
             href="/login"
+            variant="contained"
+            startIcon={<LoginRoundedIcon />}
             onClick={handleDrawerToggle}
-            fullWidth
-            sx={{ fontWeight: 700, textTransform: 'none', py: 1.2, borderRadius: '8px' }}
+            sx={{ py: 1.2, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
           >
-            {t('navbar.login') || 'Log In'}
+            {t('navbar.login')}
           </Button>
         )}
-      </Box>
+      </Stack>
     </Box>
   );
 
   return (
     <>
-      <AppBar 
-        position="sticky" 
-        elevation={0} 
-        sx={{ 
-          bgcolor: 'background.paper', 
-          borderBottom: '1px solid', 
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          borderBottom: '1px solid',
           borderColor: 'divider',
-          zIndex: 1000
+          zIndex: 1000,
         }}
       >
-        <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: '70px' }}>
-            
-            <Typography 
-              variant="h5" 
-              component={Link} 
-              href="/" 
-              sx={{ 
-                fontWeight: 900, 
-                textDecoration: 'none', 
-                color: 'primary.main',
-                letterSpacing: '-1px'
-              }}
+        <Container maxWidth="xl">
+          <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 74 }, gap: 2 }}>
+            <Stack
+              component={Link}
+              href="/"
+              direction="row"
+              alignItems="center"
+              spacing={1.25}
+              sx={{ flexShrink: 0, color: 'text.primary', textDecoration: 'none' }}
             >
-              {t('common.appName') || 'BlueDrive'}
-            </Typography>
+              <Box
+                sx={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                }}
+              >
+                <DirectionsCarRoundedIcon />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1 }}>
+                {t('common.appName')}
+              </Typography>
+            </Stack>
 
-            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
+            <Stack
+              component="nav"
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              spacing={0.5}
+              sx={{ display: { xs: 'none', md: 'flex' }, flex: 1 }}
+            >
               {visibleNavItems.map((item) => {
-                const isActive = pathname === item.path;
+                const isActive = isActivePath(item.path);
                 return (
                   <Button
                     key={item.path}
                     component={Link}
                     href={item.path}
+                    color={isActive ? 'primary' : 'inherit'}
                     sx={{
-                      color: isActive ? 'primary.main' : 'text.secondary',
-                      fontWeight: isActive ? 750 : 600,
+                      minHeight: 40,
+                      px: 1.75,
+                      borderRadius: 2,
+                      fontWeight: isActive ? 800 : 650,
                       textTransform: 'none',
-                      fontSize: '14px',
-                      px: 2,
-                      py: 1,
-                      borderRadius: '8px',
-                      transition: '0.15s',
-                      '&:hover': { color: 'primary.main', bgcolor: 'divider' }
+                      bgcolor: isActive ? 'action.selected' : 'transparent',
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    {t(item.labelKey) || item.defaultLabel}
+                    {t(item.labelKey)}
                   </Button>
                 );
               })}
-            </Box>
+            </Stack>
 
-            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2 }}>
-              {/* Desktop Theme Toggle Button */}
-              <IconButton onClick={toggleTheme} color="primary" sx={{ p: 1 }}>
-                {renderThemeIcon()}
-              </IconButton>
-              
-              <LanguageSwitcher />
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ ml: 'auto' }}>
+              <Tooltip title={t('navbar.toggleTheme')}>
+                <IconButton
+                  onClick={toggleTheme}
+                  color="primary"
+                  sx={{ display: { xs: 'none', md: 'inline-flex' } }}
+                >
+                  {themeIcon}
+                </IconButton>
+              </Tooltip>
+
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <LanguageSwitcher />
+              </Box>
 
               {isAdmin && (
                 <Button
-                  variant="outlined"
                   component={Link}
                   href="/admin/dashboard"
-                  sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px', px: 2 }}
+                  variant="outlined"
+                  startIcon={<DashboardRoundedIcon />}
+                  sx={{ display: { xs: 'none', md: 'inline-flex' }, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
                 >
-                  Admin
+                  {t('navbar.admin')}
                 </Button>
               )}
 
@@ -270,51 +311,52 @@ export const Navbar: React.FC = () => {
                 <Button
                   variant="contained"
                   color="error"
+                  startIcon={<LogoutRoundedIcon />}
                   onClick={handleLogout}
-                  sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px', px: 2.5 }}
+                  sx={{ display: { xs: 'none', md: 'inline-flex' }, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
                 >
-                  {t('navbar.logout') || 'Log Out'}
+                  {t('navbar.logout')}
                 </Button>
               ) : (
                 <Button
-                  variant="contained"
                   component={Link}
                   href="/login"
-                  sx={{ fontWeight: 700, textTransform: 'none', borderRadius: '8px', px: 2.5 }}
+                  variant="contained"
+                  startIcon={<LoginRoundedIcon />}
+                  sx={{ display: { xs: 'none', md: 'inline-flex' }, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
                 >
-                  {t('navbar.login') || 'Log In'}
+                  {t('navbar.login')}
                 </Button>
               )}
-            </Box>
 
-            <IconButton
-              color="default"
-              aria-label="open drawer"
-              edge="end"
-              onClick={handleDrawerToggle}
-              sx={{ display: { xs: 'block', md: 'none' }, color: 'text.primary' }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: '24px', height: '24px' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-            </IconButton>
-
+              <IconButton
+                aria-label={t('navbar.openMenu')}
+                edge="end"
+                onClick={handleDrawerToggle}
+                sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+              >
+                <MenuRoundedIcon />
+              </IconButton>
+            </Stack>
           </Toolbar>
         </Container>
       </AppBar>
 
       <Drawer
         anchor="right"
-        variant="temporary"
         open={mobileOpen}
         onClose={handleDrawerToggle}
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 280, borderRadius: '16px 0 0 16px' },
+          '& .MuiDrawer-paper': {
+            width: 'min(340px, 88vw)',
+            boxSizing: 'border-box',
+            overflowX: 'hidden',
+          },
         }}
       >
-        {mobileDrawerContent}
+        {drawerContent}
       </Drawer>
     </>
   );

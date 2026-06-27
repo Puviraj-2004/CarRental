@@ -1,10 +1,9 @@
 'use client';
 
 import { createTheme, Theme } from '@mui/material/styles';
-import { Inter, Poppins } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' });
-const poppins = Poppins({ weight: ['400', '500', '600', '700'], subsets: ['latin'], display: 'swap' });
+const bodyFontFamily = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const headingFontFamily = 'Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
 /**
  * Generates a dynamic MUI Theme supporting both Light and Dark mode variations [1].
@@ -44,14 +43,14 @@ export const getTheme = (mode: 'light' | 'dark'): Theme => {
       divider: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(226, 232, 240, 0.8)',
     },
     typography: {
-      fontFamily: inter.style.fontFamily,
-      h1: { fontFamily: poppins.style.fontFamily, fontWeight: 700, fontSize: '2.5rem' },
-      h2: { fontFamily: poppins.style.fontFamily, fontWeight: 600, fontSize: '2rem' },
-      h3: { fontFamily: poppins.style.fontFamily, fontWeight: 600, fontSize: '1.75rem' },
-      h4: { fontFamily: poppins.style.fontFamily, fontWeight: 500, fontSize: '1.5rem' },
-      h5: { fontFamily: poppins.style.fontFamily, fontWeight: 500, fontSize: '1.25rem' },
-      h6: { fontFamily: poppins.style.fontFamily, fontWeight: 500, fontSize: '1rem' },
-      button: { textTransform: 'none', fontWeight: 600, fontFamily: poppins.style.fontFamily },
+      fontFamily: bodyFontFamily,
+      h1: { fontFamily: headingFontFamily, fontWeight: 700, fontSize: '2.5rem' },
+      h2: { fontFamily: headingFontFamily, fontWeight: 600, fontSize: '2rem' },
+      h3: { fontFamily: headingFontFamily, fontWeight: 600, fontSize: '1.75rem' },
+      h4: { fontFamily: headingFontFamily, fontWeight: 500, fontSize: '1.5rem' },
+      h5: { fontFamily: headingFontFamily, fontWeight: 500, fontSize: '1.25rem' },
+      h6: { fontFamily: headingFontFamily, fontWeight: 500, fontSize: '1rem' },
+      button: { textTransform: 'none', fontWeight: 600, fontFamily: headingFontFamily },
     },
     shape: {
       borderRadius: 12,

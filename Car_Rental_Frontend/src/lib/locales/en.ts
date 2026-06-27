@@ -1,3 +1,7 @@
+import { home } from './en/home';
+import { navbar } from './en/navbar';
+import { auth } from './en/auth';
+
 // Recursively maps literal string values to the general 'string' type
 export type DeepStringify<T> = {
   [K in keyof T]: T[K] extends object
@@ -21,74 +25,9 @@ export const en = {
     yes: "Yes",
     no: "No",
   },
-  navbar: {
-    home: "Home",
-    cars: "Cars",
-    about: "About Us",
-    profile: "My Profile",
-    bookings: "My Bookings",
-    dashboard: "Admin Dashboard",
-    login: "Login",
-    logout: "Logout",
-  },
-  home: {
-    hero: {
-      title: "Premium Car Rental For Your Journeys",
-      subtitle: "Experience luxury and comfort with our fully verified, premium vehicle fleet. Safe, seamless, and entirely digital.",
-      cta: "Browse Our Fleet",
-    },
-    aiFeature: {
-      title: "Instant Verification with AI",
-      description: "No more waiting in line. Upload your driving licence and ID, and our secure AI system will verify your profile in seconds so you can pay and drive.",
-      cta: "Verify My Profile",
-    },
-    trust: {
-      securePayments: "Secure Payments",
-      securePaymentsDesc: "Processed via Stripe with multi-channel authentication protection.",
-      support: "24/7 Support",
-      supportDesc: "Our support agents are always online to assist with your rental.",
-      verified: "Verified Fleet",
-      verifiedDesc: "Every vehicle is physically checked and held in absolute readiness.",
-    },
-    fleet: {
-      title: "Featured Fleet",
-      subtitle: "Choose from our range of top-tier, comfortable, and reliable vehicles.",
-      viewDetails: "View Details",
-    },
-  },
-  auth: {
-    login: {
-      title: "Welcome Back",
-      subtitle: "Log in to your account to manage bookings and discover our fleet.",
-      email: "Email Address",
-      password: "Password",
-      submit: "Log In",
-      noAccount: "Don't have an account?",
-      registerLink: "Register here",
-      errorInvalid: "Invalid email or password. Please try again.",
-    },
-    register: {
-      title: "Create an Account",
-      subtitle: "Register now to start reserving cars and verify your profile with AI.",
-      fullName: "Full Name",
-      email: "Email Address",
-      password: "Password",
-      confirmPassword: "Confirm Password",
-      phone: "Phone Number",
-      submit: "Register",
-      hasAccount: "Already have an account?",
-      loginLink: "Log in here",
-      passwordMismatch: "Passwords do not match.",
-    },
-    verifyOtp: {
-      title: "Verify Your Email",
-      subtitle: "We have sent a 6-digit verification code to",
-      code: "Verification Code",
-      submit: "Verify Code",
-      resend: "Resend Code",
-      resendSuccess: "A new verification code has been sent.",
-    }
-  },
+  navbar,
+  home,
+  auth,
   admin: {
     menu: {
       dashboard: "Dashboard",

@@ -1,0 +1,15 @@
+export const navbar = {
+  home: "Home",
+  cars: "Cars",
+  about: "About Us",
+  profile: "My Profile",
+  bookings: "My Bookings",
+  dashboard: "Admin Dashboard",
+  admin: "Admin",
+  login: "Login",
+  logout: "Logout",
+  logoutConfirm: "Do you want to logout?",
+  openMenu: "Open menu",
+  closeMenu: "Close menu",
+  toggleTheme: "Toggle theme",
+} as const;

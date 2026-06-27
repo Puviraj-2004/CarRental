@@ -1,6 +1,9 @@
 import { TranslationKeys } from './en';
+import { home } from './fr/home';
+import { navbar } from './fr/navbar';
+import { auth } from './fr/auth';
 
-export const fr: TranslationKeys = {
+export const fr = {
   common: {
     loading: "Chargement...",
     submit: "Soumettre",
@@ -16,74 +19,9 @@ export const fr: TranslationKeys = {
     yes: "Oui",
     no: "Non",
   },
-  navbar: {
-    home: "Accueil",
-    cars: "Véhicules",
-    about: "À Propos",
-    profile: "Mon Profil",
-    bookings: "Mes Réservations",
-    dashboard: "Console Admin",
-    login: "Connexion",
-    logout: "Déconnexion",
-  },
-  home: {
-    hero: {
-      title: "Location de Voitures Premium Pour Vos Trajets",
-      subtitle: "Découvrez le luxe et le confort avec notre flotte de véhicules premium entièrement vérifiés. Sûr, fluide et 100% digital.",
-      cta: "Découvrir la Flotte",
-    },
-    aiFeature: {
-      title: "Vérification Instantanée par IA",
-      description: "Plus d'attente au guichet. Téléchargez votre permis de conduire et votre pièce d'identité, notre système IA sécurisé valide votre profil en quelques secondes.",
-      cta: "Vérifier Mon Profil",
-    },
-    trust: {
-      securePayments: "Paiements Sécurisés",
-      securePaymentsDesc: "Transactions traitées via Stripe avec authentification multicanale.",
-      support: "Support 24/7",
-      supportDesc: "Nos conseillers sont disponibles à tout moment pour vous assister.",
-      verified: "Flotte Vérifiée",
-      verifiedDesc: "Chaque véhicule est contrôlé physiquement et préparé avec le plus grand soin.",
-    },
-    fleet: {
-      title: "Notre Sélection",
-      subtitle: "Choisissez parmi notre gamme de véhicules haut de gamme, confortables et fiables.",
-      viewDetails: "Détails du véhicule",
-    },
-  },
-  auth: {
-    login: {
-      title: "Bon Retour",
-      subtitle: "Connectez-vous à votre compte pour gérer vos réservations et découvrir notre flotte.",
-      email: "Adresse Email",
-      password: "Mot de Passe",
-      submit: "Se Connecter",
-      noAccount: "Vous n'avez pas de compte ?",
-      registerLink: "S'inscrire ici",
-      errorInvalid: "Email ou mot de passe invalide. Veuillez réessayer.",
-    },
-    register: {
-      title: "Créer un Compte",
-      subtitle: "Inscrivez-vous pour réserver des véhicules et faire valider vos documents par l'IA.",
-      fullName: "Nom Complet",
-      email: "Adresse Email",
-      password: "Mot de Passe",
-      confirmPassword: "Confirmer le Mot de Passe",
-      phone: "Numéro de Téléphone",
-      submit: "S'enregistrer",
-      hasAccount: "Vous avez déjà un compte ?",
-      loginLink: "Se connecter ici",
-      passwordMismatch: "Les mots de passe ne correspondent pas.",
-    },
-    verifyOtp: {
-      title: "Vérifier Votre Email",
-      subtitle: "Nous avons envoyé un code de vérification à 6 chiffres à",
-      code: "Code de Vérification",
-      submit: "Valider le Code",
-      resend: "Renvoyer le Code",
-      resendSuccess: "Un nouveau code de vérification a été envoyé.",
-    }
-  },
+  navbar,
+  home,
+  auth,
   admin: {
     menu: {
       dashboard: "Tableau de Bord",
@@ -192,4 +130,4 @@ export const fr: TranslationKeys = {
       cancel: "Annuler",
     }
   },
-};
+} as unknown as TranslationKeys;

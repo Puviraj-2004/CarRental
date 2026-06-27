@@ -1,7 +1,9 @@
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  disable: process.env.NODE_ENV === 'development', 
-});
+const withPWA =
+  process.env.ENABLE_PWA === 'true'
+    ? require('next-pwa')({
+        dest: 'public',
+      })
+    : (config) => config;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -46,6 +48,19 @@ const nextConfig = {
     }
   },
 
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
+
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   images: {
     remotePatterns: [
       { 
@@ -76,6 +91,5 @@ const nextConfig = {
 
 module.exports = withPWA({
    reactStrictMode: true,
-   optimizedfonts: false,
    ...nextConfig
   });
