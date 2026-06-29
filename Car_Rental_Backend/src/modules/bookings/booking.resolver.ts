@@ -10,6 +10,7 @@ import type {
   QueryMyBookingsArgs,
   QueryBookingsArgs,
   QueryBookingArgs,
+  QueryBookingQuoteArgs,
   MutationCreateBookingArgs,
   MutationCancelBookingArgs,
   MutationUpdateBookingArgs,
@@ -19,7 +20,12 @@ import type {
 export const bookingResolvers: Partial<Resolvers> = {
   Booking: {
     basePrice:      (parent) => Number(parent.basePrice),
+    subtotal:       (parent) => Number(parent.subtotal),
+    taxRate:        (parent) => Number(parent.taxRate),
+    taxAmount:      (parent) => Number(parent.taxAmount),
     totalPrice:     (parent) => Number(parent.totalPrice),
+    documentRejectedAt: (parent) => parent.documentRejectedAt ?? null,
+    documentReuploadDeadline: (parent) => parent.documentReuploadDeadline ?? null,
     reminderSentAt: (parent) => parent.reminderSentAt ?? null,
   },
 
@@ -27,6 +33,18 @@ export const bookingResolvers: Partial<Resolvers> = {
     booking: (_: unknown, { id }: QueryBookingArgs, ctx: GraphQLContext) => {
       isAuthenticated(ctx);
       return bookingService.getBookingById(id, ctx.userId!, ctx.role === 'ADMIN');
+    },
+
+    bookingQuote: (
+      _: unknown,
+      { carId, startDate, endDate, type }: QueryBookingQuoteArgs,
+    ) => {
+      return bookingService.getBookingQuote({
+        carId,
+        startDate,
+        endDate,
+        type: (type ?? undefined) as BookingType | undefined,
+      });
     },
 
     myBookings: (_: unknown, { pagination }: QueryMyBookingsArgs, ctx: GraphQLContext) => {

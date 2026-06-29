@@ -8,6 +8,11 @@ import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -28,6 +33,13 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
   loading,
 }) => {
   const [activeImage, setActiveImage] = useState<string>(documents.licenseFrontUrl);
+  const [pendingStatus, setPendingStatus] = useState<'APPROVED' | 'REJECTED' | null>(null);
+
+  const handleConfirm = () => {
+    if (!pendingStatus) return;
+    onVerify(documents.userId, pendingStatus);
+    setPendingStatus(null);
+  };
 
   const images = [
     { label: 'License Front', url: documents.licenseFrontUrl },
@@ -141,7 +153,7 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
                 fullWidth
                 size="large"
                 disabled={loading || documents.status === 'APPROVED'}
-                onClick={() => onVerify(documents.userId, 'APPROVED')}
+                onClick={() => setPendingStatus('APPROVED')}
                 startIcon={!loading && <CheckCircleIcon />}
                 sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
               >
@@ -155,7 +167,7 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
                 fullWidth
                 size="large"
                 disabled={loading || documents.status === 'REJECTED'}
-                onClick={() => onVerify(documents.userId, 'REJECTED')}
+                onClick={() => setPendingStatus('REJECTED')}
                 startIcon={!loading && <CancelIcon />}
                 sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
               >
@@ -166,6 +178,43 @@ export const AdminDocumentsView: React.FC<AdminDocumentsViewProps> = ({
 
         </Grid>
       </Grid>
+
+      <Dialog
+        open={!!pendingStatus}
+        onClose={loading ? undefined : () => setPendingStatus(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {pendingStatus === 'APPROVED' ? 'Approve documents?' : 'Reject documents?'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {pendingStatus === 'APPROVED'
+              ? 'This will mark the customer documents as approved and allow the booking workflow to continue.'
+              : 'This will reject the current documents and require the customer or admin to upload corrected documents before the booking expires.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            disabled={loading}
+            onClick={() => setPendingStatus(null)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color={pendingStatus === 'APPROVED' ? 'success' : 'error'}
+            disabled={loading}
+            onClick={handleConfirm}
+            sx={{ textTransform: 'none', fontWeight: 800 }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : pendingStatus === 'APPROVED' ? 'Approve' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

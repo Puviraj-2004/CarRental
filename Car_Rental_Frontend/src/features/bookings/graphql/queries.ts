@@ -10,6 +10,9 @@ export const GET_BOOKING_QUERY = gql`
       endDate
       numberOfDays
       basePrice
+      subtotal
+      taxRate
+      taxAmount
       totalPrice
       guestName
       guestPhone
@@ -63,6 +66,10 @@ export const GET_MY_BOOKINGS_QUERY = gql`
         payment {
           id
           status
+          amount
+          refundedAmount
+          refundPolicy
+          refundedAt
         }
         car {
           id
@@ -82,6 +89,23 @@ export const GET_MY_BOOKINGS_QUERY = gql`
         hasNextPage
         hasPreviousPage
       }
+    }
+  }
+`;
+
+export const GET_BOOKING_QUOTE_QUERY = gql`
+  query GetBookingQuote($carId: ID!, $startDate: String!, $endDate: String!, $type: BookingType) {
+    bookingQuote(carId: $carId, startDate: $startDate, endDate: $endDate, type: $type) {
+      carId
+      startDate
+      endDate
+      numberOfDays
+      basePrice
+      subtotal
+      taxRate
+      taxAmount
+      totalPrice
+      currency
     }
   }
 `;

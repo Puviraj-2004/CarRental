@@ -80,12 +80,10 @@ export const ClientMockPayment: React.FC<{ bookingId: string }> = ({ bookingId }
     );
   }
 
-  // Local VAT calculations [1.2.1]
-  const envTaxRate = process.env.NEXT_PUBLIC_TAX_RATE ? parseFloat(process.env.NEXT_PUBLIC_TAX_RATE) : 0.20;
-  const basePrice = Number(booking.basePrice);
-  const subtotal = basePrice * booking.numberOfDays;
-  const taxAmount = subtotal * envTaxRate;
-  const totalAmount = subtotal + taxAmount;
+  const subtotal = Number(booking.subtotal);
+  const totalAmount = Number(booking.totalPrice);
+  const taxAmount = Number(booking.taxAmount);
+  const taxPercentage = Number(booking.taxRate) * 100;
 
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
@@ -141,7 +139,7 @@ export const ClientMockPayment: React.FC<{ bookingId: string }> = ({ bookingId }
           <Grid item xs={6}>Subtotal (Net):</Grid>
           <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 600, color: 'text.primary' }}>{subtotal.toFixed(2)} €</Grid>
           
-          <Grid item xs={6}>VAT / Tax ({envTaxRate * 100}%):</Grid>
+          <Grid item xs={6}>VAT / Tax ({taxPercentage.toFixed(2)}%):</Grid>
           <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 600, color: 'text.primary' }}>{taxAmount.toFixed(2)} €</Grid>
           
           <Grid item xs={12}>

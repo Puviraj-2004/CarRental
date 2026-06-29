@@ -5,8 +5,6 @@ import { useMutation } from '@apollo/client';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded';
-import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
-import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
@@ -23,15 +21,14 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { useThemeMode } from '@/app/providers';
 import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
 import { useLanguage } from '@/lib/LanguageContext';
 import { LanguageSwitcher } from '../LanguageSwitcher';
+import { LogoutConfirmDialog } from '../LogoutConfirmDialog';
 
 interface NavItem {
   labelKey: string;
@@ -51,10 +48,10 @@ const navItems: NavItem[] = [
 export const Navbar: React.FC = () => {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const { mode, toggleTheme } = useThemeMode();
   const { data: session, status } = useSession();
-  const [logoutMutation] = useMutation(LOGOUT_MUTATION);
+  const [logoutMutation, { loading: loggingOut }] = useMutation(LOGOUT_MUTATION);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const isAuthenticated = status === 'authenticated';
   const isAdmin = session?.user?.role === 'ADMIN';
@@ -72,8 +69,6 @@ export const Navbar: React.FC = () => {
   };
 
   const handleLogout = async (): Promise<void> => {
-    if (!window.confirm(t('navbar.logoutConfirm'))) return;
-
     try {
       if (session?.refreshToken) {
         await logoutMutation({ variables: { refreshToken: session.refreshToken } });
@@ -85,11 +80,9 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const themeIcon = mode === 'dark' ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />;
-
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1.5 }}>
         <Stack
           component={Link}
           href="/"
@@ -103,9 +96,9 @@ export const Navbar: React.FC = () => {
             sx={{
               display: 'grid',
               placeItems: 'center',
-              width: 38,
-              height: 38,
-              borderRadius: 2,
+              width: 32,
+              height: 32,
+              borderRadius: 1,
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
             }}
@@ -116,14 +109,14 @@ export const Navbar: React.FC = () => {
             {t('common.appName')}
           </Typography>
         </Stack>
-        <IconButton aria-label={t('navbar.closeMenu')} onClick={handleDrawerToggle}>
+        <IconButton size="small" aria-label={t('navbar.closeMenu')} onClick={handleDrawerToggle}>
           <CloseRoundedIcon />
         </IconButton>
       </Stack>
 
       <Divider />
 
-      <List component="nav" sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 2 }}>
+      <List component="nav" sx={{ flex: 1, overflowY: 'auto', px: 1, py: 1.5 }}>
         {visibleNavItems.map((item) => {
           const isActive = isActivePath(item.path);
           return (
@@ -133,8 +126,9 @@ export const Navbar: React.FC = () => {
               href={item.path}
               onClick={handleDrawerToggle}
               sx={{
-                mb: 0.75,
-                borderRadius: 2,
+                mb: 0.5,
+                borderRadius: 1,
+                minHeight: 42,
                 color: isActive ? 'primary.main' : 'text.primary',
                 bgcolor: isActive ? 'action.selected' : 'transparent',
                 '&:hover': { bgcolor: 'action.hover' },
@@ -142,7 +136,7 @@ export const Navbar: React.FC = () => {
             >
               <ListItemText
                 primary={t(item.labelKey)}
-                primaryTypographyProps={{ fontWeight: isActive ? 800 : 600 }}
+                primaryTypographyProps={{ fontWeight: isActive ? 750 : 600, fontSize: 14 }}
               />
             </ListItemButton>
           );
@@ -153,7 +147,7 @@ export const Navbar: React.FC = () => {
             component={Link}
             href="/admin/dashboard"
             onClick={handleDrawerToggle}
-            sx={{ mt: 1, borderRadius: 2, border: '1px solid', borderColor: 'primary.main' }}
+            sx={{ mt: 1, borderRadius: 1, border: '1px solid', borderColor: 'primary.main', minHeight: 42 }}
           >
             <ListItemIcon sx={{ color: 'primary.main', minWidth: 36 }}>
               <DashboardRoundedIcon fontSize="small" />
@@ -166,13 +160,8 @@ export const Navbar: React.FC = () => {
         )}
       </List>
 
-      <Stack spacing={2} sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Tooltip title={t('navbar.toggleTheme')}>
-            <IconButton onClick={toggleTheme} color="primary">
-              {themeIcon}
-            </IconButton>
-          </Tooltip>
+      <Stack spacing={1.5} sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Stack direction="row" alignItems="center" justifyContent="flex-end">
           <LanguageSwitcher />
         </Stack>
 
@@ -184,9 +173,9 @@ export const Navbar: React.FC = () => {
             startIcon={<LogoutRoundedIcon />}
             onClick={() => {
               setMobileOpen(false);
-              void handleLogout();
+              setLogoutDialogOpen(true);
             }}
-            sx={{ py: 1.2, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
+            sx={{ fontWeight: 750 }}
           >
             {t('navbar.logout')}
           </Button>
@@ -198,7 +187,7 @@ export const Navbar: React.FC = () => {
             variant="contained"
             startIcon={<LoginRoundedIcon />}
             onClick={handleDrawerToggle}
-            sx={{ py: 1.2, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
+            sx={{ fontWeight: 750 }}
           >
             {t('navbar.login')}
           </Button>
@@ -220,8 +209,8 @@ export const Navbar: React.FC = () => {
           zIndex: 1000,
         }}
       >
-        <Container maxWidth="xl">
-          <Toolbar disableGutters sx={{ minHeight: { xs: 64, md: 74 }, gap: 2 }}>
+        <Container maxWidth="xl" sx={{ px: { xs: 2, sm: 3 } }}>
+          <Toolbar disableGutters sx={{ minHeight: { xs: 60, md: 64 }, gap: 2 }}>
             <Stack
               component={Link}
               href="/"
@@ -234,16 +223,16 @@ export const Navbar: React.FC = () => {
                 sx={{
                   display: 'grid',
                   placeItems: 'center',
-                  width: 40,
-                  height: 40,
-                  borderRadius: 2,
+                  width: 34,
+                  height: 34,
+                  borderRadius: 1,
                   bgcolor: 'primary.main',
                   color: 'primary.contrastText',
                 }}
               >
-                <DirectionsCarRoundedIcon />
+                <DirectionsCarRoundedIcon fontSize="small" />
               </Box>
-              <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1, whiteSpace: 'nowrap' }}>
                 {t('common.appName')}
               </Typography>
             </Stack>
@@ -265,10 +254,11 @@ export const Navbar: React.FC = () => {
                     href={item.path}
                     color={isActive ? 'primary' : 'inherit'}
                     sx={{
-                      minHeight: 40,
-                      px: 1.75,
-                      borderRadius: 2,
-                      fontWeight: isActive ? 800 : 650,
+                      minHeight: 36,
+                      px: 1.5,
+                      borderRadius: 1,
+                      fontSize: 14,
+                      fontWeight: isActive ? 750 : 600,
                       textTransform: 'none',
                       bgcolor: isActive ? 'action.selected' : 'transparent',
                       '&:hover': { bgcolor: 'action.hover' },
@@ -281,16 +271,6 @@ export const Navbar: React.FC = () => {
             </Stack>
 
             <Stack direction="row" alignItems="center" spacing={1} sx={{ ml: 'auto' }}>
-              <Tooltip title={t('navbar.toggleTheme')}>
-                <IconButton
-                  onClick={toggleTheme}
-                  color="primary"
-                  sx={{ display: { xs: 'none', md: 'inline-flex' } }}
-                >
-                  {themeIcon}
-                </IconButton>
-              </Tooltip>
-
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>
                 <LanguageSwitcher />
               </Box>
@@ -301,7 +281,7 @@ export const Navbar: React.FC = () => {
                   href="/admin/dashboard"
                   variant="outlined"
                   startIcon={<DashboardRoundedIcon />}
-                  sx={{ display: { xs: 'none', md: 'inline-flex' }, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
+                  sx={{ display: { xs: 'none', md: 'inline-flex' }, fontWeight: 750 }}
                 >
                   {t('navbar.admin')}
                 </Button>
@@ -312,8 +292,8 @@ export const Navbar: React.FC = () => {
                   variant="contained"
                   color="error"
                   startIcon={<LogoutRoundedIcon />}
-                  onClick={handleLogout}
-                  sx={{ display: { xs: 'none', md: 'inline-flex' }, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
+                  onClick={() => setLogoutDialogOpen(true)}
+                  sx={{ display: { xs: 'none', md: 'inline-flex' }, fontWeight: 750 }}
                 >
                   {t('navbar.logout')}
                 </Button>
@@ -323,7 +303,7 @@ export const Navbar: React.FC = () => {
                   href="/login"
                   variant="contained"
                   startIcon={<LoginRoundedIcon />}
-                  sx={{ display: { xs: 'none', md: 'inline-flex' }, borderRadius: 2, fontWeight: 800, textTransform: 'none' }}
+                  sx={{ display: { xs: 'none', md: 'inline-flex' }, fontWeight: 750 }}
                 >
                   {t('navbar.login')}
                 </Button>
@@ -350,7 +330,7 @@ export const Navbar: React.FC = () => {
         sx={{
           display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': {
-            width: 'min(340px, 88vw)',
+            width: 'min(300px, 88vw)',
             boxSizing: 'border-box',
             overflowX: 'hidden',
           },
@@ -358,6 +338,15 @@ export const Navbar: React.FC = () => {
       >
         {drawerContent}
       </Drawer>
+
+      <LogoutConfirmDialog
+        open={logoutDialogOpen}
+        loading={loggingOut}
+        onClose={() => setLogoutDialogOpen(false)}
+        onConfirm={() => {
+          void handleLogout();
+        }}
+      />
     </>
   );
 };

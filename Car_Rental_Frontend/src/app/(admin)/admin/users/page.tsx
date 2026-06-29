@@ -7,6 +7,7 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Pagination from '@mui/material/Pagination';
 import Paper from '@mui/material/Paper';
@@ -16,7 +17,9 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { useToast } from '@/lib/ToastContext';
 
@@ -33,18 +36,8 @@ export default function AdminUsersPage() {
     setRoleFilter,
     loading,
     error,
-    updateUserRole,
     deleteUser,
   } = useAdminUsers();
-
-  const handleRoleChange = async (id: string, role: 'USER' | 'ADMIN') => {
-    try {
-      await updateUserRole(id, role);
-      showToast('User role updated.', 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update role.', 'error');
-    }
-  };
 
   const handleDelete = async (id: string, email: string) => {
     if (!window.confirm(`Delete ${email}? Users with active bookings cannot be deleted.`)) return;
@@ -63,7 +56,7 @@ export default function AdminUsersPage() {
           Users
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Search customers, review verification status, and manage account roles.
+          Search customers and review account, verification, and booking status.
         </Typography>
       </Box>
 
@@ -126,26 +119,16 @@ export default function AdminUsersPage() {
                   <TableCell>{user.documents?.status || 'NONE'}</TableCell>
                   <TableCell>{user.bookings.length}</TableCell>
                   <TableCell>
-                    <TextField
-                      select
-                      size="small"
-                      value={user.role}
-                      onChange={(event) => handleRoleChange(user.id, event.target.value as 'USER' | 'ADMIN')}
-                    >
-                      <MenuItem value="USER">USER</MenuItem>
-                      <MenuItem value="ADMIN">ADMIN</MenuItem>
-                    </TextField>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                      {user.role}
+                    </Typography>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'right' }}>
-                    <Button
-                      color="error"
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleDelete(user.id, user.email)}
-                      sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                    >
-                      Delete
-                    </Button>
+                    <Tooltip title="Delete user">
+                      <IconButton color="error" size="small" onClick={() => handleDelete(user.id, user.email)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

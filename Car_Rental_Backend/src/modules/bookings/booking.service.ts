@@ -5,6 +5,7 @@ import { normalizePagination }   from '../../core/utils/pagination';
 import { daysBetween }           from '../../core/utils/date';
 import { multiplyMoney }         from '../../core/utils/money';
 import { prisma }                from '../../config/database'; 
+import { env }                   from '../../config/env';
 import logger                    from '../../config/logger';
 import {
   MIN_BOOKING_DAYS,
@@ -22,6 +23,19 @@ const CANCELLABLE_STATUSES: BookingStatus[] = [
   BookingStatus.RESERVED,
   BookingStatus.CONFIRMED,
 ];
+
+export interface BookingQuote {
+  carId:        string;
+  startDate:    Date;
+  endDate:      Date;
+  numberOfDays: number;
+  basePrice:    number;
+  subtotal:     number;
+  taxRate:      number;
+  taxAmount:    number;
+  totalPrice:   number;
+  currency:     string;
+}
 
 export class BookingService {
   async getBookingById(id: string, userId: string, isAdmin: boolean): Promise<BookingWithRelations | null> {
@@ -109,6 +123,36 @@ export class BookingService {
     );
   }
 
+  async getBookingQuote(input: {
+    carId:     string;
+    startDate: string;
+    endDate:   string;
+    type?:     BookingType | null;
+  }): Promise<BookingQuote> {
+    const { start, end, numberOfDays } = this.validateBookingDates(input.startDate, input.endDate);
+
+    const car = await carRepository.findById(input.carId);
+    if (!car) {
+      throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
+    }
+
+    const bookingType = input.type ?? BookingType.RENTAL;
+    const pricing = this.calculateBookingPricing(
+      Number(car.basePrice),
+      numberOfDays,
+      bookingType,
+    );
+
+    return {
+      carId: input.carId,
+      startDate: start,
+      endDate: end,
+      numberOfDays,
+      ...pricing,
+      currency: env.appCurrency,
+    };
+  }
+
   async createBooking(input: {
     carId:       string;
     userId?:     string;
@@ -119,39 +163,7 @@ export class BookingService {
     notes?:      string;
     type?:       BookingType;
   }): Promise<BookingWithRelations> {
-    const start = new Date(input.startDate);
-    const end   = new Date(input.endDate);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      throw new AppError('Invalid date format.', ErrorCode.BAD_USER_INPUT);
-    }
-    if (start < new Date()) {
-      throw new AppError(
-        'Start date cannot be in the past.',
-        ErrorCode.BAD_USER_INPUT,
-      );
-    }
-    if (start >= end) {
-      throw new AppError(
-        'Start date must be before end date.',
-        ErrorCode.BAD_USER_INPUT,
-      );
-    }
-
-    const numberOfDays = daysBetween(start, end);
-
-    if (numberOfDays < MIN_BOOKING_DAYS) {
-      throw new AppError(
-        `Minimum booking duration is ${MIN_BOOKING_DAYS} day(s).`,
-        ErrorCode.BAD_USER_INPUT,
-      );
-    }
-    if (numberOfDays > MAX_BOOKING_DAYS) {
-      throw new AppError(
-        `Maximum booking duration is ${MAX_BOOKING_DAYS} days.`,
-        ErrorCode.BAD_USER_INPUT,
-      );
-    }
+    const { start, end, numberOfDays } = this.validateBookingDates(input.startDate, input.endDate);
 
     const bookingType = input.type ?? BookingType.RENTAL;
     if (!input.userId) {
@@ -174,10 +186,11 @@ export class BookingService {
       );
     }
 
-    const basePrice  = Number(car.basePrice);
-    const totalPrice = bookingType === BookingType.COURTESY
-      ? 0
-      : multiplyMoney(basePrice, numberOfDays).toNumber();
+    const pricing = this.calculateBookingPricing(
+      Number(car.basePrice),
+      numberOfDays,
+      bookingType,
+    );
 
     // Atomic check-and-create inside a serializable transaction to prevent double-booking
     return prisma.$transaction(async (tx) => {
@@ -210,8 +223,11 @@ export class BookingService {
           startDate:   start,
           endDate:     end,
           numberOfDays,
-          basePrice,
-          totalPrice,
+          basePrice:   pricing.basePrice,
+          subtotal:    pricing.subtotal,
+          taxRate:     pricing.taxRate,
+          taxAmount:   pricing.taxAmount,
+          totalPrice:  pricing.totalPrice,
           guestName:   input.guestName,
           guestPhone:  input.guestPhone,
           notes:       input.notes,
@@ -375,11 +391,15 @@ export class BookingService {
         logger.info('Booking confirmed: linked documents marked as APPROVED', { documentId: booking.documentId, bookingId: id });
       }
 
-      if (booking.type === BookingType.RENTAL && booking.payment) {
-        await paymentService.capturePayment(id).catch((err) => {
-          logger.error('Failed to capture payment during booking confirmation', { bookingId: id, error: err.message });
-          throw err; 
-        });
+      if (
+        booking.type === BookingType.RENTAL &&
+        booking.payment &&
+        booking.payment.status !== PaymentStatus.PAID
+      ) {
+        throw new AppError(
+          'Rental bookings must have a paid payment before confirmation.',
+          ErrorCode.BAD_USER_INPUT,
+        );
       }
     }
 
@@ -510,6 +530,77 @@ export class BookingService {
     }
   }
 
+  private validateBookingDates(startDate: string, endDate: string): {
+    start: Date;
+    end: Date;
+    numberOfDays: number;
+  } {
+    const start = new Date(startDate);
+    const end   = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new AppError('Invalid date format.', ErrorCode.BAD_USER_INPUT);
+    }
+    if (start < new Date()) {
+      throw new AppError(
+        'Start date cannot be in the past.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+    if (start >= end) {
+      throw new AppError(
+        'Start date must be before end date.',
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    const numberOfDays = daysBetween(start, end);
+
+    if (numberOfDays < MIN_BOOKING_DAYS) {
+      throw new AppError(
+        `Minimum booking duration is ${MIN_BOOKING_DAYS} day(s).`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+    if (numberOfDays > MAX_BOOKING_DAYS) {
+      throw new AppError(
+        `Maximum booking duration is ${MAX_BOOKING_DAYS} days.`,
+        ErrorCode.BAD_USER_INPUT,
+      );
+    }
+
+    return { start, end, numberOfDays };
+  }
+
+  private calculateBookingPricing(
+    basePrice: number,
+    numberOfDays: number,
+    bookingType: BookingType,
+  ): Omit<BookingQuote, 'carId' | 'startDate' | 'endDate' | 'numberOfDays' | 'currency'> {
+    if (bookingType === BookingType.COURTESY) {
+      return {
+        basePrice,
+        subtotal:   0,
+        taxRate:    0,
+        taxAmount:  0,
+        totalPrice: 0,
+      };
+    }
+
+    const subtotal = multiplyMoney(basePrice, numberOfDays).toDecimalPlaces(2);
+    const taxRate = env.appTaxRate;
+    const taxAmount = subtotal.mul(taxRate).toDecimalPlaces(2);
+    const totalPrice = subtotal.add(taxAmount).toDecimalPlaces(2);
+
+    return {
+      basePrice,
+      subtotal:   subtotal.toNumber(),
+      taxRate,
+      taxAmount:  taxAmount.toNumber(),
+      totalPrice: totalPrice.toNumber(),
+    };
+  }
+
   async extendBookingDates(
     id:         string,
     userId:     string,
@@ -572,12 +663,19 @@ export class BookingService {
 
     // Recalculate pricing [1]
     const newNumberOfDays = Math.ceil((parsedNewEndDate.getTime() - booking.startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const newTotalPrice = Number(booking.basePrice) * newNumberOfDays;
+    const pricing = this.calculateBookingPricing(
+      Number(booking.basePrice),
+      newNumberOfDays,
+      booking.type,
+    );
 
     const updated = await bookingRepository.update(id, {
       endDate: parsedNewEndDate,
       numberOfDays: newNumberOfDays,
-      totalPrice: newTotalPrice,
+      subtotal: pricing.subtotal,
+      taxRate: pricing.taxRate,
+      taxAmount: pricing.taxAmount,
+      totalPrice: pricing.totalPrice,
     });
 
     logger.info('Booking dates extended', {

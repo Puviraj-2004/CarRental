@@ -6,6 +6,7 @@ import { bookingService } from '../bookings/booking.service';
 import { prisma } from '../../config/database'; 
 import logger from '../../config/logger';
 import { AppError, ErrorCode } from '../../core/errors/AppError';
+import { DOCUMENT_RESUBMISSION_HOLD_MINUTES } from '../../core/constants/booking';
 
 interface SaveBookingDocumentsInput {
   userId: string;
@@ -86,6 +87,14 @@ export class DocumentService {
     });
 
     await documentRepository.linkDocumentToBooking(bookingId, doc.id);
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        documentRejectedAt: null,
+        documentReuploadDeadline: null,
+      },
+    });
 
     if (saveToProfile) {
       await userRepository.updateUser(userId, { documentId: doc.id });
@@ -174,6 +183,13 @@ export class DocumentService {
 
     if (status === 'APPROVED') {
       const approved = await documentRepository.update(booking.documentId, { status });
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          documentRejectedAt: null,
+          documentReuploadDeadline: null,
+        },
+      });
       const isOnsiteRental = booking.type === BookingType.RENTAL && !booking.userId;
       if (booking.status === BookingStatus.RESERVED && !isOnsiteRental) {
         await bookingService.adminUpdateBookingStatus(bookingId, BookingStatus.CONFIRMED);
@@ -197,9 +213,18 @@ export class DocumentService {
 
     await this.purgeFilesFromCloud(doc);
 
+    const rejectedAt = new Date();
+    const reuploadDeadline = new Date(
+      rejectedAt.getTime() + DOCUMENT_RESUBMISSION_HOLD_MINUTES * 60 * 1000,
+    );
+
     await prisma.booking.updateMany({
       where: { id: bookingId, documentId },
-      data:  { documentId: null },
+      data:  {
+        documentId: null,
+        documentRejectedAt: rejectedAt,
+        documentReuploadDeadline: reuploadDeadline,
+      },
     });
 
     await prisma.user.updateMany({
@@ -214,6 +239,8 @@ export class DocumentService {
     logger.info('Booking document rejected and cleared for reupload', {
       bookingId,
       documentId,
+      reuploadDeadline,
+      holdMinutes: DOCUMENT_RESUBMISSION_HOLD_MINUTES,
     });
 
     return {

@@ -2,6 +2,8 @@ import { TranslationKeys } from './en';
 import { home } from './fr/home';
 import { navbar } from './fr/navbar';
 import { auth } from './fr/auth';
+import { admin } from './fr/admin';
+import { payment } from './fr/payment';
 
 export const fr = {
   common: {
@@ -22,34 +24,8 @@ export const fr = {
   navbar,
   home,
   auth,
-  admin: {
-    menu: {
-      dashboard: "Tableau de Bord",
-      vehicles: "Véhicules",
-      bookings: "Réservations",
-      reports: "Rapports",
-    },
-    dashboard: {
-      title: "Vue d'ensemble",
-      subtitle: "Suivi en direct de l'état du parc, des utilisateurs et des locations.",
-      stats: {
-        totalUsers: "Utilisateurs",
-        totalCars: "Véhicules",
-        totalBookings: "Réservations",
-        totalRevenue: "Chiffre d'Affaires",
-        availableCars: "Parc Disponible",
-      },
-      recentBookings: "Réservations Récentes",
-      table: {
-        id: "Réf",
-        customer: "Client",
-        car: "Véhicule",
-        price: "Tarif",
-        status: "Statut",
-        date: "Date",
-      },
-    },
-  },
+  admin,
+  payment,
   cars: {
     catalog: {
       title: "Explorez Notre Flotte",

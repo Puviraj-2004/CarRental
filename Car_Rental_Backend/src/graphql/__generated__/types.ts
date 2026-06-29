@@ -109,6 +109,8 @@ export type Booking = {
   car: Car;
   carId: Scalars['String']['output'];
   createdAt: Scalars['DateTime']['output'];
+  documentRejectedAt?: Maybe<Scalars['DateTime']['output']>;
+  documentReuploadDeadline?: Maybe<Scalars['DateTime']['output']>;
   documents?: Maybe<Documents>;
   endDate: Scalars['DateTime']['output'];
   guestName?: Maybe<Scalars['String']['output']>;
@@ -120,6 +122,9 @@ export type Booking = {
   reminderSentAt?: Maybe<Scalars['DateTime']['output']>;
   startDate: Scalars['DateTime']['output'];
   status: BookingStatus;
+  subtotal: Scalars['Float']['output'];
+  taxAmount: Scalars['Float']['output'];
+  taxRate: Scalars['Float']['output'];
   totalPrice: Scalars['Float']['output'];
   type: BookingType;
   updatedAt: Scalars['DateTime']['output'];
@@ -135,6 +140,20 @@ export type BookingFilterInput = {
   status?: InputMaybe<BookingStatus>;
   type?: InputMaybe<BookingType>;
   userId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+export type BookingQuote = {
+  __typename?: 'BookingQuote';
+  basePrice: Scalars['Float']['output'];
+  carId: Scalars['ID']['output'];
+  currency: Scalars['String']['output'];
+  endDate: Scalars['DateTime']['output'];
+  numberOfDays: Scalars['Int']['output'];
+  startDate: Scalars['DateTime']['output'];
+  subtotal: Scalars['Float']['output'];
+  taxAmount: Scalars['Float']['output'];
+  taxRate: Scalars['Float']['output'];
+  totalPrice: Scalars['Float']['output'];
 };
 
 export type BookingStatus =
@@ -705,6 +724,9 @@ export type Payment = {
   createdAt: Scalars['DateTime']['output'];
   id: Scalars['ID']['output'];
   paymentMethod?: Maybe<PaymentMethod>;
+  refundPolicy?: Maybe<Scalars['String']['output']>;
+  refundedAmount: Scalars['Float']['output'];
+  refundedAt?: Maybe<Scalars['DateTime']['output']>;
   status: PaymentStatus;
   stripeId?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['DateTime']['output'];
@@ -719,6 +741,7 @@ export type PaymentMethod = {
 export type PaymentStatus =
   | 'FAILED'
   | 'PAID'
+  | 'PARTIALLY_REFUNDED'
   | 'PENDING'
   | 'REFUNDED';
 
@@ -728,6 +751,7 @@ export type Query = {
   availableCars: PaginatedCars;
   booking?: Maybe<Booking>;
   bookingDocuments?: Maybe<Documents>;
+  bookingQuote: BookingQuote;
   bookings: PaginatedBookings;
   brands: Array<Brand>;
   car?: Maybe<Car>;
@@ -748,6 +772,7 @@ export type Query = {
   paymentByBooking?: Maybe<Payment>;
   paymentMethods: Array<PaymentMethod>;
   payments: PaginatedPayments;
+  refundPreview?: Maybe<RefundPreview>;
   user?: Maybe<User>;
   users: PaginatedUsers;
 };
@@ -772,6 +797,14 @@ export type QueryBookingArgs = {
 
 export type QueryBookingDocumentsArgs = {
   bookingId: Scalars['ID']['input'];
+};
+
+
+export type QueryBookingQuoteArgs = {
+  carId: Scalars['ID']['input'];
+  endDate: Scalars['String']['input'];
+  startDate: Scalars['String']['input'];
+  type?: InputMaybe<BookingType>;
 };
 
 
@@ -840,6 +873,11 @@ export type QueryPaymentsArgs = {
 };
 
 
+export type QueryRefundPreviewArgs = {
+  bookingId: Scalars['ID']['input'];
+};
+
+
 export type QueryUserArgs = {
   id: Scalars['ID']['input'];
 };
@@ -853,6 +891,14 @@ export type RefreshTokensPayload = {
   __typename?: 'RefreshTokensPayload';
   accessToken: Scalars['String']['output'];
   refreshToken: Scalars['String']['output'];
+};
+
+export type RefundPreview = {
+  __typename?: 'RefundPreview';
+  hoursUntilPickup: Scalars['Float']['output'];
+  keepAmount: Scalars['Float']['output'];
+  policy: Scalars['String']['output'];
+  refundAmount: Scalars['Float']['output'];
 };
 
 export type RegisterInput = {
@@ -1011,6 +1057,7 @@ export type ResolversTypes = ResolversObject<{
   AdminReports: ResolverTypeWrapper<AdminReports>;
   Booking: ResolverTypeWrapper<BookingWithRelations>;
   BookingFilterInput: BookingFilterInput;
+  BookingQuote: ResolverTypeWrapper<BookingQuote>;
   BookingStatus: BookingStatus;
   BookingType: BookingType;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
@@ -1052,6 +1099,7 @@ export type ResolversTypes = ResolversObject<{
   PaymentStatus: PaymentStatus;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RefreshTokensPayload: ResolverTypeWrapper<RefreshTokensPayload>;
+  RefundPreview: ResolverTypeWrapper<RefundPreview>;
   RegisterInput: RegisterInput;
   RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
   ResendOTPPayload: ResolverTypeWrapper<ResendOtpPayload>;
@@ -1080,6 +1128,7 @@ export type ResolversParentTypes = ResolversObject<{
   AdminReports: AdminReports;
   Booking: BookingWithRelations;
   BookingFilterInput: BookingFilterInput;
+  BookingQuote: BookingQuote;
   Boolean: Scalars['Boolean']['output'];
   Brand: Brand;
   CalendarDay: CalendarDay;
@@ -1115,6 +1164,7 @@ export type ResolversParentTypes = ResolversObject<{
   PaymentMethod: PaymentMethod;
   Query: Record<PropertyKey, never>;
   RefreshTokensPayload: RefreshTokensPayload;
+  RefundPreview: RefundPreview;
   RegisterInput: RegisterInput;
   RegisterPayload: RegisterPayload;
   ResendOTPPayload: ResendOtpPayload;
@@ -1193,6 +1243,8 @@ export type BookingResolvers<ContextType = GraphQLContext, ParentType extends Re
   car?: Resolver<ResolversTypes['Car'], ParentType, ContextType>;
   carId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  documentRejectedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  documentReuploadDeadline?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   documents?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType>;
   endDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   guestName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -1204,11 +1256,27 @@ export type BookingResolvers<ContextType = GraphQLContext, ParentType extends Re
   reminderSentAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   startDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['BookingStatus'], ParentType, ContextType>;
+  subtotal?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  taxAmount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  taxRate?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   totalPrice?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['BookingType'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   userId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+}>;
+
+export type BookingQuoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['BookingQuote'] = ResolversParentTypes['BookingQuote']> = ResolversObject<{
+  basePrice?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  carId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  currency?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  endDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  numberOfDays?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  startDate?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  subtotal?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  taxAmount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  taxRate?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  totalPrice?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
 }>;
 
 export type BrandResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Brand'] = ResolversParentTypes['Brand']> = ResolversObject<{
@@ -1420,6 +1488,9 @@ export type PaymentResolvers<ContextType = GraphQLContext, ParentType extends Re
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   paymentMethod?: Resolver<Maybe<ResolversTypes['PaymentMethod']>, ParentType, ContextType>;
+  refundPolicy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  refundedAmount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  refundedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['PaymentStatus'], ParentType, ContextType>;
   stripeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
@@ -1435,6 +1506,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   availableCars?: Resolver<ResolversTypes['PaginatedCars'], ParentType, ContextType, RequireFields<QueryAvailableCarsArgs, 'endDate' | 'startDate'>>;
   booking?: Resolver<Maybe<ResolversTypes['Booking']>, ParentType, ContextType, RequireFields<QueryBookingArgs, 'id'>>;
   bookingDocuments?: Resolver<Maybe<ResolversTypes['Documents']>, ParentType, ContextType, RequireFields<QueryBookingDocumentsArgs, 'bookingId'>>;
+  bookingQuote?: Resolver<ResolversTypes['BookingQuote'], ParentType, ContextType, RequireFields<QueryBookingQuoteArgs, 'carId' | 'endDate' | 'startDate'>>;
   bookings?: Resolver<ResolversTypes['PaginatedBookings'], ParentType, ContextType, Partial<QueryBookingsArgs>>;
   brands?: Resolver<Array<ResolversTypes['Brand']>, ParentType, ContextType>;
   car?: Resolver<Maybe<ResolversTypes['Car']>, ParentType, ContextType, RequireFields<QueryCarArgs, 'id'>>;
@@ -1455,6 +1527,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   paymentByBooking?: Resolver<Maybe<ResolversTypes['Payment']>, ParentType, ContextType, RequireFields<QueryPaymentByBookingArgs, 'bookingId'>>;
   paymentMethods?: Resolver<Array<ResolversTypes['PaymentMethod']>, ParentType, ContextType>;
   payments?: Resolver<ResolversTypes['PaginatedPayments'], ParentType, ContextType, Partial<QueryPaymentsArgs>>;
+  refundPreview?: Resolver<Maybe<ResolversTypes['RefundPreview']>, ParentType, ContextType, RequireFields<QueryRefundPreviewArgs, 'bookingId'>>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'id'>>;
   users?: Resolver<ResolversTypes['PaginatedUsers'], ParentType, ContextType, Partial<QueryUsersArgs>>;
 }>;
@@ -1462,6 +1535,13 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
 export type RefreshTokensPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RefreshTokensPayload'] = ResolversParentTypes['RefreshTokensPayload']> = ResolversObject<{
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+}>;
+
+export type RefundPreviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RefundPreview'] = ResolversParentTypes['RefundPreview']> = ResolversObject<{
+  hoursUntilPickup?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  keepAmount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  policy?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  refundAmount?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
 }>;
 
 export type RegisterPayloadResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RegisterPayload'] = ResolversParentTypes['RegisterPayload']> = ResolversObject<{
@@ -1510,6 +1590,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   AdminReportStatusBreakdown?: AdminReportStatusBreakdownResolvers<ContextType>;
   AdminReports?: AdminReportsResolvers<ContextType>;
   Booking?: BookingResolvers<ContextType>;
+  BookingQuote?: BookingQuoteResolvers<ContextType>;
   Brand?: BrandResolvers<ContextType>;
   CalendarDay?: CalendarDayResolvers<ContextType>;
   Car?: CarResolvers<ContextType>;
@@ -1535,6 +1616,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   PaymentMethod?: PaymentMethodResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   RefreshTokensPayload?: RefreshTokensPayloadResolvers<ContextType>;
+  RefundPreview?: RefundPreviewResolvers<ContextType>;
   RegisterPayload?: RegisterPayloadResolvers<ContextType>;
   ResendOTPPayload?: ResendOtpPayloadResolvers<ContextType>;
   Upload?: GraphQLScalarType;

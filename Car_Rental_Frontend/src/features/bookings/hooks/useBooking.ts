@@ -10,6 +10,9 @@ export interface Booking {
   endDate:        string;
   numberOfDays:   number;
   basePrice:      number;
+  subtotal:       number;
+  taxRate:        number;
+  taxAmount:      number;
   totalPrice:     number;
   guestName?:     string | null;
   guestPhone?:    string | null;
@@ -42,7 +45,7 @@ export interface Booking {
   } | null;
   payment?: {
     id:     string;
-    status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+    status: 'PENDING' | 'PAID' | 'FAILED' | 'PARTIALLY_REFUNDED' | 'REFUNDED';
   } | null;
 }
 

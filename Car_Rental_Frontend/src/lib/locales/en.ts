@@ -1,6 +1,8 @@
 import { home } from './en/home';
 import { navbar } from './en/navbar';
 import { auth } from './en/auth';
+import { admin } from './en/admin';
+import { payment } from './en/payment';
 
 // Recursively maps literal string values to the general 'string' type
 export type DeepStringify<T> = {
@@ -28,34 +30,8 @@ export const en = {
   navbar,
   home,
   auth,
-  admin: {
-    menu: {
-      dashboard: "Dashboard",
-      vehicles: "Vehicles",
-      bookings: "Bookings",
-      reports: "Reports",
-    },
-    dashboard: {
-      title: "Dashboard Overview",
-      subtitle: "Live monitoring of fleet metrics, user profiles, and active rentals.",
-      stats: {
-        totalUsers: "Total Users",
-        totalCars: "Total Cars",
-        totalBookings: "Total Bookings",
-        totalRevenue: "Total Revenue",
-        availableCars: "Available Fleet",
-      },
-      recentBookings: "Recent Bookings",
-      table: {
-        id: "ID",
-        customer: "Customer",
-        car: "Car",
-        price: "Price",
-        status: "Status",
-        date: "Date",
-      },
-    },
-  },
+  admin,
+  payment,
   cars: {
     catalog: {
       title: "Explore Our Fleet",

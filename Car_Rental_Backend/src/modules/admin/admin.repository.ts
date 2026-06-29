@@ -16,7 +16,7 @@ export class AdminRepository {
       totalUsers,
       totalCars,
       totalBookings,
-      revenueAggregate,
+      revenuePayments,
       availableCars,
       pendingDocuments,
       pendingPayments,
@@ -31,9 +31,9 @@ export class AdminRepository {
       prisma.user.count(),
       prisma.car.count(),
       prisma.booking.count(),
-      prisma.payment.aggregate({
-        where: { status: PaymentStatus.PAID },
-        _sum: { amount: true },
+      prisma.payment.findMany({
+        where: { status: { in: [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED] } },
+        select: { amount: true, refundedAmount: true },
       }),
       prisma.car.count({ where: { status: CarStatus.AVAILABLE } }),
       prisma.documents.count({ where: { status: 'PENDING' } }),
@@ -67,7 +67,7 @@ export class AdminRepository {
       totalUsers,
       totalCars,
       totalBookings,
-      totalRevenue: Number(revenueAggregate._sum.amount ?? 0),
+      totalRevenue: this.calculateNetRevenue(revenuePayments),
       availableCars,
       pendingDocuments,
       pendingPayments,
@@ -87,8 +87,9 @@ export class AdminRepository {
     const paymentWhere: Prisma.PaymentWhereInput = createdAt ? { createdAt } : {};
 
     const [
-      paidAggregate,
-      refundedAggregate,
+      revenuePayments,
+      paidPayments,
+      refundedPayments,
       pendingAggregate,
       onlineBookings,
       onsiteBookings,
@@ -105,15 +106,17 @@ export class AdminRepository {
       rentedCars,
       paymentMethodGroups,
     ] = await prisma.$transaction([
-      prisma.payment.aggregate({
-        where: { ...paymentWhere, status: PaymentStatus.PAID },
-        _sum: { amount: true },
-        _count: { _all: true },
+      prisma.payment.findMany({
+        where: { ...paymentWhere, status: { in: [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED] } },
+        select: { amount: true, refundedAmount: true },
       }),
-      prisma.payment.aggregate({
-        where: { ...paymentWhere, status: PaymentStatus.REFUNDED },
-        _sum: { amount: true },
-        _count: { _all: true },
+      prisma.payment.findMany({
+        where: { ...paymentWhere, status: { in: [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED] } },
+        select: { amount: true },
+      }),
+      prisma.payment.findMany({
+        where: { ...paymentWhere, status: { in: [PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED] } },
+        select: { refundedAmount: true },
       }),
       prisma.payment.aggregate({
         where: { ...paymentWhere, status: PaymentStatus.PENDING },
@@ -135,9 +138,9 @@ export class AdminRepository {
       prisma.car.count({ where: { status: CarStatus.RENTED } }),
       prisma.payment.groupBy({
         by: ['paymentMethodId'],
-        where: { ...paymentWhere, status: { in: [PaymentStatus.PAID, PaymentStatus.REFUNDED] } },
+        where: { ...paymentWhere, status: { in: [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED] } },
         orderBy: { paymentMethodId: 'asc' },
-        _sum: { amount: true },
+        _sum: { amount: true, refundedAmount: true },
         _count: { id: true },
       }),
     ]);
@@ -151,14 +154,14 @@ export class AdminRepository {
     const methodNameById = new Map(methods.map((method) => [method.id, method.name]));
 
     return {
-      totalRevenue: Number(paidAggregate._sum.amount ?? 0),
+      totalRevenue: this.calculateNetRevenue(revenuePayments),
       paid: {
-        count: paidAggregate._count._all,
-        amount: Number(paidAggregate._sum.amount ?? 0),
+        count: paidPayments.length,
+        amount: this.sumDecimalField(paidPayments, 'amount'),
       },
       refunded: {
-        count: refundedAggregate._count._all,
-        amount: Number(refundedAggregate._sum.amount ?? 0),
+        count: refundedPayments.length,
+        amount: this.sumDecimalField(refundedPayments, 'refundedAmount'),
       },
       pendingPayments: {
         count: pendingAggregate._count._all,
@@ -184,16 +187,29 @@ export class AdminRepository {
       paymentMethods: paymentMethodGroups.map((group) => {
         const aggregate = group as typeof group & {
           _count: { id?: number };
-          _sum: { amount?: Prisma.Decimal | null };
+          _sum: { amount?: Prisma.Decimal | null; refundedAmount?: Prisma.Decimal | null };
         };
+        const amount = Number(aggregate._sum.amount ?? 0);
+        const refundedAmount = Number(aggregate._sum.refundedAmount ?? 0);
         return {
           id: group.paymentMethodId,
           name: group.paymentMethodId ? methodNameById.get(group.paymentMethodId) ?? 'Unknown method' : 'Stripe / Online',
           count: Number(aggregate._count.id ?? 0),
-          amount: Number(aggregate._sum.amount ?? 0),
+          amount: Math.max(amount - refundedAmount, 0),
         };
       }),
     };
+  }
+
+  private calculateNetRevenue(payments: Array<{ amount: Prisma.Decimal; refundedAmount: Prisma.Decimal }>) {
+    return payments.reduce((sum, payment) => {
+      const retained = Number(payment.amount) - Number(payment.refundedAmount);
+      return sum + Math.max(retained, 0);
+    }, 0);
+  }
+
+  private sumDecimalField<T extends Record<string, Prisma.Decimal>>(items: T[], field: keyof T) {
+    return items.reduce((sum, item) => sum + Number(item[field] ?? 0), 0);
   }
 }
 

@@ -11,6 +11,12 @@ import { prisma }                 from '../../config/database';
 import { paymentRepository }      from './payment.repository';
 import type { PaymentWithMethod } from '../../prisma/types';
 
+const getRefundStatus = (
+  paidAmount: number,
+  refundedAmount: number,
+): PaymentStatus =>
+  refundedAmount >= paidAmount ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
+
 export class PaymentService {
   async getPaymentById(
     id:      string,
@@ -58,6 +64,35 @@ export class PaymentService {
     }
 
     return payment;
+  }
+
+  async getRefundPreview(
+    bookingId: string,
+    userId:    string,
+    isAdmin:   boolean,
+  ) {
+    const booking = await prisma.booking.findUnique({
+      where:   { id: bookingId },
+      include: { payment: true },
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
+    }
+    if (!isAdmin && booking.userId !== userId) {
+      throw new AppError(
+        'Access denied. You do not own this booking.',
+        ErrorCode.FORBIDDEN,
+      );
+    }
+    if (!booking.payment) {
+      return null;
+    }
+
+    return calculateRefund(
+      Number(booking.payment.amount),
+      booking.startDate,
+    );
   }
 
   getMyPayments(
@@ -273,18 +308,18 @@ export class PaymentService {
       );
     }
 
-    if (!booking.payment.stripeId) {
-      securityLogger.info('Admin refunded locally recorded booking payment', {
-        bookingId,
-        paymentId: booking.payment.id,
-        adminId,
-      });
-      return paymentRepository.update(booking.payment.id, {
-        status: PaymentStatus.REFUNDED,
-      });
+    securityLogger.info('Admin requested policy-based booking refund', {
+      bookingId,
+      paymentId: booking.payment.id,
+      adminId,
+    });
+
+    const refundedPayment = await this.cancelAndRefund(bookingId, adminId, true);
+    if (!refundedPayment) {
+      throw new AppError('Refund could not be processed for this booking.', ErrorCode.INTERNAL_SERVER_ERROR);
     }
 
-    return this.refundPayment(booking.payment.id, true);
+    return refundedPayment;
   }
 
   // ── Mock Finalize: Simulates immediate payment capture ──────
@@ -325,49 +360,13 @@ export class PaymentService {
     }
 
     if (payment.status === PaymentStatus.PAID) {
-      return payment; // Already captured
+      return payment;
     }
 
-    if (payment.status !== PaymentStatus.PENDING) {
-      throw new AppError(`Cannot capture payment with status "${payment.status}".`, ErrorCode.BAD_USER_INPUT);
-    }
-
-    const stripeId = payment.stripeId;
-    if (!stripeId) {
-      throw new AppError('No Stripe transaction ID found.', ErrorCode.BAD_USER_INPUT);
-    }
-
-    if (env.mockStripe) {
-      securityLogger.info('Mock Stripe: capturing payment hold', { bookingId });
-      return paymentRepository.update(payment.id, { status: PaymentStatus.PAID });
-    }
-
-    const stripe = getStripeClient();
-    if (!stripe) {
-      throw new AppError('Payment service is not configured.', ErrorCode.CONFIGURATION_ERROR);
-    }
-
-    // Resolve checkout session ID (cs_...) to PaymentIntent ID (pi_...)
-    let paymentIntentId = stripeId;
-    if (stripeId.startsWith('cs_')) {
-      const session = await stripe.checkout.sessions.retrieve(stripeId);
-      paymentIntentId = typeof session.payment_intent === 'string'
-        ? session.payment_intent
-        : session.payment_intent?.id ?? '';
-    }
-
-    if (!paymentIntentId) {
-      throw new AppError(
-        'Could not resolve PaymentIntent for this payment.',
-        ErrorCode.INTERNAL_SERVER_ERROR,
-      );
-    }
-
-    // Officially debits funds [1.1.5]
-    await stripe.paymentIntents.capture(paymentIntentId);
-    securityLogger.info('Stripe payment hold captured successfully', { bookingId, stripeId: paymentIntentId });
-
-    return paymentRepository.update(payment.id, { status: PaymentStatus.PAID });
+    throw new AppError(
+      `Cannot confirm an immediate-payment booking with payment status "${payment.status}".`,
+      ErrorCode.BAD_USER_INPUT,
+    );
   }
 
   // ── Cancel/Void Hold: Instantly releases hold if not captured yet [1.1.2, 1.1.5, 1.1.6] ──
@@ -376,22 +375,11 @@ export class PaymentService {
     if (!payment) return null;
 
     if (payment.status === PaymentStatus.PENDING) {
-      const stripeId = payment.stripeId;
-      if (!stripeId) return null;
-
-      if (env.mockStripe) {
-        securityLogger.info('Mock Stripe: voiding authorization hold', { bookingId });
-        return paymentRepository.update(payment.id, { status: PaymentStatus.FAILED });
-      }
-
-      const stripe = getStripeClient();
-      if (!stripe) {
-        throw new AppError('Payment service is not configured.', ErrorCode.CONFIGURATION_ERROR);
-      }
-
-      await stripe.paymentIntents.cancel(stripeId);
-      securityLogger.info('Stripe authorization hold voided successfully', { bookingId, stripeId });
-
+      securityLogger.info('Pending checkout payment marked failed during booking cancellation/rejection', {
+        bookingId,
+        paymentId: payment.id,
+        stripeId: payment.stripeId,
+      });
       return paymentRepository.update(payment.id, { status: PaymentStatus.FAILED });
     }
 
@@ -411,24 +399,12 @@ export class PaymentService {
     const payment = await paymentRepository.findByBookingId(bookingId);
     if (!payment) return null;
 
-    // SCENARIO A: Release pre-auth hold instantly at 0 cost [1.1.5, 1.1.6]
     if (payment.status === PaymentStatus.PENDING) {
-      const stripeId = payment.stripeId;
-      if (!stripeId) return null;
-
-      if (env.mockStripe) {
-        securityLogger.info('Mock Stripe: voiding user hold on cancellation', { bookingId });
-        return paymentRepository.update(payment.id, { status: PaymentStatus.FAILED });
-      }
-
-      const stripe = getStripeClient();
-      if (!stripe) {
-        throw new AppError('Payment service is not configured.', ErrorCode.CONFIGURATION_ERROR);
-      }
-
-      await stripe.paymentIntents.cancel(stripeId);
-      securityLogger.info('Stripe hold voided instantly for user cancellation', { bookingId, stripeId });
-
+      securityLogger.info('Pending checkout payment marked failed during user/admin cancellation', {
+        bookingId,
+        paymentId: payment.id,
+        stripeId: payment.stripeId,
+      });
       return paymentRepository.update(payment.id, { status: PaymentStatus.FAILED });
     }
 
@@ -454,9 +430,13 @@ export class PaymentService {
       });
 
       if (policy === 'NONE') {
-        return paymentRepository.update(payment.id, {
-          status: PaymentStatus.REFUNDED,
+        securityLogger.info('Cancellation policy produced no refund; payment remains paid', {
+          bookingId,
+          paymentId: payment.id,
+          userId,
+          isAdmin,
         });
+        return payment;
       }
 
       if (env.mockStripe) {
@@ -468,7 +448,10 @@ export class PaymentService {
           isAdmin,
         });
         return paymentRepository.update(payment.id, {
-          status: PaymentStatus.REFUNDED,
+          status: getRefundStatus(Number(payment.amount), refundAmount),
+          refundedAmount: refundAmount,
+          refundPolicy: policy,
+          refundedAt: new Date(),
         });
       }
 
@@ -479,7 +462,10 @@ export class PaymentService {
           userId,
         });
         return paymentRepository.update(payment.id, {
-          status: PaymentStatus.REFUNDED,
+          status: getRefundStatus(Number(payment.amount), refundAmount),
+          refundedAmount: refundAmount,
+          refundPolicy: policy,
+          refundedAt: new Date(),
         });
       }
 
@@ -524,7 +510,10 @@ export class PaymentService {
       });
 
       return paymentRepository.update(payment.id, {
-        status: PaymentStatus.REFUNDED,
+        status: getRefundStatus(Number(payment.amount), refundAmount),
+        refundedAmount: refundAmount,
+        refundPolicy: policy,
+        refundedAt: new Date(),
       });
     }
 
@@ -539,6 +528,9 @@ export class PaymentService {
       securityLogger.info('Mock Stripe: rejection refund', { bookingId });
       return paymentRepository.update(payment.id, {
         status: PaymentStatus.REFUNDED,
+        refundedAmount: Number(payment.amount),
+        refundPolicy: 'FULL',
+        refundedAt: new Date(),
       });
     }
 
@@ -587,6 +579,9 @@ export class PaymentService {
 
     return paymentRepository.update(payment.id, {
       status: PaymentStatus.REFUNDED,
+      refundedAmount: Number(payment.amount),
+      refundPolicy: 'FULL',
+      refundedAt: new Date(),
     });
   }
 
@@ -616,6 +611,9 @@ export class PaymentService {
       securityLogger.info('Mock Stripe: fake refund', { paymentId });
       return paymentRepository.update(paymentId, {
         status: PaymentStatus.REFUNDED,
+        refundedAmount: Number(payment.amount),
+        refundPolicy: 'FULL',
+        refundedAt: new Date(),
       });
     }
 
@@ -661,6 +659,9 @@ export class PaymentService {
 
     return paymentRepository.update(paymentId, {
       status: PaymentStatus.REFUNDED,
+      refundedAmount: Number(payment.amount),
+      refundPolicy: 'FULL',
+      refundedAt: new Date(),
     });
   }
 }

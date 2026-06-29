@@ -2,6 +2,7 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  PARTIALLY_REFUNDED
   REFUNDED
 }
 
@@ -14,6 +15,9 @@ type Payment {
   id:            ID!
   bookingId:     ID!
   amount:        Float!
+  refundedAmount: Float!
+  refundPolicy:  String
+  refundedAt:    DateTime
   status:        PaymentStatus!
   stripeId:      String
   paymentMethod: PaymentMethod
@@ -26,6 +30,13 @@ type CheckoutSession {
   sessionId: String!
 }
 
+type RefundPreview {
+  policy:           String!
+  refundAmount:     Float!
+  keepAmount:       Float!
+  hoursUntilPickup: Float!
+}
+
 type PaginatedPayments {
   items:    [Payment!]!
   pageInfo: PageInfo!
@@ -34,6 +45,7 @@ type PaginatedPayments {
 extend type Query {
   payment(id: ID!):                        Payment
   paymentByBooking(bookingId: ID!):        Payment
+  refundPreview(bookingId: ID!):           RefundPreview
   myPayments(pagination: PaginationInput): PaginatedPayments!
   payments(pagination: PaginationInput):   PaginatedPayments!
   paymentMethods: [PaymentMethod!]!

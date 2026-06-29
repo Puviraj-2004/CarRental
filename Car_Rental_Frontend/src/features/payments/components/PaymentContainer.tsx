@@ -88,19 +88,10 @@ export const PaymentContainer: React.FC<{ bookingId: string }> = ({ bookingId })
     );
   }
 
-  // 3. Dynamic Environment-Backed Tax Calculations [1.2.1]
-  const getTaxRate = (): number => {
-    const envRate = process.env.NEXT_PUBLIC_TAX_RATE;
-    if (!envRate) return 0.20; // Default fallback (20%) [1]
-    const parsed = parseFloat(envRate);
-    return isNaN(parsed) ? 0.20 : parsed;
-  };
-
-  const taxRate = getTaxRate();
-  const basePrice = Number(booking.basePrice);
-  const subtotal = basePrice * booking.numberOfDays;
-  const taxAmount = subtotal * taxRate;
-  const totalAmount = subtotal + taxAmount;
+  const subtotal = Number(booking.subtotal);
+  const totalAmount = Number(booking.totalPrice);
+  const taxAmount = Number(booking.taxAmount);
+  const taxPercentage = Number(booking.taxRate) * 100;
 
   return (
     <PaymentView
@@ -110,7 +101,7 @@ export const PaymentContainer: React.FC<{ bookingId: string }> = ({ bookingId })
       subtotal={subtotal}
       taxAmount={taxAmount}
       totalAmount={totalAmount}
-      taxPercentage={taxRate * 100}
+      taxPercentage={taxPercentage}
       onPay={handleProceedToPayment}
       error={error}
       loading={loadingMutation}

@@ -1,66 +1,65 @@
 'use client';
 
 import React from 'react';
-import { useParams } from 'next/navigation';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import Box from '@mui/material/Box';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Container from '@mui/material/Container';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import Link from 'next/link';
-import { Divider } from '@mui/material';
+import { useParams } from 'next/navigation';
+import { useLanguage } from '@/lib/LanguageContext';
 
 export default function BookingPaymentCancelPage() {
   const params = useParams();
   const bookingId = params?.bookingId as string;
+  const { t } = useLanguage();
 
   return (
-    <Container maxWidth="sm" sx={{ py: 10 }}>
-      <Card 
-        variant="outlined" 
-        sx={{ 
-          p: { xs: 4, md: 5 }, 
-          borderRadius: '16px', 
-          textAlign: 'center', 
-          boxShadow: '0 4px 25px rgba(0,0,0,0.02)' 
-        }}
-      >
-        <WarningAmberIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
-        
-        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.5px' }}>
-          Payment Cancelled
-        </Typography>
-        
-        <Typography variant="body1" sx={{ color: 'text.secondary', mb: 4, fontWeight: 500 }}>
-          Your transaction session was closed, and no charges were made. Your vehicle reservation is still temporarily held [1].
-        </Typography>
+    <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 } }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 2 }}>
+        <Stack spacing={3} alignItems="center" textAlign="center">
+          <Box sx={{ display: 'grid', placeItems: 'center', width: 48, height: 48, borderRadius: 1, bgcolor: 'warning.light', color: 'warning.dark' }}>
+            <WarningAmberRoundedIcon />
+          </Box>
 
-        <Divider sx={{ mb: 4 }} />
+          <Box>
+            <Typography variant="h3" component="h1">
+              {t('payment.cancelled.title')}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+              {t('payment.cancelled.subtitle')}
+            </Typography>
+          </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {bookingId && (
+          <Stack spacing={1.5} sx={{ width: '100%' }}>
+            {bookingId && (
+              <Button
+                variant="contained"
+                component={Link}
+                href={`/booking/${bookingId}/payment`}
+                startIcon={<ReplayRoundedIcon />}
+                fullWidth
+              >
+                {t('payment.cancelled.retry')}
+              </Button>
+            )}
             <Button
-              variant="contained"
+              variant="outlined"
               component={Link}
-              href={`/booking/${bookingId}/payment`} // <-- Guides back to try checkout again [1]
-              sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
+              href="/bookingRecords"
+              startIcon={<ArrowBackRoundedIcon />}
+              fullWidth
             >
-              Retry Payment
+              {t('payment.cancelled.back')}
             </Button>
-          )}
-          <Button
-            variant="outlined"
-            component={Link}
-            href="/bookingRecords"
-            startIcon={<ArrowBackIcon />}
-            sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
-          >
-            Back to My Bookings
-          </Button>
-        </Box>
-      </Card>
+          </Stack>
+        </Stack>
+      </Paper>
     </Container>
   );
 }

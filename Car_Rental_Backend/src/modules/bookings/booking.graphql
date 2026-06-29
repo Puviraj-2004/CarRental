@@ -27,6 +27,9 @@ type Booking {
   endDate:        DateTime!
   numberOfDays:   Int!
   basePrice:      Float!
+  subtotal:       Float!
+  taxRate:        Float!
+  taxAmount:      Float!
   totalPrice:     Float!
   guestName:      String
   guestPhone:     String
@@ -37,6 +40,8 @@ type Booking {
   user:           User
   payment:        Payment
   documents:      Documents
+  documentRejectedAt: DateTime
+  documentReuploadDeadline: DateTime
   reminderSentAt: DateTime
   createdAt:      DateTime!
   updatedAt:      DateTime!
@@ -73,8 +78,22 @@ input BookingFilterInput {
   endDate:   String
 }
 
+type BookingQuote {
+  carId:        ID!
+  startDate:    DateTime!
+  endDate:      DateTime!
+  numberOfDays: Int!
+  basePrice:    Float!
+  subtotal:     Float!
+  taxRate:      Float!
+  taxAmount:    Float!
+  totalPrice:   Float!
+  currency:     String!
+}
+
 extend type Query {
   booking(id: ID!):                                                  Booking
+  bookingQuote(carId: ID!, startDate: String!, endDate: String!, type: BookingType): BookingQuote!
   myBookings(pagination: PaginationInput):                           PaginatedBookings!
   bookings(pagination: PaginationInput, filter: BookingFilterInput): PaginatedBookings!
 }

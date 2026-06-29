@@ -1,17 +1,18 @@
 'use client';
 
 import React from 'react';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
+import Container from '@mui/material/Container';
 import Divider from '@mui/material/Divider';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 
 interface PaymentViewProps {
@@ -27,10 +28,20 @@ interface PaymentViewProps {
   loading: boolean;
 }
 
+const MoneyRow = ({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) => (
+  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+    <Typography variant="body2" sx={{ color: strong ? 'text.primary' : 'text.secondary', fontWeight: strong ? 750 : 600 }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ fontWeight: strong ? 800 : 650 }}>
+      {value}
+    </Typography>
+  </Stack>
+);
+
 export const PaymentView: React.FC<PaymentViewProps> = ({
   t,
   booking,
-  bookingId,
   subtotal,
   taxAmount,
   totalAmount,
@@ -39,112 +50,133 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
   error,
   loading,
 }) => {
+  const carName = `${booking.car.model.brand.name} ${booking.car.model.name}`;
+  const reference = String(booking.id).slice(0, 8).toUpperCase();
+  const formattedTaxPercentage = Number.isInteger(taxPercentage) ? String(taxPercentage) : taxPercentage.toFixed(2);
+
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      
-      {/* ─── Stepped Checkout Banner ──────────────────────────────────── */}
-      <Box sx={{ mb: 4, display: 'flex', gap: 1, alignItems: 'center', bgcolor: 'primary.50', p: 2, borderRadius: '12px', border: '1px solid', borderColor: 'primary.100' }}>
-        <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Step 1: Reserve (Done)
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mx: 1 }}>➔</Typography>
-        <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Step 2: Upload (Done) [1]
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mx: 1 }}>➔</Typography>
-        <Typography variant="body2" sx={{ fontWeight: 800, color: 'secondary.main' }}>
-          Step 3: Payment (Active) [1]
-        </Typography>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>{error}</Alert>}
-
-      <Card variant="outlined" sx={{ p: { xs: 3, md: 4 }, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-        
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.5px' }}>
-          Secure Payment Portal
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 4 }}>
-          Please review your booking invoices and click below to pay.
-        </Typography>
-
-        {/* Selected Vehicle Profile */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-          <Box sx={{ width: 80, height: 50, borderRadius: '6px', overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'grey.100', flexShrink: 0 }}>
-            <img src={booking.car.primaryImageUrl || 'https://via.placeholder.com/150x90'} alt="Car" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </Box>
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-              {booking.car.model.brand.name} {booking.car.model.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              Plate: {booking.car.plateNumber} • {booking.numberOfDays} Days
-            </Typography>
-          </Box>
+    <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 } }}>
+      <Stack spacing={3}>
+        <Box>
+          <Typography variant="h3" component="h1">
+            {t('payment.checkout.title')}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', maxWidth: 620 }}>
+            {t('payment.checkout.subtitle')}
+          </Typography>
         </Box>
 
-        <Divider sx={{ mb: 3 }} />
-
-        {/* Dynamic Pricing Breakdown */}
-        <Grid container spacing={1.5} sx={{ fontSize: '13px', color: 'text.secondary', mb: 3 }}>
-          <Grid item xs={6}>Trip Duration:</Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 700, color: 'text.primary' }}>{booking.numberOfDays} Days</Grid>
-          
-          <Grid item xs={6}>Subtotal (Net):</Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 600, color: 'text.primary' }}>{subtotal.toFixed(2)} €</Grid>
-          
-          <Grid item xs={6}>VAT / Tax ({taxPercentage}%):</Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 600, color: 'text.primary' }}>{taxAmount.toFixed(2)} €</Grid>
-          
-          <Grid item xs={12}>
-            <Divider />
-          </Grid>
-          
-          <Grid item xs={6}>
-            <Typography sx={{ fontWeight: 800, color: 'text.primary', fontSize: '15px' }}>
-              Total Payable
-            </Typography>
-          </Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right' }}>
-            <Typography color="secondary.main" sx={{ fontWeight: 900, fontSize: '16px' }}>
-              {totalAmount.toFixed(2)} €
-            </Typography>
-          </Grid>
-        </Grid>
-
-        {/* CTA Payment Buttons */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={onPay}
-            disabled={loading}
-            startIcon={!loading && <CreditCardIcon />}
-            sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
-          >
-            {loading ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={20} color="inherit" />
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>Redirecting securely...</Typography>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} divider={<Divider flexItem orientation="vertical" />}>
+            {[
+              `${t('payment.checkout.steps.reserve')} (${t('payment.checkout.steps.done')})`,
+              `${t('payment.checkout.steps.documents')} (${t('payment.checkout.steps.done')})`,
+              `${t('payment.checkout.steps.payment')} (${t('payment.checkout.steps.active')})`,
+            ].map((label, index) => (
+              <Box key={label} sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 750 }}>
+                  {index + 1}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: index === 2 ? 800 : 650, color: index === 2 ? 'primary.main' : 'text.primary' }}>
+                  {label}
+                </Typography>
               </Box>
-            ) : (
-              'Proceed to Secure Payment'
-            )}
-          </Button>
+            ))}
+          </Stack>
+        </Paper>
 
-          <Button
-            component={Link}
-            href={`/bookingRecords`}
-            variant="outlined"
-            disabled={loading}
-            startIcon={<ArrowBackIcon />}
-            sx={{ py: 1.4, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
-          >
-            Pay Later from Dashboard
-          </Button>
+        {error && <Alert severity="error">{error}</Alert>}
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 360px' }, gap: 3 }}>
+          <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2 }}>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              {t('payment.checkout.summary')}
+            </Typography>
+
+            <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+              <Box
+                sx={{
+                  width: 96,
+                  height: 64,
+                  borderRadius: 1,
+                  overflow: 'hidden',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'grey.100',
+                  flexShrink: 0,
+                }}
+              >
+                {booking.car.primaryImageUrl && (
+                  <img src={booking.car.primaryImageUrl} alt={carName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                )}
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
+                  {carName}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {t('payment.common.plate')}: {booking.car.plateNumber}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {t('payment.common.bookingReference')}: {reference}
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Stack spacing={1.5}>
+              <MoneyRow label={t('payment.common.tripDuration')} value={`${booking.numberOfDays} ${t('payment.common.days')}`} />
+              <MoneyRow label={t('payment.common.subtotal')} value={`${subtotal.toFixed(2)} EUR`} />
+              <MoneyRow label={`${t('payment.common.tax')} (${formattedTaxPercentage}%)`} value={`${taxAmount.toFixed(2)} EUR`} />
+              <Divider />
+              <MoneyRow label={t('payment.common.total')} value={`${totalAmount.toFixed(2)} EUR`} strong />
+            </Stack>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2, height: 'fit-content' }}>
+            <Stack spacing={2.5}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Box sx={{ display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.dark' }}>
+                  <LockOutlinedIcon fontSize="small" />
+                </Box>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {t('payment.checkout.secureNotice')}
+                </Typography>
+              </Stack>
+
+              <Button
+                variant="contained"
+                size="large"
+                onClick={onPay}
+                disabled={loading}
+                fullWidth
+                startIcon={!loading && <CreditCardRoundedIcon />}
+              >
+                {loading ? (
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <CircularProgress size={18} color="inherit" />
+                    <span>{t('payment.checkout.redirecting')}</span>
+                  </Stack>
+                ) : (
+                  t('payment.checkout.payNow')
+                )}
+              </Button>
+
+              <Button
+                component={Link}
+                href="/bookingRecords"
+                variant="outlined"
+                disabled={loading}
+                fullWidth
+                startIcon={<ArrowBackRoundedIcon />}
+              >
+                {t('payment.checkout.payLater')}
+              </Button>
+            </Stack>
+          </Paper>
         </Box>
-
-      </Card>
+      </Stack>
     </Container>
   );
 };

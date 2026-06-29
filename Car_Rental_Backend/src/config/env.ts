@@ -23,8 +23,8 @@ const rules: EnvRule[] = [
 
   { key: 'GEMINI_API_KEY',        required: false, warnIfMissing: true, description: 'Google Gemini API key (OCR disabled if absent)' },
   { key: 'GOOGLE_CLIENT_ID',      required: false, warnIfMissing: true, description: 'Google OAuth client ID (Google login disabled if absent)' },
-  { key: 'STRIPE_SECRET_KEY',     required: false, warnIfMissing: true, description: 'Stripe secret key (payments disabled if absent)' },
-  { key: 'STRIPE_WEBHOOK_SECRET', required: false, warnIfMissing: true, description: 'Stripe webhook secret (webhook disabled if absent)' },
+  { key: 'STRIPE_SECRET_KEY',     required: false, requiredInProd: true, warnIfMissing: true, description: 'Stripe secret key (payments disabled if absent)' },
+  { key: 'STRIPE_WEBHOOK_SECRET', required: false, requiredInProd: true, warnIfMissing: true, description: 'Stripe webhook secret (webhook disabled if absent)' },
   { key: 'CLOUDINARY_URL', required: false, warnIfMissing: true, description: 'Cloudinary URL (uploads disabled if absent)' },
 ];
 
@@ -53,11 +53,20 @@ export function validateEnv(): void {
     if (!hasRedis) {
       errors.push('  ✖ REDIS_URL or REDIS_HOST — required in production for rate limiting and CSRF');
     }
+    if ((process.env.MOCK_STRIPE || '').toLowerCase() === 'true') {
+      errors.push('  ✖ MOCK_STRIPE — must not be enabled in production');
+    }
   }
 
   const jwtSecret = (process.env.JWT_SECRET || '').trim();
   if (jwtSecret && jwtSecret.length < 32) {
     errors.push('  ✖ JWT_SECRET — must be at least 32 characters');
+  }
+
+  const taxRateRaw = (process.env.APP_TAX_RATE || '0.20').trim();
+  const taxRate = Number(taxRateRaw);
+  if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 1) {
+    errors.push('  ✖ APP_TAX_RATE — must be a decimal between 0 and 1, for example 0.20 for 20% VAT');
   }
 
   if (warnings.length > 0) {
@@ -90,6 +99,7 @@ export const env = {
   appTimezone: (process.env.APP_TIMEZONE || 'Europe/Paris').trim(),
   appLocale:   (process.env.APP_LOCALE   || 'fr-FR').trim(),
   appCurrency: (process.env.APP_CURRENCY || 'EUR').trim(),
+  appTaxRate:  parseFloat(process.env.APP_TAX_RATE || '0.20'),
 
   companyName:    (process.env.COMPANY_NAME    || '').trim(),
   companyEmail:   (process.env.COMPANY_EMAIL   || '').trim(),

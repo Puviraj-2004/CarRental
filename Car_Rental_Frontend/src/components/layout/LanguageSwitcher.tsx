@@ -1,30 +1,62 @@
 'use client';
 
 import React from 'react';
-import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useLanguage } from '@/lib/LanguageContext';
 
 export const LanguageSwitcher: React.FC = () => {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div style={{ display: 'flex', gap: '8px' }}>
-      <Button
+    <Box
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        bgcolor: 'background.paper',
+        p: 0.25,
+      }}
+    >
+      <ToggleButtonGroup
+        exclusive
         size="small"
-        variant={language === 'fr' ? 'contained' : 'outlined'}
-        onClick={() => setLanguage('fr')}
-        sx={{ minWidth: '40px', fontWeight: 600 }}
+        value={language}
+        onChange={(_, value: 'en' | 'fr' | null) => {
+          if (value) setLanguage(value);
+        }}
+        sx={{
+          gap: 0.25,
+          '& .MuiToggleButtonGroup-grouped': {
+            border: 0,
+            borderRadius: '6px !important',
+            minWidth: 34,
+            height: 28,
+            px: 1,
+            color: 'text.secondary',
+            fontSize: 12,
+            fontWeight: 750,
+            lineHeight: 1,
+            '&.Mui-selected': {
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+            },
+          },
+        }}
       >
-        FR
-      </Button>
-      <Button
-        size="small"
-        variant={language === 'en' ? 'contained' : 'outlined'}
-        onClick={() => setLanguage('en')}
-        sx={{ minWidth: '40px', fontWeight: 600 }}
-      >
-        EN
-      </Button>
-    </div>
+        <ToggleButton value="fr" aria-label="Francais">
+          FR
+        </ToggleButton>
+        <ToggleButton value="en" aria-label="English">
+          EN
+        </ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
   );
 };

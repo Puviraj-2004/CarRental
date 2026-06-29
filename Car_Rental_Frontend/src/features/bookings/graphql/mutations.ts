@@ -7,6 +7,9 @@ export const CREATE_BOOKING_MUTATION = gql`
       startDate
       endDate
       numberOfDays
+      subtotal
+      taxRate
+      taxAmount
       totalPrice
       status
       type
@@ -40,6 +43,9 @@ export const EXTEND_BOOKING_DATES_MUTATION = gql`
       id
       endDate
       numberOfDays
+      subtotal
+      taxRate
+      taxAmount
       totalPrice
     }
   }

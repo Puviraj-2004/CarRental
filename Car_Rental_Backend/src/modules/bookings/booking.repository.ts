@@ -95,6 +95,9 @@ export class BookingRepository {
     endDate:     Date;
     numberOfDays: number;
     basePrice:   number;
+    subtotal:    number;
+    taxRate:     number;
+    taxAmount:   number;
     totalPrice:  number;
     guestName?:  string;
     guestPhone?: string;

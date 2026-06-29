@@ -45,6 +45,7 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  PARTIALLY_REFUNDED
   REFUNDED
 }
 
@@ -167,6 +168,9 @@ model Booking {
   endDate        DateTime
   numberOfDays   Int
   basePrice      Decimal       @default(0) @db.Decimal(10, 2)
+  subtotal        Decimal       @default(0) @db.Decimal(10, 2)
+  taxRate         Decimal       @default(0) @db.Decimal(5, 4)
+  taxAmount       Decimal       @default(0) @db.Decimal(10, 2)
   totalPrice     Decimal       @default(0) @db.Decimal(10, 2)
   guestName      String?
   guestPhone     String?
@@ -177,6 +181,8 @@ model Booking {
   // Re-mapped: Booking now holds the foreign key pointing to the Documents snapshot [1]
   documentId     String?       
   documents      Documents?    @relation("BookingDocuments", fields: [documentId], references: [id], onDelete: SetNull)
+  documentRejectedAt DateTime?
+  documentReuploadDeadline DateTime?
   
   reminderSentAt DateTime?                          
   payment        Payment?
@@ -187,6 +193,7 @@ model Booking {
   @@index([carId])
   @@index([status])
   @@index([startDate])
+  @@index([documentReuploadDeadline])
 }
 
 model Payment {
@@ -194,6 +201,9 @@ model Payment {
   bookingId       String        @unique
   booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   amount          Decimal @db.Decimal(10,2)
+  refundedAmount  Decimal @default(0) @db.Decimal(10,2)
+  refundPolicy    String?
+  refundedAt      DateTime?
   paymentMethodId String?
   paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
   status          PaymentStatus  @default(PENDING)

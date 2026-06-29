@@ -8,6 +8,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import MenuItem from '@mui/material/MenuItem';
@@ -62,6 +67,9 @@ const GET_ADMIN_BOOKING_DETAILS_QUERY = gql`
       payment {
         id
         amount
+        refundedAmount
+        refundPolicy
+        refundedAt
         status
         createdAt
         updatedAt
@@ -83,6 +91,12 @@ const GET_ADMIN_BOOKING_DETAILS_QUERY = gql`
     paymentMethods {
       id
       name
+    }
+    refundPreview(bookingId: $id) {
+      policy
+      refundAmount
+      keepAmount
+      hoursUntilPickup
     }
   }
 `;
@@ -114,6 +128,9 @@ const ADMIN_RECORD_BOOKING_PAYMENT_MUTATION = gql`
     adminRecordBookingPayment(bookingId: $bookingId, paymentMethodId: $paymentMethodId, amount: $amount) {
       id
       amount
+      refundedAmount
+      refundPolicy
+      refundedAt
       status
       paymentMethod {
         id
@@ -129,6 +146,9 @@ const ADMIN_REFUND_BOOKING_PAYMENT_MUTATION = gql`
       id
       status
       amount
+      refundedAmount
+      refundPolicy
+      refundedAt
       paymentMethod {
         id
         name
@@ -181,6 +201,8 @@ export default function AdminBookingDetailsPage() {
   const [paymentMethodId, setPaymentMethodId] = React.useState('');
   const [paymentAmount, setPaymentAmount] = React.useState('');
   const [paymentLink, setPaymentLink] = React.useState('');
+  const [refundDialogOpen, setRefundDialogOpen] = React.useState(false);
+  const [cancelStatusDialogOpen, setCancelStatusDialogOpen] = React.useState(false);
 
   const { data, loading, error, refetch } = useQuery(GET_ADMIN_BOOKING_DETAILS_QUERY, {
     variables: { id: bookingId },
@@ -206,6 +228,7 @@ export default function AdminBookingDetailsPage() {
 
   const booking = data?.booking;
   const paymentMethods = data?.paymentMethods ?? [];
+  const refundPreview = data?.refundPreview;
 
   React.useEffect(() => {
     if (booking?.totalPrice != null) {
@@ -215,11 +238,26 @@ export default function AdminBookingDetailsPage() {
 
   const handleStatusChange = async (status: string) => {
     if (!booking) return;
+    if (status === 'CANCELLED') {
+      setCancelStatusDialogOpen(true);
+      return;
+    }
     try {
       await updateStatus({ variables: { id: booking.id, status } });
       showToast(`Booking status updated to ${status}.`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to update booking status.', 'error');
+    }
+  };
+
+  const handleConfirmCancelStatus = async () => {
+    if (!booking) return;
+    try {
+      await updateStatus({ variables: { id: booking.id, status: 'CANCELLED' } });
+      setCancelStatusDialogOpen(false);
+      showToast('Booking cancelled.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to cancel booking.', 'error');
     }
   };
 
@@ -247,10 +285,10 @@ export default function AdminBookingDetailsPage() {
 
   const handleRefundPayment = async () => {
     if (!booking) return;
-    if (!window.confirm('Do you want to refund this booking payment?')) return;
 
     try {
       await refundPayment({ variables: { bookingId: booking.id } });
+      setRefundDialogOpen(false);
       showToast('Payment refunded successfully.', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to refund payment.', 'error');
@@ -296,8 +334,21 @@ export default function AdminBookingDetailsPage() {
   const isCourtesy = booking.type === 'COURTESY';
   const isPayableRental = booking.type === 'RENTAL';
   const isOnsiteRental = isPayableRental && !booking.userId;
-  const canRecordPayment = isPayableRental && booking.payment?.status !== 'PAID';
+  const bookingListHref = isCourtesy
+    ? '/admin/bookings/courtesy'
+    : isOnsiteRental
+      ? '/admin/bookings/onsite'
+      : '/admin/bookings/online';
+  const canRecordPayment = isPayableRental && (!booking.payment || ['PENDING', 'FAILED'].includes(booking.payment.status));
   const canRefundPayment = isPayableRental && booking.payment?.status === 'PAID';
+  const paymentAmountPaid = Number(booking.payment?.amount ?? 0);
+  const paymentRefundedAmount = Number(booking.payment?.refundedAmount ?? 0);
+  const paymentRetainedAmount = Math.max(paymentAmountPaid - paymentRefundedAmount, 0);
+  const previewRefundAmount = Number(refundPreview?.refundAmount ?? 0);
+  const previewKeepAmount = Number(refundPreview?.keepAmount ?? paymentRetainedAmount);
+  const previewDaysUntilPickup = refundPreview
+    ? Math.max(refundPreview.hoursUntilPickup / 24, 0)
+    : null;
   const canUploadDocuments = isPayableRental && !booking.documents && !['CANCELLED', 'REJECTED', 'COMPLETED'].includes(booking.status);
   const onsiteReadiness = [
     { label: 'Guest name', ready: !isOnsiteRental || !!booking.guestName },
@@ -311,7 +362,7 @@ export default function AdminBookingDetailsPage() {
     <Box sx={{ py: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 4, flexDirection: { xs: 'column', md: 'row' } }}>
         <Box>
-          <Button component={Link} href="/admin/bookings" sx={{ mb: 1, textTransform: 'none', fontWeight: 700 }}>
+          <Button component={Link} href={bookingListHref} sx={{ mb: 1, textTransform: 'none', fontWeight: 700 }}>
             Back to bookings
           </Button>
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
@@ -428,7 +479,23 @@ export default function AdminBookingDetailsPage() {
               <>
                 <FieldRow label="Status" value={<StatusBadge status={booking.payment.status} />} />
                 <Divider />
-                <FieldRow label="Amount" value={`${Number(booking.payment.amount).toFixed(2)} EUR`} />
+                <FieldRow label="Paid amount" value={`${paymentAmountPaid.toFixed(2)} EUR`} />
+                <Divider />
+                <FieldRow label="Refunded" value={`${paymentRefundedAmount.toFixed(2)} EUR`} />
+                <Divider />
+                <FieldRow label="Retained" value={`${paymentRetainedAmount.toFixed(2)} EUR`} />
+                {booking.payment.refundPolicy && (
+                  <>
+                    <Divider />
+                    <FieldRow label="Refund policy" value={booking.payment.refundPolicy} />
+                  </>
+                )}
+                {booking.payment.refundedAt && (
+                  <>
+                    <Divider />
+                    <FieldRow label="Refunded date" value={new Date(booking.payment.refundedAt).toLocaleDateString()} />
+                  </>
+                )}
                 <Divider />
                 <FieldRow label="Method" value={booking.payment.paymentMethod?.name || '-'} />
               </>
@@ -501,7 +568,7 @@ export default function AdminBookingDetailsPage() {
                 color="error"
                 fullWidth
                 disabled={refundingPayment}
-                onClick={handleRefundPayment}
+                onClick={() => setRefundDialogOpen(true)}
                 sx={{ mt: 3, textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
               >
                 {refundingPayment ? <CircularProgress size={20} /> : 'Refund Payment'}
@@ -543,6 +610,90 @@ export default function AdminBookingDetailsPage() {
           </Card>
         </Grid>
       </Grid>
+
+      <Dialog
+        open={refundDialogOpen}
+        onClose={refundingPayment ? undefined : () => setRefundDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Refund payment?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            This will issue a refund using the configured refund policy for this booking.
+          </DialogContentText>
+          {booking.payment && (
+            <Box sx={{ bgcolor: 'grey.50', border: '1px solid', borderColor: 'divider', borderRadius: '8px', p: 2 }}>
+              <FieldRow label="Paid amount" value={`${paymentAmountPaid.toFixed(2)} EUR`} />
+              <Divider />
+              <FieldRow label="Already refunded" value={`${paymentRefundedAmount.toFixed(2)} EUR`} />
+              <Divider />
+              <FieldRow label="Estimated refund" value={`${previewRefundAmount.toFixed(2)} EUR`} />
+              <Divider />
+              <FieldRow label="Retained after refund" value={`${previewKeepAmount.toFixed(2)} EUR`} />
+              {refundPreview && (
+                <>
+                  <Divider />
+                  <FieldRow label="Policy" value={refundPreview.policy} />
+                  <Divider />
+                  <FieldRow label="Starts in" value={previewDaysUntilPickup != null ? `${previewDaysUntilPickup.toFixed(1)} day(s)` : '-'} />
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            disabled={refundingPayment}
+            onClick={() => setRefundDialogOpen(false)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={refundingPayment}
+            onClick={handleRefundPayment}
+            sx={{ textTransform: 'none', fontWeight: 800 }}
+          >
+            {refundingPayment ? <CircularProgress size={20} color="inherit" /> : 'Confirm refund'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={cancelStatusDialogOpen}
+        onClose={updatingStatus ? undefined : () => setCancelStatusDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Cancel booking?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will cancel the booking. If payment exists, the configured refund policy will be applied.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            disabled={updatingStatus}
+            onClick={() => setCancelStatusDialogOpen(false)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            No
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={updatingStatus}
+            onClick={handleConfirmCancelStatus}
+            sx={{ textTransform: 'none', fontWeight: 800 }}
+          >
+            {updatingStatus ? <CircularProgress size={20} color="inherit" /> : 'Yes, cancel'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

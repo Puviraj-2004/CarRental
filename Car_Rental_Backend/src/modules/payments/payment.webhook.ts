@@ -1,9 +1,12 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PaymentStatus, PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
 import { getStripeClient } from '../../config/stripe';
 import { env } from '../../config/env';
 import { securityLogger } from '../../config/logger';
+
+const getRefundStatus = (paidAmount: number, refundedAmount: number): PaymentStatus =>
+  refundedAmount >= paidAmount ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
 
 export async function handleStripeWebhook(req: Request, res: Response, prisma: PrismaClient): Promise<void> {
   const sig = req.headers['stripe-signature'];
@@ -34,9 +37,19 @@ export async function handleStripeWebhook(req: Request, res: Response, prisma: P
     case 'checkout.session.completed':
       await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, prisma);
       break;
+    case 'checkout.session.expired':
+      await handleCheckoutSessionExpired(event.data.object as Stripe.Checkout.Session, prisma);
+      break;
+    case 'payment_intent.payment_failed':
+    case 'payment_intent.canceled':
+      await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent, prisma, event.type);
+      break;
     case 'charge.refunded':
-    case 'charge.refund.updated':
       await handleChargeRefunded(event.data.object as Stripe.Charge, prisma);
+      break;
+    case 'charge.refund.updated':
+    case 'refund.updated':
+      await handleRefundUpdated(event.data.object as Stripe.Refund, prisma);
       break;
     default:
       securityLogger.info(`Unhandled webhook event type: ${event.type}`);
@@ -101,6 +114,70 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   securityLogger.info('Payment captured and booking confirmed', { bookingId, paymentIntentId });
 }
 
+async function handleCheckoutSessionExpired(session: Stripe.Checkout.Session, prisma: PrismaClient) {
+  const bookingId = session.metadata?.bookingId;
+
+  const payment = bookingId
+    ? await prisma.payment.findUnique({ where: { bookingId } })
+    : await prisma.payment.findFirst({ where: { stripeId: session.id } });
+
+  if (!payment || payment.status !== 'PENDING') {
+    securityLogger.info('Expired checkout session ignored', {
+      bookingId,
+      sessionId: session.id,
+      paymentStatus: payment?.status,
+    });
+    return;
+  }
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: { status: 'FAILED' },
+  });
+
+  securityLogger.info('Expired checkout session marked payment failed', {
+    bookingId: payment.bookingId,
+    sessionId: session.id,
+  });
+}
+
+async function handlePaymentIntentFailed(
+  paymentIntent: Stripe.PaymentIntent,
+  prisma: PrismaClient,
+  eventType: string,
+) {
+  const bookingId = paymentIntent.metadata?.bookingId;
+
+  let payment = bookingId ? await prisma.payment.findUnique({ where: { bookingId } }) : null;
+  if (!payment) {
+    payment = await prisma.payment.findFirst({ where: { stripeId: paymentIntent.id } });
+  }
+
+  if (!payment || payment.status === 'PAID' || payment.status === 'PARTIALLY_REFUNDED' || payment.status === 'REFUNDED') {
+    securityLogger.info('PaymentIntent failure/cancel ignored', {
+      eventType,
+      bookingId,
+      paymentIntentId: paymentIntent.id,
+      paymentStatus: payment?.status,
+    });
+    return;
+  }
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      status: 'FAILED',
+      stripeId: paymentIntent.id,
+    },
+  });
+
+  securityLogger.info('PaymentIntent marked payment failed', {
+    eventType,
+    bookingId: payment.bookingId,
+    paymentIntentId: paymentIntent.id,
+  });
+}
+
 async function handleChargeRefunded(charge: Stripe.Charge, prisma: PrismaClient) {
   const bookingId = charge.metadata?.bookingId;
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
@@ -111,9 +188,17 @@ async function handleChargeRefunded(charge: Stripe.Charge, prisma: PrismaClient)
   }
 
   if (payment) {
+    const refundedAmount = (charge.amount_refunded ?? 0) / 100;
+    const status = getRefundStatus(Number(payment.amount), refundedAmount);
+
     await prisma.payment.update({
       where: { id: payment.id },
-      data: { status: 'REFUNDED' },
+      data: {
+        status,
+        refundedAmount,
+        refundPolicy: status === PaymentStatus.REFUNDED ? 'FULL' : payment.refundPolicy ?? 'PARTIAL',
+        refundedAt: new Date(),
+      },
     });
 
     // Only transition to CANCELLED if booking is in a cancellable state
@@ -142,4 +227,51 @@ async function handleChargeRefunded(charge: Stripe.Charge, prisma: PrismaClient)
   } else {
     securityLogger.warn('Refund event: payment not found', { chargeId: charge.id });
   }
+}
+
+async function handleRefundUpdated(refund: Stripe.Refund, prisma: PrismaClient) {
+  if (refund.status !== 'succeeded') {
+    securityLogger.info('Refund update ignored until succeeded', {
+      refundId: refund.id,
+      status: refund.status,
+    });
+    return;
+  }
+
+  const bookingId = refund.metadata?.bookingId;
+  const paymentIntentId = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+
+  let payment = bookingId ? await prisma.payment.findUnique({ where: { bookingId } }) : null;
+  if (!payment && paymentIntentId) {
+    payment = await prisma.payment.findFirst({ where: { stripeId: paymentIntentId } });
+  }
+
+  if (!payment) {
+    securityLogger.warn('Refund update: payment not found', {
+      refundId: refund.id,
+      bookingId,
+      paymentIntentId,
+    });
+    return;
+  }
+
+  const refundAmount = refund.amount / 100;
+  const refundedAmount = Math.max(Number(payment.refundedAmount), refundAmount);
+  const status = getRefundStatus(Number(payment.amount), refundedAmount);
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      status,
+      refundedAmount,
+      refundPolicy: refund.metadata?.policy ?? (status === PaymentStatus.REFUNDED ? 'FULL' : payment.refundPolicy ?? 'PARTIAL'),
+      refundedAt: new Date(),
+    },
+  });
+
+  securityLogger.info('Refund update marked payment refunded', {
+    refundId: refund.id,
+    bookingId: payment.bookingId,
+    paymentIntentId,
+  });
 }

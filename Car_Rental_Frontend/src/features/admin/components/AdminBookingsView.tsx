@@ -11,6 +11,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Pagination from '@mui/material/Pagination';
 import Paper from '@mui/material/Paper';
@@ -20,8 +21,16 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import AddIcon from '@mui/icons-material/Add';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 interface AdminBookingsViewProps {
   title: string;
@@ -84,11 +93,18 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
   onStatusChange,
 }) => {
   const [startBookingId, setStartBookingId] = React.useState<string | null>(null);
+  const [cancelBookingId, setCancelBookingId] = React.useState<string | null>(null);
 
   const handleConfirmStart = () => {
     if (!startBookingId) return;
     onStatusChange(startBookingId, 'ONGOING');
     setStartBookingId(null);
+  };
+
+  const handleConfirmCancel = () => {
+    if (!cancelBookingId) return;
+    onStatusChange(cancelBookingId, 'CANCELLED');
+    setCancelBookingId(null);
   };
 
   return (
@@ -103,9 +119,11 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
           </Typography>
         </Box>
         {createHref && createLabel && (
-          <Button component={Link} href={createHref} variant="contained" sx={{ textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}>
-            {createLabel}
-          </Button>
+          <Tooltip title={createLabel}>
+            <IconButton component={Link} href={createHref} color="primary" sx={{ border: '1px solid', borderColor: 'divider' }}>
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
         )}
       </Box>
 
@@ -214,57 +232,72 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
                       <TableCell>{renderStatusChip(booking.status)}</TableCell>
                       <TableCell sx={{ textAlign: 'right' }}>
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                          <Button component={Link} href={`/admin/bookings/${booking.id}`} variant="text" size="small" sx={{ textTransform: 'none', fontWeight: 700 }}>
-                            Details
-                          </Button>
+                          <Tooltip title="View details">
+                            <IconButton component={Link} href={`/admin/bookings/${booking.id}`} size="small" color="primary">
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
 
                           {hasUploadedDocs && !isCourtesy && (
-                            <Button
-                              component={Link}
-                              href={`/admin/bookings/${booking.id}/documents`}
-                              variant="outlined"
-                              size="small"
-                              disabled={booking.status === 'CANCELLED'}
-                              sx={{ textTransform: 'none', fontWeight: 700 }}
-                            >
-                              Review KYC
-                            </Button>
+                            <Tooltip title={booking.status === 'CANCELLED' ? 'KYC review disabled for cancelled bookings' : 'Review KYC'}>
+                              <span>
+                                <IconButton
+                                  component={Link}
+                                  href={`/admin/bookings/${booking.id}/documents`}
+                                  size="small"
+                                  color="secondary"
+                                  disabled={booking.status === 'CANCELLED'}
+                                >
+                                  <FactCheckIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           )}
 
                           {booking.status === 'RESERVED' && (
-                            <Button
-                              variant="contained"
-                              size="small"
-                              disabled={!isReadyToProgress}
-                              onClick={() => onStatusChange(booking.id, 'CONFIRMED')}
-                              sx={{ textTransform: 'none', fontWeight: 700 }}
-                            >
-                              Confirm
-                            </Button>
+                            <Tooltip title={isReadyToProgress ? 'Confirm booking' : 'Booking is not ready'}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  disabled={!isReadyToProgress}
+                                  onClick={() => onStatusChange(booking.id, 'CONFIRMED')}
+                                >
+                                  <CheckCircleIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           )}
 
                           {booking.status === 'CONFIRMED' && (
-                            <Button
-                              variant="contained"
-                              size="small"
-                              disabled={!isReadyToProgress}
-                              onClick={() => setStartBookingId(booking.id)}
-                              sx={{ textTransform: 'none', fontWeight: 700 }}
-                            >
-                              Start
-                            </Button>
+                            <Tooltip title={isReadyToProgress ? 'Start trip' : 'Booking is not ready'}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  disabled={!isReadyToProgress}
+                                  onClick={() => setStartBookingId(booking.id)}
+                                >
+                                  <PlayArrowIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           )}
 
                           {booking.status === 'ONGOING' && (
-                            <Button variant="contained" color="success" size="small" onClick={() => onStatusChange(booking.id, 'COMPLETED')} sx={{ textTransform: 'none', fontWeight: 700 }}>
-                              Complete
-                            </Button>
+                            <Tooltip title="Complete trip">
+                              <IconButton size="small" color="success" onClick={() => onStatusChange(booking.id, 'COMPLETED')}>
+                                <DoneAllIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           )}
 
                           {booking.status === 'RESERVED' && (
-                            <Button variant="outlined" color="error" size="small" onClick={() => onStatusChange(booking.id, 'CANCELLED')} sx={{ textTransform: 'none', fontWeight: 700 }}>
-                              Cancel
-                            </Button>
+                            <Tooltip title="Cancel booking">
+                              <IconButton size="small" color="error" onClick={() => setCancelBookingId(booking.id)}>
+                                <CancelIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           )}
                         </Box>
                       </TableCell>
@@ -301,6 +334,22 @@ export const AdminBookingsView: React.FC<AdminBookingsViewProps> = ({
           </Button>
           <Button variant="contained" onClick={handleConfirmStart} sx={{ textTransform: 'none', fontWeight: 700 }}>
             Yes, Start
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={!!cancelBookingId} onClose={() => setCancelBookingId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Cancel booking</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Do you want to cancel this booking? Any eligible refund will follow the configured refund policy.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCancelBookingId(null)} sx={{ textTransform: 'none', fontWeight: 700 }}>
+            No
+          </Button>
+          <Button variant="contained" color="error" onClick={handleConfirmCancel} sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Yes, cancel
           </Button>
         </DialogActions>
       </Dialog>

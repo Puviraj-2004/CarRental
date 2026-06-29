@@ -55,12 +55,10 @@ export const PaymentSuccessContainer: React.FC<{ bookingId: string }> = ({ booki
     );
   }
 
-  // Centralised calculations [1.2.1]
-  const basePrice = Number(booking.basePrice);
-  const subtotal = basePrice * booking.numberOfDays;
-  const envTaxRate = process.env.NEXT_PUBLIC_TAX_RATE ? parseFloat(process.env.NEXT_PUBLIC_TAX_RATE) : 0.20;
-  const taxAmount = subtotal * envTaxRate;
-  const totalAmount = subtotal + taxAmount;
+  const subtotal = Number(booking.subtotal);
+  const totalAmount = Number(booking.totalPrice);
+  const taxAmount = Number(booking.taxAmount);
+  const taxPercentage = Number(booking.taxRate) * 100;
 
   return (
     <PaymentSuccessView
@@ -70,7 +68,7 @@ export const PaymentSuccessContainer: React.FC<{ bookingId: string }> = ({ booki
       subtotal={subtotal}
       taxAmount={taxAmount}
       totalAmount={totalAmount}
-      taxPercentage={envTaxRate * 100}
+      taxPercentage={taxPercentage}
     />
   );
 };
