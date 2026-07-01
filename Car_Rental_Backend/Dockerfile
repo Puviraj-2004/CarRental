@@ -47,7 +47,7 @@ COPY --from=builder /app/dist ./dist/
 
 # Copy & permission the entrypoint script
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs

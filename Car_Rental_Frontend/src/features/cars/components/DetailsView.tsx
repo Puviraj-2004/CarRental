@@ -205,7 +205,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         
         {/* ─── LEFT PANEL: MEDIA GALLERY ───────────────────────────────── */}
         <Grid item xs={12} md={7}>
-          <Box sx={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid', borderColor: 'divider', mb: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', bgcolor: 'grey.100' }}>
+          <Box sx={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid', borderColor: 'divider', mb: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', bgcolor: 'grey.100' }}>
             <img src={primaryImage} alt={`${car.model.brand.name}`} style={{ width: '100%', maxHeight: '420px', objectFit: 'cover', display: 'block' }} />
           </Box>
           
@@ -245,7 +245,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           </Typography>
 
           {/* Pricing Overview */}
-          <Card variant="outlined" sx={{ p: 3, borderRadius: '16px', mb: 4, bgcolor: 'background.paper' }}>
+          <Card variant="outlined" sx={{ p: 3, borderRadius: '8px', mb: 4, bgcolor: 'background.paper' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
               <Box>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -284,7 +284,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           </Card>
 
           {/* Availability Calendar */}
-          <Card variant="outlined" sx={{ p: 3, borderRadius: '16px', mb: 4, bgcolor: 'background.paper' }}>
+          <Card variant="outlined" sx={{ p: 3, borderRadius: '8px', mb: 4, bgcolor: 'background.paper' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <EventAvailableIcon sx={{ color: 'primary.main' }} />
@@ -333,6 +333,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
                     return (
                       <Grid item xs={1} key={day.date}>
                         <Box
+                          onClick={() => handleCalendarDayClick(day.date, day.available)}
                           sx={{
                             borderRadius: '8px',
                             py: 1,
@@ -344,7 +345,15 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
                             border: '1px solid',
                             borderColor,
                             opacity,
-                            userSelect: 'none' 
+                            userSelect: 'none',
+                            cursor: isPast ? 'not-allowed' : 'pointer',
+                            transition: 'transform 120ms ease, box-shadow 120ms ease',
+                            '&:hover': isPast
+                              ? {}
+                              : {
+                                  transform: 'translateY(-1px)',
+                                  boxShadow: 1,
+                                },
                           }}
                         >
                           {new Date(day.date).getDate()}

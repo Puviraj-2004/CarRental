@@ -78,6 +78,7 @@ export const GET_AVAILABLE_CARS_QUERY = gql`
     availableCars(startDate: $startDate, endDate: $endDate, pagination: $pagination) {
       items {
         id
+        plateNumber
         basePrice
         status
         primaryImageUrl
@@ -101,6 +102,15 @@ export const GET_AVAILABLE_CARS_QUERY = gql`
         hasNextPage
         hasPreviousPage
       }
+    }
+  }
+`;
+
+export const GET_FUEL_TYPES_QUERY = gql`
+  query GetFuelTypes {
+    fuelTypes {
+      id
+      name
     }
   }
 `;

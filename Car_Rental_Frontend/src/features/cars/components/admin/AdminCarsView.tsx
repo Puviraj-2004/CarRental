@@ -5,20 +5,28 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
 import Link from 'next/link';
 import type { Car } from '../../hooks/useCar';
 
@@ -70,14 +78,16 @@ export const AdminCarsView: React.FC<AdminCarsViewProps> = ({
             {t('adminCars.list.subtitle')}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          component={Link}
-          href="/admin/cars/add"
-          sx={{ fontWeight: 700, textTransform: 'none', px: 3, py: 1.2, alignSelf: { xs: 'stretch', sm: 'auto' }, borderRadius: '8px' }}
-        >
-          + {t('adminCars.list.addBtn')}
-        </Button>
+        <Tooltip title={t('adminCars.list.addBtn')}>
+          <IconButton
+            color="primary"
+            component={Link}
+            href="/admin/cars/add"
+            sx={{ border: 1, borderColor: 'divider', borderRadius: '8px', alignSelf: { xs: 'flex-end', sm: 'auto' } }}
+          >
+            <AddRoundedIcon />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 4, borderRadius: '8px' }}>{error}</Alert>}
@@ -92,7 +102,7 @@ export const AdminCarsView: React.FC<AdminCarsViewProps> = ({
         <Box>
           {/* ─── DESKTOP TABLE ───────────────────────────────────────── */}
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            <Paper variant="outlined" sx={{ borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+            <Paper variant="outlined" sx={{ borderRadius: '8px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
               <Table>
                 <TableHead sx={{ bgcolor: 'grey.50' }}>
                   <TableRow>
@@ -107,57 +117,60 @@ export const AdminCarsView: React.FC<AdminCarsViewProps> = ({
                   {cars.map((car) => (
                     <TableRow key={car.id} hover>
                       <TableCell sx={{ fontWeight: 600 }}>
-                        {car.model.brand.name} {car.model.name}
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <Box
+                            component="img"
+                            src={car.primaryImageUrl || 'https://via.placeholder.com/96x64?text=Car'}
+                            alt={`${car.model.brand.name} ${car.model.name}`}
+                            sx={{ width: 72, height: 48, objectFit: 'cover', borderRadius: '6px', bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }}
+                          />
+                          <Box>
+                            <Typography sx={{ fontWeight: 750 }}>
+                              {car.model.brand.name} {car.model.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {car.fuelType?.name || '-'}
+                            </Typography>
+                          </Box>
+                        </Stack>
                       </TableCell>
                       <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{car.plateNumber}</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: 'primary.main' }}>
                         {Number(car.basePrice).toFixed(2)} €
                       </TableCell>
                       <TableCell>
-                        <Box
-                          sx={{
-                            display: 'inline-block',
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            bgcolor: car.status === 'AVAILABLE' ? '#ecfdf5' : '#fef2f2',
-                            color: car.status === 'AVAILABLE' ? '#059669' : '#dc2626',
-                          }}
-                        >
-                          {car.status}
-                        </Box>
+                        <Chip
+                          label={car.status}
+                          size="small"
+                          color={car.status === 'AVAILABLE' ? 'success' : 'default'}
+                          sx={{ fontWeight: 800 }}
+                        />
                       </TableCell>
                       <TableCell sx={{ textAlign: 'right' }}>
-                        <Button
-                          component={Link}
-                          href={`/admin/cars/${car.id}/gallery`} // <-- Added: Redirects to dedicated gallery manager [1]
-                          variant="outlined"
-                          size="small"
-                          sx={{ mr: 1, textTransform: 'none', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                          Gallery
-                        </Button>
-                        <Button
-                          component={Link}
-                          href={`/admin/cars/${car.id}`}
-                          variant="outlined"
-                          size="small"
-                          sx={{ mr: 1, textTransform: 'none', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                          {t('common.edit')}
-                        </Button>
-                        <Button
-                          variant="contained"
-                          color="error"
-                          size="small"
-                          disabled={deletingId === car.id}
-                          onClick={() => handleOpenDeleteDialog(car.id)}
-                          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '6px' }}
-                        >
-                          {deletingId === car.id ? <CircularProgress size={16} color="inherit" /> : t('common.delete')}
-                        </Button>
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title={t('adminCars.list.gallery')}>
+                            <IconButton component={Link} href={`/admin/cars/${car.id}/gallery`} size="small">
+                              <PhotoLibraryRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={t('common.edit')}>
+                            <IconButton component={Link} href={`/admin/cars/${car.id}`} size="small">
+                              <EditRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={t('common.delete')}>
+                            <span>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                disabled={deletingId === car.id}
+                                onClick={() => handleOpenDeleteDialog(car.id)}
+                              >
+                                {deletingId === car.id ? <CircularProgress size={18} /> : <DeleteRoundedIcon fontSize="small" />}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -169,24 +182,28 @@ export const AdminCarsView: React.FC<AdminCarsViewProps> = ({
           {/* ─── MOBILE CARDS ────────────────────────────────────────── */}
           <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 2 }}>
             {cars.map((car) => (
-              <Card key={car.id} sx={{ p: 2.5, borderRadius: '16px', border: 1, borderColor: 'grey.150', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {car.model.brand.name} {car.model.name}
-                  </Typography>
+              <Card key={car.id} variant="outlined" sx={{ p: 2, borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 2 }}>
                   <Box
-                    sx={{
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      bgcolor: car.status === 'AVAILABLE' ? '#ecfdf5' : '#fef2f2',
-                      color: car.status === 'AVAILABLE' ? '#059669' : '#dc2626',
-                    }}
-                  >
-                    {car.status}
+                    component="img"
+                    src={car.primaryImageUrl || 'https://via.placeholder.com/120x80?text=Car'}
+                    alt={`${car.model.brand.name} ${car.model.name}`}
+                    sx={{ width: 88, height: 64, objectFit: 'cover', borderRadius: '6px', border: '1px solid', borderColor: 'divider', bgcolor: 'grey.100' }}
+                  />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                      {car.model.brand.name} {car.model.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {car.fuelType?.name || '-'}
+                    </Typography>
                   </Box>
+                  <Chip
+                    label={car.status}
+                    size="small"
+                    color={car.status === 'AVAILABLE' ? 'success' : 'default'}
+                    sx={{ fontWeight: 800 }}
+                  />
                 </Box>
 
                 <Grid container spacing={1} sx={{ fontSize: '13px', color: 'text.secondary', mb: 2 }}>
@@ -200,38 +217,30 @@ export const AdminCarsView: React.FC<AdminCarsViewProps> = ({
                   </Grid>
                 </Grid>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Button
-                    component={Link}
-                    href={`/admin/cars/${car.id}/gallery`} // <-- Added Mobile Support [1]
-                    variant="outlined"
-                    fullWidth
-                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '8px' }}
-                  >
-                    Manage Gallery
-                  </Button>
-                  <Box sx={{ display: 'flex', gap: 1.5 }}>
-                    <Button
-                      component={Link}
-                      href={`/admin/cars/${car.id}`}
-                      variant="outlined"
-                      fullWidth
-                      sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '8px' }}
-                    >
-                      {t('common.edit')}
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      fullWidth
-                      disabled={deletingId === car.id}
-                      onClick={() => handleOpenDeleteDialog(car.id)}
-                      sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '8px' }}
-                    >
-                      {deletingId === car.id ? <CircularProgress size={16} /> : t('common.delete')}
-                    </Button>
-                  </Box>
-                </Box>
+                <Stack direction="row" spacing={0.75} justifyContent="flex-end">
+                  <Tooltip title={t('adminCars.list.gallery')}>
+                    <IconButton component={Link} href={`/admin/cars/${car.id}/gallery`} size="small">
+                      <PhotoLibraryRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('common.edit')}>
+                    <IconButton component={Link} href={`/admin/cars/${car.id}`} size="small">
+                      <EditRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t('common.delete')}>
+                    <span>
+                      <IconButton
+                        color="error"
+                        size="small"
+                        disabled={deletingId === car.id}
+                        onClick={() => handleOpenDeleteDialog(car.id)}
+                      >
+                        {deletingId === car.id ? <CircularProgress size={18} /> : <DeleteRoundedIcon fontSize="small" />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
               </Card>
             ))}
           </Box>
@@ -241,7 +250,7 @@ export const AdminCarsView: React.FC<AdminCarsViewProps> = ({
       <Dialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
-        sx={{ '& .MuiDialog-paper': { borderRadius: '16px', p: 1.5 } }}
+        sx={{ '& .MuiDialog-paper': { borderRadius: '8px', p: 1.5 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {t('adminCars.list.deleteDialog.title')}

@@ -8,7 +8,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
 import { CarsView } from './CarsView';
-import { GET_CARS_QUERY, GET_AVAILABLE_CARS_QUERY } from '../graphql/queries';
+import { GET_BRANDS_QUERY, GET_CARS_QUERY, GET_AVAILABLE_CARS_QUERY, GET_FUEL_TYPES_QUERY } from '../graphql/queries';
 import type { CarFilterInput } from '../hooks/useCar';
 
 // Reinstated the original prop definitions [1]
@@ -51,20 +51,21 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
 
   const [filters, setFilters] = useState<CarFilterInput>({
     status: 'AVAILABLE',
-    minPrice: undefined,
-    maxPrice: undefined,
+    brandId: undefined,
+    fuelTypeId: undefined,
     search: undefined,
   });
 
   useEffect(() => {
-    const minPrice = searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined;
-    const maxPrice = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined;
     const search = searchParams.get('search') || undefined;
+    const brandId = searchParams.get('brandId') || undefined;
+    const fuelTypeId = searchParams.get('fuelTypeId') || undefined;
 
     setFilters((prev) => ({
       ...prev,
-      minPrice,
-      maxPrice,
+      brandId,
+      fuelTypeId,
+      status: 'AVAILABLE',
       search,
     }));
   }, [searchParams]);
@@ -87,6 +88,14 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
   const isoStartDate = urlStartDate ? `${urlStartDate}T12:00:00.000Z` : '';
   const isoEndDate = urlEndDate ? `${urlEndDate}T12:00:00.000Z` : '';
 
+  const { data: brandsData } = useQuery(GET_BRANDS_QUERY, {
+    fetchPolicy: 'cache-first',
+  });
+
+  const { data: fuelTypesData } = useQuery(GET_FUEL_TYPES_QUERY, {
+    fetchPolicy: 'cache-first',
+  });
+
   // Query A: Executes ONLY when NO dates are selected [1]
   const { 
     data: carsData, 
@@ -96,9 +105,9 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
     variables: {
       pagination: { page: currentPage, pageSize: 6 },
       filter: {
-        status: 'AVAILABLE',
-        minPrice: filters.minPrice,
-        maxPrice: filters.maxPrice,
+        status: filters.status || 'AVAILABLE',
+        brandId: filters.brandId,
+        fuelTypeId: filters.fuelTypeId,
         search: filters.search,
       },
     },
@@ -132,10 +141,13 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
         if (filters.search && !`${car.model.brand.name} ${car.model.name}`.toLowerCase().includes(filters.search.toLowerCase())) {
           return false;
         }
-        if (filters.minPrice && Number(car.basePrice) < filters.minPrice) {
+        if (filters.status && car.status !== filters.status) {
           return false;
         }
-        if (filters.maxPrice && Number(car.basePrice) > filters.maxPrice) {
+        if (filters.brandId && car.model.brand.id !== filters.brandId) {
+          return false;
+        }
+        if (filters.fuelTypeId && car.fuelType?.id !== filters.fuelTypeId) {
           return false;
         }
         return true;
@@ -170,8 +182,8 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
     router.replace(pathname);
     setFilters({
       status: 'AVAILABLE',
-      minPrice: undefined,
-      maxPrice: undefined,
+      brandId: undefined,
+      fuelTypeId: undefined,
       search: undefined,
     });
   };
@@ -189,6 +201,8 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
       loading={loading}
       error={error ? t('common.error') : null}
       filters={filters}
+      brands={brandsData?.brands || []}
+      fuelTypes={fuelTypesData?.fuelTypes || []}
       startDate={urlStartDate}
       endDate={urlEndDate}
       onFilterChange={handleFilterChange}
