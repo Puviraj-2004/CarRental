@@ -3,32 +3,49 @@
 import { createTheme, Theme } from '@mui/material/styles';
 
 const fontFamily = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const radius = {
+  control: 8,
+  card: 8,
+};
+const color = {
+  primary: '#2563EB',
+  primaryLight: '#DBEAFE',
+  primaryDark: '#1D4ED8',
+  secondary: '#111827',
+  secondaryLight: '#374151',
+  secondaryDark: '#030712',
+  background: '#F8FAFC',
+  paper: '#FFFFFF',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
+  divider: '#E5E7EB',
+};
 
 export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
   createTheme({
     palette: {
       mode: 'light',
       primary: {
-        main: '#2563EB',
-        light: '#DBEAFE',
-        dark: '#1D4ED8',
+        main: color.primary,
+        light: color.primaryLight,
+        dark: color.primaryDark,
         contrastText: '#FFFFFF',
       },
       secondary: {
-        main: '#111827',
-        light: '#374151',
-        dark: '#030712',
+        main: color.secondary,
+        light: color.secondaryLight,
+        dark: color.secondaryDark,
         contrastText: '#FFFFFF',
       },
       background: {
-        default: '#F8FAFC',
-        paper: '#FFFFFF',
+        default: color.background,
+        paper: color.paper,
       },
       text: {
-        primary: '#111827',
-        secondary: '#6B7280',
+        primary: color.textPrimary,
+        secondary: color.textSecondary,
       },
-      divider: '#E5E7EB',
+      divider: color.divider,
       success: {
         main: '#16A34A',
         light: '#DCFCE7',
@@ -66,17 +83,17 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
       overline: { fontWeight: 750, letterSpacing: 0.4, textTransform: 'uppercase' },
     },
     shape: {
-      borderRadius: 8,
+      borderRadius: radius.control,
     },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
           html: {
-            backgroundColor: '#F8FAFC',
+            backgroundColor: color.background,
           },
           body: {
-            backgroundColor: '#F8FAFC',
-            color: '#111827',
+            backgroundColor: color.background,
+            color: color.textPrimary,
           },
           '*': {
             boxSizing: 'border-box',
@@ -88,7 +105,7 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
           root: {
             backgroundImage: 'none',
             boxShadow: 'none',
-            borderBottom: '1px solid #E5E7EB',
+            borderBottom: `1px solid ${color.divider}`,
           },
         },
       },
@@ -96,6 +113,9 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
         styleOverrides: {
           root: {
             backgroundImage: 'none',
+          },
+          outlined: {
+            borderColor: color.divider,
           },
           elevation1: {
             boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
@@ -105,7 +125,8 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
       MuiCard: {
         styleOverrides: {
           root: {
-            border: '1px solid #E5E7EB',
+            border: `1px solid ${color.divider}`,
+            borderRadius: radius.card,
             boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
             backgroundImage: 'none',
           },
@@ -117,8 +138,8 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
         },
         styleOverrides: {
           root: {
-            minHeight: 38,
-            borderRadius: 8,
+            minHeight: 44,
+            borderRadius: radius.control,
             padding: '8px 14px',
             boxShadow: 'none',
           },
@@ -140,7 +161,7 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
       MuiIconButton: {
         styleOverrides: {
           root: {
-            borderRadius: 8,
+            borderRadius: radius.control,
           },
         },
       },
@@ -152,8 +173,8 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            borderRadius: 8,
-            backgroundColor: '#FFFFFF',
+            borderRadius: radius.control,
+            backgroundColor: color.paper,
           },
           notchedOutline: {
             borderColor: '#D1D5DB',
@@ -163,15 +184,27 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
       MuiInputLabel: {
         styleOverrides: {
           root: {
-            color: '#6B7280',
+            color: color.textSecondary,
           },
+        },
+      },
+      MuiSelect: {
+        defaultProps: {
+          size: 'small',
         },
       },
       MuiChip: {
         styleOverrides: {
           root: {
-            borderRadius: 6,
+            borderRadius: radius.control,
             fontWeight: 650,
+          },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: {
+          root: {
+            borderRadius: radius.card,
           },
         },
       },
@@ -179,9 +212,9 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
         styleOverrides: {
           head: {
             backgroundColor: '#F9FAFB',
-            color: '#374151',
+            color: color.secondaryLight,
             fontWeight: 750,
-            borderBottom: '1px solid #E5E7EB',
+            borderBottom: `1px solid ${color.divider}`,
           },
           body: {
             borderBottom: '1px solid #EEF2F7',
@@ -191,14 +224,21 @@ export const getTheme = (_mode: 'light' | 'dark' = 'light'): Theme =>
       MuiListItemButton: {
         styleOverrides: {
           root: {
-            borderRadius: 8,
+            borderRadius: radius.control,
           },
         },
       },
       MuiDialog: {
         styleOverrides: {
           paper: {
-            borderRadius: 8,
+            borderRadius: radius.card,
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: 'none',
           },
         },
       },

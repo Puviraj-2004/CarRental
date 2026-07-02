@@ -8,11 +8,22 @@ export const navbar = {
   admin: "Admin",
   login: "Login",
   logout: "Logout",
+
+  menuTitle: "Blue Drive",
+  menuSubtitle: "Premium car rental platform",
+  account: "Account",
+  guest: "Guest access",
+  authenticated: "Signed in",
+  adminDashboard: "Admin Dashboard",
+  dashboardDescription: "Manage fleet, bookings, users, and rental operations.",
+  loginDescription: "Sign in to manage bookings, documents, and profile details.",
+
   logoutConfirm: "Do you want to logout?",
   logoutTitle: "Confirm logout",
   logoutDescription: "You will be signed out of this session.",
   logoutCancel: "Stay signed in",
   logoutAction: "Logout",
+
   openMenu: "Open menu",
   closeMenu: "Close menu",
   toggleTheme: "Toggle theme",

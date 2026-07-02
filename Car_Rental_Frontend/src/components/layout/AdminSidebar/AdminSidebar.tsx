@@ -11,16 +11,25 @@ import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded';
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
@@ -28,7 +37,9 @@ import { usePathname } from 'next/navigation';
 import { getSession, signOut } from 'next-auth/react';
 import { useMutation } from '@apollo/client';
 import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
+import { CHANGE_PASSWORD_MUTATION } from '@/hooks/useProfile';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/lib/ToastContext';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 import { LogoutConfirmDialog } from '../LogoutConfirmDialog';
 
@@ -217,9 +228,22 @@ export const AdminNavigation: React.FC<AdminNavigationProps> = ({ collapsed = fa
 
 export const AdminSidebar: React.FC = () => {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [logoutMutation, { loading: loggingOut }] = useMutation(LOGOUT_MUTATION);
+  const [changePasswordMutation, { loading: changingPassword }] = useMutation(CHANGE_PASSWORD_MUTATION);
   const [collapsed, setCollapsed] = React.useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
+  const [passwordValues, setPasswordValues] = React.useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [visiblePasswords, setVisiblePasswords] = React.useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+  });
 
   React.useEffect(() => {
     document.documentElement.style.setProperty('--admin-sidebar-width', collapsed ? '72px' : '248px');
@@ -237,6 +261,76 @@ export const AdminSidebar: React.FC = () => {
       await signOut({ callbackUrl: '/' });
     }
   };
+
+  const closeChangePasswordDialog = () => {
+    if (changingPassword) return;
+    setChangePasswordOpen(false);
+    setPasswordValues({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setVisiblePasswords({ currentPassword: false, newPassword: false, confirmPassword: false });
+  };
+
+  const handlePasswordFieldChange =
+    (field: keyof typeof passwordValues) =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setPasswordValues((current) => ({ ...current, [field]: event.target.value }));
+    };
+
+  const togglePasswordVisibility = (field: keyof typeof visiblePasswords) => {
+    setVisiblePasswords((current) => ({ ...current, [field]: !current[field] }));
+  };
+
+  const handleChangePassword = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (passwordValues.newPassword !== passwordValues.confirmPassword) {
+      showToast(t('admin.changePassword.passwordMismatch'), 'error');
+      return;
+    }
+
+    try {
+      await changePasswordMutation({
+        variables: {
+          currentPassword: passwordValues.currentPassword,
+          newPassword: passwordValues.newPassword,
+        },
+      });
+      showToast(t('admin.changePassword.success'), 'success');
+      closeChangePasswordDialog();
+      await handleLogout();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t('admin.changePassword.error'), 'error');
+    }
+  };
+
+  const renderPasswordField = (
+    field: keyof typeof passwordValues,
+    labelKey: string,
+    autoComplete: string,
+  ) => (
+    <TextField
+      label={t(labelKey)}
+      type={visiblePasswords[field] ? 'text' : 'password'}
+      value={passwordValues[field]}
+      onChange={handlePasswordFieldChange(field)}
+      autoComplete={autoComplete}
+      required
+      fullWidth
+      InputProps={{
+        endAdornment: (
+          <InputAdornment position="end">
+            <IconButton
+              size="small"
+              edge="end"
+              aria-label={visiblePasswords[field] ? t('admin.changePassword.hidePassword') : t('admin.changePassword.showPassword')}
+              onClick={() => togglePasswordVisibility(field)}
+            >
+              {visiblePasswords[field] ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
+            </IconButton>
+          </InputAdornment>
+        ),
+      }}
+    />
+  );
 
   return (
     <>
@@ -298,6 +392,16 @@ export const AdminSidebar: React.FC = () => {
             <LanguageSwitcher />
           </Stack>
         )}
+        <Tooltip title={collapsed ? t('admin.menu.changePassword') : ''} placement="right">
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => setChangePasswordOpen(true)}
+            sx={{ mb: 1, minWidth: 0, px: collapsed ? 0 : 1.5 }}
+          >
+            {collapsed ? <SettingsRoundedIcon fontSize="small" /> : t('admin.menu.changePassword')}
+          </Button>
+        </Tooltip>
         <Tooltip title={collapsed ? t('navbar.logout') : ''} placement="right">
           <Button
             variant="outlined"
@@ -320,6 +424,29 @@ export const AdminSidebar: React.FC = () => {
         void handleLogout();
       }}
     />
+    <Dialog open={changePasswordOpen} onClose={closeChangePasswordDialog} fullWidth maxWidth="xs">
+      <Box component="form" onSubmit={handleChangePassword}>
+        <DialogTitle>{t('admin.changePassword.title')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('admin.changePassword.description')}
+            </Typography>
+            {renderPasswordField('currentPassword', 'admin.changePassword.currentPassword', 'current-password')}
+            {renderPasswordField('newPassword', 'admin.changePassword.newPassword', 'new-password')}
+            {renderPasswordField('confirmPassword', 'admin.changePassword.confirmPassword', 'new-password')}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={closeChangePasswordDialog} disabled={changingPassword || loggingOut} color="inherit">
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" variant="contained" disabled={changingPassword || loggingOut}>
+            {changingPassword || loggingOut ? <CircularProgress color="inherit" size={20} /> : t('admin.changePassword.submit')}
+          </Button>
+        </DialogActions>
+      </Box>
+    </Dialog>
     </>
   );
 };

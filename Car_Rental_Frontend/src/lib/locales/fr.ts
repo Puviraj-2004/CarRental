@@ -5,6 +5,7 @@ import { auth } from './fr/auth';
 import { admin } from './fr/admin';
 import { payment } from './fr/payment';
 import { adminCars, cars } from './fr/cars';
+import { layout } from './fr/layout';
 
 export const fr = {
   common: {
@@ -27,6 +28,7 @@ export const fr = {
   auth,
   admin,
   payment,
+  layout,
   cars,
   adminCars,
 } as unknown as TranslationKeys;

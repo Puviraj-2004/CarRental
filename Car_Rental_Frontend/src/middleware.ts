@@ -35,12 +35,6 @@ export default withAuth(
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
 
-    const guestOnlyPages = ["/login", "/register", "/verify-otp", "/about"]; 
-    if (guestOnlyPages.includes(pathname) && token) {
-      const redirectUrl = isAdminUser ? "/admin/dashboard" : "/cars";
-      return NextResponse.redirect(new URL(redirectUrl, req.url));
-    }
-
     return NextResponse.next();
   },
   {

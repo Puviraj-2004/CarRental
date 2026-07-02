@@ -192,7 +192,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
               borderRadius: '8px',
               p: { xs: 1.25, md: 1.5 },
               bgcolor: 'background.paper',
-              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)',
+              boxShadow: 1,
             }}
           >
             <Grid container spacing={1} alignItems="center">
@@ -304,7 +304,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
                 position: 'sticky',
                 top: 140,
                 bgcolor: 'background.paper',
-                boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)',
+                boxShadow: 1,
               }}
             >
               {filterContent}
@@ -369,7 +369,7 @@ export const CarsView: React.FC<CarsViewProps> = ({
                             transition: 'box-shadow 160ms ease, border-color 160ms ease',
                             '&:hover': {
                               borderColor: 'primary.light',
-                              boxShadow: '0 10px 28px rgba(15, 23, 42, 0.10)',
+                              boxShadow: 4,
                             },
                           }}
                         >

@@ -1,10 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, Button, useTheme, useMediaQuery } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import HomeIcon from '@mui/icons-material/Home';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface GlobalErrorBoundaryProps {
   error: Error & { digest?: string };
@@ -15,43 +20,9 @@ interface GlobalErrorBoundaryProps {
 const GlobalErrorBoundary: React.FC<GlobalErrorBoundaryProps> = ({ error, reset, variant = 'default' }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  const styles = {
-    default: {
-      bgcolor: '#F8FAFC',
-      color: '#0F172A',
-      subColor: '#64748B',
-      btnBg: '#0F172A',
-      btnColor: '#FFFFFF',
-      minHeight: '60vh',
-    },
-    admin: {
-      bgcolor: '#FBFBFE',
-      color: '#0F172A',
-      subColor: '#64748B',
-      btnBg: '#0F172A',
-      btnColor: '#FFFFFF',
-      minHeight: '80vh',
-    },
-    auth: {
-      bgcolor: '#0F172A',
-      color: '#FFFFFF',
-      subColor: '#94A3B8',
-      btnBg: '#FFFFFF',
-      btnColor: '#0F172A',
-      minHeight: '100vh',
-    },
-    fullscreen: {
-      bgcolor: '#F8FAFC',
-      color: '#0F172A',
-      subColor: '#64748B',
-      btnBg: '#0F172A',
-      btnColor: '#FFFFFF',
-      minHeight: '100vh',
-    },
-  };
-
-  const s = styles[variant];
+  const { t } = useLanguage();
+  const isAuth = variant === 'auth';
+  const minHeight = variant === 'fullscreen' || isAuth ? '100vh' : variant === 'admin' ? '80vh' : '60vh';
 
   return (
     <Box
@@ -60,8 +31,9 @@ const GlobalErrorBoundary: React.FC<GlobalErrorBoundaryProps> = ({ error, reset,
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: s.minHeight,
-        bgcolor: s.bgcolor,
+        minHeight,
+        bgcolor: isAuth ? 'secondary.dark' : 'background.default',
+        color: isAuth ? 'primary.contrastText' : 'text.primary',
         px: 3,
         py: 6,
       }}
@@ -82,82 +54,37 @@ const GlobalErrorBoundary: React.FC<GlobalErrorBoundaryProps> = ({ error, reset,
             width: 64,
             height: 64,
             borderRadius: '50%',
-            bgcolor: variant === 'auth' ? 'rgba(255,255,255,0.08)' : '#FEE2E2',
+            bgcolor: isAuth ? 'secondary.light' : 'error.light',
+            color: isAuth ? 'error.light' : 'error.dark',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             mb: 1,
           }}
         >
-          <ErrorOutlineIcon sx={{ fontSize: 32, color: variant === 'auth' ? '#FCA5A5' : '#DC2626' }} />
+          <ErrorOutlineIcon sx={{ fontSize: 32 }} />
         </Box>
 
-        <Typography
-          variant={isMobile ? 'h6' : 'h5'}
-          fontWeight={800}
-          sx={{ color: s.color, letterSpacing: '-0.01em' }}
-        >
-          Something went wrong
+        <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ fontWeight: 850 }}>
+          {t('layout.global.errorTitle')}
         </Typography>
 
-        <Typography
-          variant="body2"
-          sx={{ color: s.subColor, lineHeight: 1.6, maxWidth: 360 }}
-        >
-          {'An unexpected error occurred. Please try again.'}
+        <Typography variant="body2" color={isAuth ? 'inherit' : 'text.secondary'} sx={{ lineHeight: 1.6, maxWidth: 360 }}>
+          {t('layout.global.errorDescription')}
         </Typography>
 
         {error.digest && (
-          <Typography
-            variant="caption"
-            sx={{
-              color: s.subColor,
-              opacity: 0.6,
-              fontFamily: 'monospace',
-              fontSize: '0.7rem',
-            }}
-          >
-            Error ID: {error.digest}
+          <Typography variant="caption" color={isAuth ? 'inherit' : 'text.secondary'} sx={{ opacity: 0.7, fontFamily: 'monospace' }}>
+            {t('layout.global.errorId')}: {error.digest}
           </Typography>
         )}
 
         <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Button
-            onClick={reset}
-            variant="contained"
-            startIcon={<RefreshIcon />}
-            sx={{
-              bgcolor: s.btnBg,
-              color: s.btnColor,
-              fontWeight: 700,
-              textTransform: 'none',
-              borderRadius: 2,
-              px: 3,
-              py: 1,
-              '&:hover': { bgcolor: s.btnBg, opacity: 0.9 },
-            }}
-          >
-            Try Again
+          <Button onClick={reset} variant="contained" startIcon={<RefreshIcon />}>
+            {t('layout.global.tryAgain')}
           </Button>
-          <Button
-            onClick={() => (window.location.href = '/')}
-            variant="outlined"
-            startIcon={<HomeIcon />}
-            sx={{
-              borderColor: variant === 'auth' ? 'rgba(255,255,255,0.2)' : '#E2E8F0',
-              color: s.color,
-              fontWeight: 700,
-              textTransform: 'none',
-              borderRadius: 2,
-              px: 3,
-              py: 1,
-              '&:hover': {
-                borderColor: variant === 'auth' ? 'rgba(255,255,255,0.4)' : '#CBD5E1',
-                bgcolor: variant === 'auth' ? 'rgba(255,255,255,0.05)' : '#F1F5F9',
-              },
-            }}
-          >
-            Go Home
+          <Button onClick={() => (window.location.href = '/')} variant="outlined" startIcon={<HomeIcon />} color={isAuth ? 'inherit' : 'primary'}>
+            {t('layout.global.goHome')}
           </Button>
         </Box>
       </Box>

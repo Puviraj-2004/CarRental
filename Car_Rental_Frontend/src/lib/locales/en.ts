@@ -4,6 +4,7 @@ import { auth } from './en/auth';
 import { admin } from './en/admin';
 import { payment } from './en/payment';
 import { adminCars, cars } from './en/cars';
+import { layout } from './en/layout';
 
 // Recursively maps literal string values to the general 'string' type
 export type DeepStringify<T> = {
@@ -33,6 +34,7 @@ export const en = {
   auth,
   admin,
   payment,
+  layout,
   cars,
   adminCars,
 } as const;
