@@ -3,6 +3,8 @@ import { navbar } from './en/navbar';
 import { auth } from './en/auth';
 import { admin } from './en/admin';
 import { payment } from './en/payment';
+import { booking } from './en/booking';
+import { documents } from './en/documents';
 import { adminCars, cars } from './en/cars';
 import { layout } from './en/layout';
 
@@ -34,6 +36,8 @@ export const en = {
   auth,
   admin,
   payment,
+  booking,
+  documents,
   layout,
   cars,
   adminCars,

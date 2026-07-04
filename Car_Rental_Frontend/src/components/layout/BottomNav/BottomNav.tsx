@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
-import { useIsNativeApp } from '@/hooks/useIsNativeApp';
+import { useIsNativeApp } from '@/features/native/hooks/useIsNativeApp';
 
 interface NavItem {
   labelKey: string;

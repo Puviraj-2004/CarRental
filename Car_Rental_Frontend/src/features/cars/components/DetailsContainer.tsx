@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
+import { getDateRangeDurationDays } from '@/lib/dateUtils';
 import { useCarDetails } from '../hooks/useCarDetails';
 import { DetailsView } from './DetailsView';
 
@@ -28,16 +29,7 @@ export const DetailsContainer: React.FC<{ id: string }> = ({ id }) => {
     year
   );
 
-  // Calculates trip duration in days
-  const getBookingDurationDays = (): number => {
-    if (!hasDates) return 0;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const bookingDuration = getBookingDurationDays();
+  const bookingDuration = hasDates ? getDateRangeDurationDays(startDate, endDate) : 0;
   const totalPrice = car && hasDates ? Number(car.basePrice) * bookingDuration : null;
 
   const handleMonthChange = async (nextMonth: number, nextYear: number) => {

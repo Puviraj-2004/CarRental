@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react';
 import { Navbar } from '@/components/layout/Navbar/Navbar';
 import { Footer } from '@/components/layout/Footer/Footer';
 import { BottomNav } from '@/components/layout/BottomNav/BottomNav';
-import { useIsNativeApp } from '@/hooks/useIsNativeApp';
+import { useIsNativeApp } from '@/features/native/hooks/useIsNativeApp';
 
 export const AppFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isNativeApp = useIsNativeApp();

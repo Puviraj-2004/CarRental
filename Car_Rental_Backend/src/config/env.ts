@@ -22,7 +22,6 @@ const rules: EnvRule[] = [
   { key: 'REDIS_HOST', required: false, description: 'Redis host (alternative to REDIS_URL)' },
 
   { key: 'GEMINI_API_KEY',        required: false, warnIfMissing: true, description: 'Google Gemini API key (OCR disabled if absent)' },
-  { key: 'GOOGLE_CLIENT_ID',      required: false, warnIfMissing: true, description: 'Google OAuth client ID (Google login disabled if absent)' },
   { key: 'STRIPE_SECRET_KEY',     required: false, requiredInProd: true, warnIfMissing: true, description: 'Stripe secret key (payments disabled if absent)' },
   { key: 'STRIPE_WEBHOOK_SECRET', required: false, requiredInProd: true, warnIfMissing: true, description: 'Stripe webhook secret (webhook disabled if absent)' },
   { key: 'CLOUDINARY_URL', required: false, warnIfMissing: true, description: 'Cloudinary URL (uploads disabled if absent)' },
@@ -52,9 +51,6 @@ export function validateEnv(): void {
       (process.env.REDIS_HOST || '').trim();
     if (!hasRedis) {
       errors.push('  ✖ REDIS_URL or REDIS_HOST — required in production for rate limiting and CSRF');
-    }
-    if ((process.env.MOCK_STRIPE || '').toLowerCase() === 'true') {
-      errors.push('  ✖ MOCK_STRIPE — must not be enabled in production');
     }
   }
 
@@ -122,9 +118,6 @@ export const env = {
 
   stripeSecretKey:     (process.env.STRIPE_SECRET_KEY     || '').trim(),
   stripeWebhookSecret: (process.env.STRIPE_WEBHOOK_SECRET || '').trim(),
-  mockStripe:          (process.env.MOCK_STRIPE || '').toLowerCase() === 'true',
-
-  googleClientId: (process.env.GOOGLE_CLIENT_ID || '').trim(),
 
   resendApiKey: (process.env.RESEND_API_KEY || '').trim(),
   resendFrom:   (process.env.RESEND_FROM || 'onboarding@resend.dev').trim(),

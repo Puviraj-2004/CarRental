@@ -46,7 +46,7 @@ export const PaymentContainer: React.FC<{ bookingId: string }> = ({ bookingId })
 
   useEffect(() => {
     if (!bookingId) {
-      showToast('Missing booking reference. Redirecting to fleet...', 'error');
+      showToast(t('payment.checkout.missingReference'), 'error');
       router.push('/cars');
     }
   }, [bookingId, router, showToast]);
@@ -61,7 +61,7 @@ export const PaymentContainer: React.FC<{ bookingId: string }> = ({ bookingId })
       const checkoutUrl = res.data?.createCheckoutSession?.url;
 
       if (checkoutUrl) {
-        showToast('Secure payment tunnel initialized. Redirecting...', 'success');
+        showToast(t('payment.checkout.redirectStarted'), 'success');
         window.location.href = checkoutUrl;
       }
     } catch (err) {
@@ -83,7 +83,7 @@ export const PaymentContainer: React.FC<{ bookingId: string }> = ({ bookingId })
   if (errorQuery || !booking) {
     return (
       <Container maxWidth="lg" sx={{ py: 6 }}>
-        <Alert severity="error">Reservation details could not be loaded. Please verify your link.</Alert>
+        <Alert severity="error">{t('payment.checkout.loadError')}</Alert>
       </Container>
     );
   }

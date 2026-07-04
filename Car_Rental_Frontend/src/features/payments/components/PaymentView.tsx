@@ -14,6 +14,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/moneyUtils';
 
 interface PaymentViewProps {
   t: (path: string) => string;
@@ -55,10 +56,11 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
   const formattedTaxPercentage = Number.isInteger(taxPercentage) ? String(taxPercentage) : taxPercentage.toFixed(2);
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 } }}>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100%' }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
       <Stack spacing={3}>
         <Box>
-          <Typography variant="h3" component="h1">
+          <Typography variant="h2" component="h1">
             {t('payment.checkout.title')}
           </Typography>
           <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary', maxWidth: 620 }}>
@@ -87,7 +89,7 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
 
         {error && <Alert severity="error">{error}</Alert>}
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 360px' }, gap: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 380px' }, gap: 3 }}>
           <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2 }}>
             <Typography variant="h5" sx={{ mb: 2 }}>
               {t('payment.checkout.summary')}
@@ -127,10 +129,10 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
 
             <Stack spacing={1.5}>
               <MoneyRow label={t('payment.common.tripDuration')} value={`${booking.numberOfDays} ${t('payment.common.days')}`} />
-              <MoneyRow label={t('payment.common.subtotal')} value={`${subtotal.toFixed(2)} EUR`} />
-              <MoneyRow label={`${t('payment.common.tax')} (${formattedTaxPercentage}%)`} value={`${taxAmount.toFixed(2)} EUR`} />
+              <MoneyRow label={t('payment.common.subtotal')} value={formatMoney(subtotal)} />
+              <MoneyRow label={`${t('payment.common.tax')} (${formattedTaxPercentage}%)`} value={formatMoney(taxAmount)} />
               <Divider />
-              <MoneyRow label={t('payment.common.total')} value={`${totalAmount.toFixed(2)} EUR`} strong />
+              <MoneyRow label={t('payment.common.total')} value={formatMoney(totalAmount)} strong />
             </Stack>
           </Paper>
 
@@ -178,5 +180,6 @@ export const PaymentView: React.FC<PaymentViewProps> = ({
         </Box>
       </Stack>
     </Container>
+    </Box>
   );
 };

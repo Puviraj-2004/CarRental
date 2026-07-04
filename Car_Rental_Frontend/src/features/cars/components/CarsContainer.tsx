@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
+import { getLocalDateInputValue } from '@/lib/dateUtils';
 import { CarsView } from './CarsView';
 import { GET_BRANDS_QUERY, GET_CARS_QUERY, GET_AVAILABLE_CARS_QUERY, GET_FUEL_TYPES_QUERY } from '../graphql/queries';
 import type { CarFilterInput } from '../hooks/useCar';
@@ -18,15 +19,6 @@ export interface CarsContainerProps {
   layoutForAdmin?: boolean;
   showTopBar?: boolean;
 }
-
-// Timezone-safe local date YYYY-MM-DD generator [1]
-const getLocalTodayStr = (): string => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 export const CarsContainer: React.FC<CarsContainerProps> = ({
   defaultBookingType,
@@ -52,6 +44,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
   const [filters, setFilters] = useState<CarFilterInput>({
     status: 'AVAILABLE',
     brandId: undefined,
+    modelId: undefined,
     fuelTypeId: undefined,
     search: undefined,
   });
@@ -59,11 +52,13 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
   useEffect(() => {
     const search = searchParams.get('search') || undefined;
     const brandId = searchParams.get('brandId') || undefined;
+    const modelId = searchParams.get('modelId') || undefined;
     const fuelTypeId = searchParams.get('fuelTypeId') || undefined;
 
     setFilters((prev) => ({
       ...prev,
       brandId,
+      modelId,
       fuelTypeId,
       status: 'AVAILABLE',
       search,
@@ -82,7 +77,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
     });
 
     const query = current.toString() ? `?${current.toString()}` : '';
-    router.replace(`${pathname}${query}`);
+    router.replace(`${pathname}${query}`, { scroll: false });
   };
 
   const isoStartDate = urlStartDate ? `${urlStartDate}T12:00:00.000Z` : '';
@@ -107,6 +102,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
       filter: {
         status: filters.status || 'AVAILABLE',
         brandId: filters.brandId,
+        modelId: filters.modelId,
         fuelTypeId: filters.fuelTypeId,
         search: filters.search,
       },
@@ -147,6 +143,9 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
         if (filters.brandId && car.model.brand.id !== filters.brandId) {
           return false;
         }
+        if (filters.modelId && car.model.id !== filters.modelId) {
+          return false;
+        }
         if (filters.fuelTypeId && car.fuelType?.id !== filters.fuelTypeId) {
           return false;
         }
@@ -158,7 +157,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
     setCurrentPage(1);
 
     if (name === 'startDate' || name === 'endDate') {
-      const todayStr = getLocalTodayStr(); // Timezone-safe date check [1]
+      const todayStr = getLocalDateInputValue();
       if (val && val < todayStr) {
         showToast('You cannot select a date in the past.', 'error');
         return;
@@ -172,6 +171,11 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
         return;
       }
       updateUrlParams({ [name]: val || null });
+    } else if (name === 'brandId') {
+      updateUrlParams({
+        brandId: val ? String(val) : null,
+        modelId: null,
+      });
     } else {
       updateUrlParams({ [name]: val ? String(val) : null });
     }
@@ -179,10 +183,11 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
 
   const handleClearFilters = () => {
     setCurrentPage(1);
-    router.replace(pathname);
+    router.replace(pathname, { scroll: false });
     setFilters({
       status: 'AVAILABLE',
       brandId: undefined,
+      modelId: undefined,
       fuelTypeId: undefined,
       search: undefined,
     });

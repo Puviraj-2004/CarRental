@@ -23,6 +23,9 @@ export const payment = {
     payNow: "Pay securely",
     redirecting: "Redirecting...",
     payLater: "Back to bookings",
+    missingReference: "Missing booking reference. Redirecting to fleet...",
+    redirectStarted: "Secure payment tunnel initialized. Redirecting...",
+    loadError: "Reservation details could not be loaded. Please verify your link.",
   },
   success: {
     title: "Payment successful",
@@ -36,6 +39,7 @@ export const payment = {
     approved: "Approved",
     goBookings: "Go to bookings",
     bookAnother: "Book another car",
+    loadError: "Receipt details could not be loaded. Please check your bookings.",
   },
   cancelled: {
     title: "Payment cancelled",

@@ -1,19 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
-import Box from '@mui/material/Box';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
+import React, { useRef, useState } from 'react';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded';
+import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import Alert from '@mui/material/Alert';
-import TextField from '@mui/material/TextField';
-import FormControl from '@mui/material/FormControl';
-import FormLabel from '@mui/material/FormLabel';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CircularProgress from '@mui/material/CircularProgress';
+import Container from '@mui/material/Container';
 import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/moneyUtils';
 import { RefundPolicyDialog } from './RefundPolicyDialog';
 
 interface BookingViewProps {
@@ -31,6 +38,24 @@ interface BookingViewProps {
   loading: boolean;
 }
 
+const SummaryRow = ({ label, value, strong = false }: { label: string; value: React.ReactNode; strong?: boolean }) => (
+  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+    <Typography variant="body2" sx={{ color: strong ? 'text.primary' : 'text.secondary', fontWeight: strong ? 750 : 600 }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: strong ? 850 : 700 }}>
+      {value}
+    </Typography>
+  </Stack>
+);
+
+const formatTripDate = (value: string) =>
+  new Date(value).toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
 export const BookingView: React.FC<BookingViewProps> = ({
   t,
   car,
@@ -45,257 +70,237 @@ export const BookingView: React.FC<BookingViewProps> = ({
   error,
   loading,
 }) => {
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
 
-  const handleReserveClick = (e: React.MouseEvent) => {
-    // Find the form
-    const form = document.querySelector('form') as HTMLFormElement;
+  const carName = `${car.model?.brand?.name ?? ''} ${car.model?.name ?? ''}`.trim();
+  const formattedTaxPercentage = Number.isInteger(taxPercentage) ? String(taxPercentage) : taxPercentage.toFixed(2);
+
+  const requestBrowserValidation = () => {
+    const form = formRef.current;
     if (!form) return;
 
-    // Get form values
+    if (typeof form.reportValidity === 'function') {
+      form.reportValidity();
+      return;
+    }
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  };
+
+  const handleReserveClick = () => {
+    const form = formRef.current;
+    if (!form) return;
+
     const formData = new FormData(form);
     const nameInput = formData.get('guestName') as string;
     const phoneInput = formData.get('guestPhone') as string;
 
-    // Validate required fields
     if (!nameInput?.trim() || !phoneInput?.trim()) {
-      // Let the form validation handle it - try to submit to trigger browser validation
-      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-      form.dispatchEvent(submitEvent);
+      requestBrowserValidation();
       return;
     }
 
-    // If valid, show policy dialog
     setPolicyDialogOpen(true);
   };
 
   const handlePolicyConfirm = () => {
     setPolicyDialogOpen(false);
-    // Trigger form submission
-    const form = document.querySelector('form') as HTMLFormElement;
-    if (form) {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    }
+    formRef.current?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   };
+
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
-      
-      <Box sx={{ mb: 5 }}>
-        <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-1px' }}>
-          Checkout & Reservation
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '15px', fontWeight: 500 }}>
-          Confirm your trip details and proceed securely to checkout.
-        </Typography>
-      </Box>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100%' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+        <Stack spacing={3.5}>
+          <Box>
+            <Typography variant="h2" component="h1">
+              {t('booking.checkout.title')}
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary', maxWidth: 680 }}>
+              {t('booking.checkout.subtitle')}
+            </Typography>
+          </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 4, borderRadius: '8px' }}>{error}</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
 
-      <Box component="form" onSubmit={onSubmit}>
-        <Grid container spacing={4}>
-          
-          {/* ─── LEFT COLUMN: RENTER DETAILS (FORM) ───────────────────────── */}
-          <Grid item xs={12} md={7}>
-            <Card variant="outlined" sx={{ p: { xs: 3, md: 4 }, borderRadius: '16px', bgcolor: 'background.paper' }}>
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 3, letterSpacing: '-0.5px' }}>
-                Driver Details
-              </Typography>
-              
-              <Grid container spacing={3}>
-                
-                {/* Full Name (Manual Entry) [1] */}
-                <Grid item xs={12}>
-                  <FormControl fullWidth required>
-                    <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
-                      Driver's Full Name
-                    </FormLabel>
-                    <TextField
-                      name="guestName"
-                      required
-                      placeholder="e.g. John Doe"
-                      disabled={loading}
-                      variant="outlined"
-                      InputProps={{ sx: { borderRadius: '8px' } }}
-                    />
-                  </FormControl>
-                </Grid>
+          <Box component="form" ref={formRef} onSubmit={onSubmit}>
+            <Grid container spacing={3} alignItems="flex-start">
+              <Grid item xs={12} md={7}>
+                <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2 }}>
+                  <Stack spacing={3}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Box sx={{ display: 'grid', placeItems: 'center', width: 40, height: 40, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.dark' }}>
+                        <PersonOutlineRoundedIcon fontSize="small" />
+                      </Box>
+                      <Box>
+                        <Typography variant="h5">{t('booking.checkout.driverDetails')}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('booking.checkout.driverSubtitle')}
+                        </Typography>
+                      </Box>
+                    </Stack>
 
-                {/* Phone Number (Manual Entry) [1] */}
-                <Grid item xs={12}>
-                  <FormControl fullWidth required>
-                    <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
-                      Contact Phone Number
-                    </FormLabel>
-                    <TextField
-                      name="guestPhone"
-                      required
-                      placeholder="e.g. +33 6 12 34 56 78"
-                      disabled={loading}
-                      variant="outlined"
-                      InputProps={{ sx: { borderRadius: '8px' } }}
-                    />
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <FormLabel sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontSize: '13px' }}>
-                      Special Requests / Notes (Optional)
-                    </FormLabel>
-                    <TextField
-                      name="notes"
-                      placeholder="e.g., Requesting a child seat, pickup instructions..."
-                      disabled={loading}
-                      multiline
-                      rows={3}
-                      variant="outlined"
-                      InputProps={{ sx: { borderRadius: '8px' } }}
-                    />
-                  </FormControl>
-                </Grid>
-
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          name="guestName"
+                          label={t('booking.checkout.fullName')}
+                          placeholder={t('booking.checkout.fullNamePlaceholder')}
+                          disabled={loading}
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          name="guestPhone"
+                          label={t('booking.checkout.phone')}
+                          placeholder={t('booking.checkout.phonePlaceholder')}
+                          disabled={loading}
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          name="notes"
+                          label={t('booking.checkout.notes')}
+                          placeholder={t('booking.checkout.notesPlaceholder')}
+                          disabled={loading}
+                          multiline
+                          minRows={4}
+                          fullWidth
+                        />
+                      </Grid>
+                    </Grid>
+                  </Stack>
+                </Paper>
               </Grid>
-            </Card>
-          </Grid>
 
-          {/* ─── RIGHT COLUMN: ORDER SUMMARY & COST ───────────────────────── */}
-          <Grid item xs={12} md={5}>
-            <Card 
-              variant="outlined" 
-              sx={{ 
-                p: 3, 
-                borderRadius: '16px', 
-                bgcolor: 'background.paper',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                border: '1px solid',
-                borderColor: 'divider',
-                position: 'sticky',
-                top: 90
-              }}
-            >
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 3, letterSpacing: '-0.5px' }}>
-                Order Summary
-              </Typography>
-
-              <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                <Box 
-                  sx={{ 
-                    width: 90, 
-                    height: 60, 
-                    borderRadius: '8px', 
-                    overflow: 'hidden', 
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    flexShrink: 0 
+              <Grid item xs={12} md={5}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    p: { xs: 2.5, sm: 3 },
+                    borderRadius: 2,
+                    position: { md: 'sticky' },
+                    top: { md: 96 },
                   }}
                 >
-                  <img 
-                    src={car.primaryImageUrl || 'https://via.placeholder.com/200x120?text=No+Image'} 
-                    alt="Vehicle" 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                  />
-                </Box>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                    {car.model.brand.name} {car.model.name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                    {car.fuelType?.name || 'Petrol'} • {car.plateNumber}
-                  </Typography>
-                </Box>
-              </Box>
+                  <Stack spacing={2.5}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Box sx={{ display: 'grid', placeItems: 'center', width: 40, height: 40, borderRadius: 1, bgcolor: 'secondary.main', color: 'secondary.contrastText' }}>
+                        <DirectionsCarRoundedIcon fontSize="small" />
+                      </Box>
+                      <Box>
+                        <Typography variant="h5">{t('booking.checkout.summary')}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('booking.checkout.summarySubtitle')}
+                        </Typography>
+                      </Box>
+                    </Stack>
 
-              <Divider sx={{ mb: 3 }} />
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box sx={{ width: 108, height: 76, borderRadius: 1, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'grey.100', flexShrink: 0 }}>
+                        {car.primaryImageUrl ? (
+                          <img src={car.primaryImageUrl} alt={carName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <Box sx={{ display: 'grid', placeItems: 'center', height: '100%', color: 'text.secondary' }}>
+                            <DirectionsCarRoundedIcon />
+                          </Box>
+                        )}
+                      </Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle1" noWrap sx={{ fontWeight: 850 }}>
+                          {carName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {car.fuelType?.name || t('booking.checkout.notSpecified')}
+                        </Typography>
+                      </Box>
+                    </Stack>
 
-              <Grid container spacing={1} sx={{ fontSize: '13px', color: 'text.secondary', mb: 3 }}>
-                <Grid item xs={5}><strong>Pick-up Date:</strong></Grid>
-                <Grid item xs={7} sx={{ textAlign: 'right', fontWeight: 700, color: 'text.primary' }}>
-                  {new Date(startDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                </Grid>
-                <Grid item xs={5}><strong>Return Date:</strong></Grid>
-                <Grid item xs={7} sx={{ textAlign: 'right', fontWeight: 700, color: 'text.primary' }}>
-                  {new Date(endDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                </Grid>
-                <Grid item xs={5}><strong>Duration:</strong></Grid>
-                <Grid item xs={7} sx={{ textAlign: 'right', fontWeight: 700, color: 'text.primary' }}>
-                  {bookingDuration} Days
-                </Grid>
+                    <Divider />
+
+                    <Stack spacing={1.5}>
+                      <SummaryRow
+                        label={t('booking.checkout.startDate')}
+                        value={
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <CalendarMonthRoundedIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <span>{formatTripDate(startDate)}</span>
+                          </Stack>
+                        }
+                      />
+                      <SummaryRow label={t('booking.checkout.endDate')} value={formatTripDate(endDate)} />
+                      <SummaryRow label={t('payment.common.tripDuration')} value={`${bookingDuration} ${t('payment.common.days')}`} />
+                    </Stack>
+
+                    <Divider />
+
+                    <Stack spacing={1.5}>
+                      <SummaryRow label={t('payment.common.subtotal')} value={formatMoney(subtotal)} />
+                      <SummaryRow label={`${t('payment.common.tax')} (${formattedTaxPercentage}%)`} value={formatMoney(taxAmount)} />
+                      <Divider />
+                      <SummaryRow label={t('booking.checkout.estimatedTotal')} value={formatMoney(estimatedTotal)} strong />
+                    </Stack>
+
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+                      <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                        <ShieldOutlinedIcon color="primary" fontSize="small" />
+                        <Typography variant="body2" color="text.secondary">
+                          {t('booking.checkout.policyNotice')}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+
+                    <Stack spacing={1.25}>
+                      <Button
+                        type="button"
+                        onClick={handleReserveClick}
+                        variant="contained"
+                        size="large"
+                        fullWidth
+                        disabled={loading}
+                        startIcon={!loading && <DescriptionOutlinedIcon />}
+                      >
+                        {loading ? (
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <CircularProgress size={18} color="inherit" />
+                            <span>{t('booking.checkout.initializing')}</span>
+                          </Stack>
+                        ) : (
+                          t('booking.checkout.reserve')
+                        )}
+                      </Button>
+
+                      <Button
+                        component={Link}
+                        href={`/viewDetails/${car.id}?startDate=${startDate}&endDate=${endDate}`}
+                        variant="outlined"
+                        fullWidth
+                        disabled={loading}
+                        startIcon={<ArrowBackRoundedIcon />}
+                      >
+                        {t('booking.checkout.backToDetails')}
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Card>
               </Grid>
+            </Grid>
+          </Box>
+        </Stack>
 
-              <Divider sx={{ mb: 3 }} />
-
-              <Grid container spacing={1.5} sx={{ fontSize: '14px', color: 'text.secondary', mb: 3 }}>
-                <Grid item xs={6}>Subtotal (Net):</Grid>
-                <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 600, color: 'text.primary' }}>
-                  {subtotal.toFixed(2)} €
-                </Grid>
-                
-                <Grid item xs={6}>VAT / Tax ({taxPercentage}%):</Grid> 
-                <Grid item xs={6} sx={{ textAlign: 'right', fontWeight: 600, color: 'text.primary' }}>
-                  {taxAmount.toFixed(2)} €
-                </Grid>
-                
-                <Grid item xs={12} sx={{ my: 0.5 }}>
-                  <Divider />
-                </Grid>
-                
-                <Grid item xs={6}>
-                  <Typography sx={{ fontWeight: 800, color: 'text.primary', fontSize: '16px' }}>
-                    Total Estimated
-                  </Typography>
-                </Grid>
-                <Grid item xs={6} sx={{ textAlign: 'right' }}>
-                  <Typography color="secondary.main" sx={{ fontWeight: 900, fontSize: '18px' }}>
-                    {estimatedTotal.toFixed(2)} €
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Button
-                  type="button"
-                  onClick={handleReserveClick}
-                  variant="contained"
-                  fullWidth
-                  size="large"
-                  disabled={loading}
-                  sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
-                >
-                  {loading ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={20} color="inherit" />
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Initializing checkout...</Typography>
-                    </Box>
-                  ) : (
-                    'Reserve & Upload Documents'
-                  )}
-                </Button>
-                
-                <Button
-                  component={Link}
-                  href={`/viewDetails/${car.id}?startDate=${startDate}&endDate=${endDate}`}
-                  variant="outlined"
-                  fullWidth
-                  disabled={loading}
-                  sx={{ py: 1.5, fontWeight: 700, textTransform: 'none', borderRadius: '8px' }}
-                >
-                  Back to Vehicle Specs
-                </Button>
-              </Box>
-
-            </Card>
-          </Grid>
-
-        </Grid>
-      </Box>
-
-      <RefundPolicyDialog
-        open={policyDialogOpen}
-        onConfirm={handlePolicyConfirm}
-        onCancel={() => setPolicyDialogOpen(false)}
-        estimatedTotal={estimatedTotal}
-        bookingDuration={bookingDuration}
-      />
-    </Container>
+        <RefundPolicyDialog
+          open={policyDialogOpen}
+          onConfirm={handlePolicyConfirm}
+          onCancel={() => setPolicyDialogOpen(false)}
+          estimatedTotal={estimatedTotal}
+          bookingDuration={bookingDuration}
+        />
+      </Container>
+    </Box>
   );
 };

@@ -28,8 +28,6 @@ const nextConfig = {
 
     // Warn about optional vars
     const optional = [
-      { key: 'GOOGLE_CLIENT_ID', desc: 'Google OAuth will be disabled' },
-      { key: 'GOOGLE_CLIENT_SECRET', desc: 'Google OAuth will be disabled' },
       { key: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', desc: 'Stripe payments will be disabled' },
     ];
     const missingOptional = optional.filter((v) => !process.env[v.key]);
@@ -79,11 +77,6 @@ const nextConfig = {
         protocol: 'https', 
         hostname: 'res.cloudinary.com', 
         pathname: '/**' 
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-        pathname: '/**'
       }
     ]
   }

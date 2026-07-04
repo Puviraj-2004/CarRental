@@ -9,6 +9,7 @@ import Alert from '@mui/material/Alert';
 import Container from '@mui/material/Container';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
+import { getDateRangeDurationDays } from '@/lib/dateUtils';
 import { useBooking } from '../hooks/useBooking';
 import { BookingView } from './BookingView';
 import { GET_CAR_QUERY } from '@/features/cars/graphql/queries';
@@ -75,23 +76,14 @@ export const BookingContainer: React.FC = () => {
 
   useEffect(() => {
     if (!carId || !hasDates) {
-      showToast('Missing booking parameters. Redirecting to fleet...', 'error');
+      showToast(t('booking.checkout.missingParams'), 'error');
       router.push('/cars');
     }
   }, [carId, hasDates, router, showToast]);
 
-  // Calculates trip duration in days
-  const getBookingDurationDays = (): number => {
-    if (!hasDates) return 0;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
   const car = carData?.car;
   const quote = quoteData?.bookingQuote;
-  const bookingDuration = quote?.numberOfDays ?? getBookingDurationDays();
+  const bookingDuration = quote?.numberOfDays ?? (hasDates ? getDateRangeDurationDays(startDate, endDate) : 0);
   const subtotal = quote?.subtotal ?? 0;
   const taxAmount = quote?.taxAmount ?? 0;
   const estimatedTotal = quote?.totalPrice ?? 0;
@@ -107,7 +99,7 @@ export const BookingContainer: React.FC = () => {
     const notes = formData.get('notes') as string;
 
     if (!nameInput.trim() || !phoneInput.trim()) {
-      setError('Please provide your full name and phone number.');
+      setError(t('booking.checkout.validationError'));
       return;
     }
 
@@ -125,7 +117,7 @@ export const BookingContainer: React.FC = () => {
       const newBookingId = res.data?.createBooking?.id;
 
       if (newBookingId) {
-        showToast('Reservation initialized. Redirecting to document upload...', 'success');
+        showToast(t('booking.checkout.createSuccess'), 'success');
         // Corrected Redirect: Forward to the newly created Document Upload route [1]
         router.push(`/booking/${newBookingId}/documents`);
       }
@@ -147,7 +139,7 @@ export const BookingContainer: React.FC = () => {
   if (errorCar || errorQuote || !car || !quote) {
     return (
       <Container maxWidth="lg" sx={{ py: 6 }}>
-        <Alert severity="error">Vehicle pricing could not be loaded. Please select valid booking dates.</Alert>
+        <Alert severity="error">{t('booking.checkout.quoteError')}</Alert>
       </Container>
     );
   }

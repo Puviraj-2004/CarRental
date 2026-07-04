@@ -105,3 +105,42 @@ export function getMinPickupDate(): string {
   minDate.setHours(minDate.getHours() + 2);
   return minDate.toISOString().split('T')[0];
 }
+
+export function getLocalDateInputValue(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+export function getNextDateInputValue(dateStr: string): string {
+  if (!dateStr) return getLocalDateInputValue();
+
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setDate(date.getDate() + 1);
+
+  return getLocalDateInputValue(date);
+}
+
+export function getDateRangeDurationDays(startDate: string, endDate: string): number {
+  if (!startDate || !endDate) return 0;
+
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+
+  return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
+export function formatDateInputForDisplay(dateStr: string): string {
+  if (!dateStr) return 'N/A';
+
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+
+  return date.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}

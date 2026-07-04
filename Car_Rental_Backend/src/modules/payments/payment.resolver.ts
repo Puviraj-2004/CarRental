@@ -89,13 +89,6 @@ export const paymentResolvers: any = {
       return paymentService.refundPayment(paymentId, true);
     },
 
-    mockFinalizePayment: async (_: unknown, { bookingId, success }: { bookingId: string; success: boolean }, ctx: GraphQLContext) => {
-      if (!ctx.userId) {
-        throw new AppError('Authentication required.', ErrorCode.UNAUTHENTICATED);
-      }
-      return paymentService.mockFinalizePayment(bookingId, success);
-    },
-
     // ── PaymentMethod CRUD ─────────────────────────────────────────────────
     createPaymentMethod: async (
       _: unknown,

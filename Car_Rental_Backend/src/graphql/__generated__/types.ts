@@ -362,7 +362,6 @@ export type Mutation = {
   extendBookingDates: Booking;
   login: LoginPayload;
   logout?: Maybe<Scalars['Boolean']['output']>;
-  mockFinalizePayment: Payment;
   processDocumentOCR: OcrPayload;
   refreshTokens: RefreshTokensPayload;
   refundPayment: Payment;
@@ -518,12 +517,6 @@ export type MutationLoginArgs = {
 
 export type MutationLogoutArgs = {
   refreshToken: Scalars['String']['input'];
-};
-
-
-export type MutationMockFinalizePaymentArgs = {
-  bookingId: Scalars['String']['input'];
-  success: Scalars['Boolean']['input'];
 };
 
 
@@ -1409,7 +1402,6 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   extendBookingDates?: Resolver<ResolversTypes['Booking'], ParentType, ContextType, RequireFields<MutationExtendBookingDatesArgs, 'id' | 'newEndDate'>>;
   login?: Resolver<ResolversTypes['LoginPayload'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'input'>>;
   logout?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationLogoutArgs, 'refreshToken'>>;
-  mockFinalizePayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationMockFinalizePaymentArgs, 'bookingId' | 'success'>>;
   processDocumentOCR?: Resolver<ResolversTypes['OCRPayload'], ParentType, ContextType, RequireFields<MutationProcessDocumentOcrArgs, 'addressProofUrl' | 'idCardBackUrl' | 'idCardFrontUrl' | 'licenseBackUrl' | 'licenseFrontUrl'>>;
   refreshTokens?: Resolver<ResolversTypes['RefreshTokensPayload'], ParentType, ContextType, RequireFields<MutationRefreshTokensArgs, 'refreshToken'>>;
   refundPayment?: Resolver<ResolversTypes['Payment'], ParentType, ContextType, RequireFields<MutationRefundPaymentArgs, 'paymentId'>>;

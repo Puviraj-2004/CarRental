@@ -1,31 +1,35 @@
 'use client';
 
 import React, { useState } from 'react';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded';
+import EventRoundedIcon from '@mui/icons-material/EventRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
+import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EventIcon from '@mui/icons-material/Event';
+import Container from '@mui/material/Container';
 import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
+import Pagination from '@mui/material/Pagination';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import { EmptyState } from '@/components/ui';
+import { formatMoney } from '@/lib/moneyUtils';
 import type { Booking } from '../hooks/useBooking';
 import { PageInfo } from '../hooks/useBookingRecords';
-import { Alert, Pagination } from '@mui/material';
 import { calculateRefund, type RefundInfo } from '../utils/refundCalculator';
 
 interface BookingRecordsViewProps {
@@ -40,6 +44,16 @@ interface BookingRecordsViewProps {
   loadingCancel?: boolean;
   loadingExtend?: boolean;
 }
+
+const formatTripDate = (value: string, options?: Intl.DateTimeFormatOptions) =>
+  new Date(value).toLocaleDateString(
+    undefined,
+    options ?? {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }
+  );
 
 export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
   t,
@@ -60,16 +74,18 @@ export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [refundInfo, setRefundInfo] = useState<RefundInfo | null>(null);
 
+  const selectedBooking = selectedBookingId ? bookings.find((booking) => booking.id === selectedBookingId) : null;
+
   const handleCancelClick = (bookingId: string) => {
     setSelectedBookingId(bookingId);
-    // Find booking and calculate refund
-    const booking = bookings.find((b) => b.id === bookingId);
+    const booking = bookings.find((item) => item.id === bookingId);
+
     if (booking && booking.payment?.status === 'PAID') {
-      const refund = calculateRefund(Number(booking.totalPrice), new Date(booking.startDate));
-      setRefundInfo(refund);
+      setRefundInfo(calculateRefund(Number(booking.totalPrice), new Date(booking.startDate)));
     } else {
       setRefundInfo(null);
     }
+
     setCancelConfirmOpen(true);
   };
 
@@ -79,6 +95,7 @@ export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
       await onCancel(selectedBookingId);
       setCancelConfirmOpen(false);
       setSelectedBookingId(null);
+      setRefundInfo(null);
     } catch (err) {
       console.error('Cancel booking failed:', err);
     }
@@ -86,27 +103,22 @@ export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
 
   const handleExtendClick = (booking: Booking) => {
     setSelectedBookingId(booking.id);
-    const currentEndDate = new Date(booking.endDate);
-    setNewEndDate(currentEndDate.toISOString().split('T')[0]);
+    setNewEndDate(new Date(booking.endDate).toISOString().split('T')[0]);
     setExtendError(null);
     setExtendDialogOpen(true);
   };
 
   const handleExtendConfirm = async () => {
-    if (!selectedBookingId || !onExtend || !newEndDate) return;
-    
-    // Validation
-    const selected = bookings.find((b) => b.id === selectedBookingId);
-    if (!selected) return;
-    
+    if (!selectedBookingId || !onExtend || !newEndDate || !selectedBooking) return;
+
     const newDate = new Date(newEndDate);
-    const currentEndDate = new Date(selected.endDate);
-    
+    const currentEndDate = new Date(selectedBooking.endDate);
+
     if (newDate <= currentEndDate) {
-      setExtendError('New end date must be after current end date');
+      setExtendError(t('booking.records.extendDialog.validation'));
       return;
     }
-    
+
     try {
       await onExtend(selectedBookingId, new Date(newEndDate).toISOString());
       setExtendDialogOpen(false);
@@ -114,522 +126,375 @@ export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
       setNewEndDate('');
       setExtendError(null);
     } catch (err) {
-      setExtendError((err as Error).message || 'Failed to extend booking');
+      setExtendError((err as Error).message || t('booking.records.extendDialog.failure'));
     }
   };
-  
+
   const renderStatusBadge = (booking: Booking) => {
     let label = booking.status as string;
     let color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
 
     switch (booking.status) {
       case 'RESERVED':
-        if (booking.payment?.status === 'PENDING') {
-          color = 'warning';
-          label = 'Pending Payment';
-        } else {
-          color = 'warning';
-          label = 'Pending Payment';
-        }
+        color = 'warning';
+        label = t('booking.records.status.pendingPayment');
         break;
       case 'CONFIRMED':
         color = 'primary';
-        label = 'Confirmed & Paid';
+        label = t('booking.records.status.confirmedPaid');
         break;
       case 'ONGOING':
         color = 'success';
-        label = 'Trip in Progress';
+        label = t('booking.records.status.tripInProgress');
         break;
       case 'COMPLETED':
         color = 'default';
-        label = 'Trip Completed';
+        label = t('booking.records.status.tripCompleted');
         break;
       case 'EXPIRED':
         color = 'error';
-        label = 'Booking Expired';
+        label = t('booking.records.status.expired');
         break;
       case 'CANCELLED':
       case 'REJECTED':
         color = 'error';
-        label = 'Cancelled';
+        label = t('booking.records.status.cancelled');
         break;
     }
 
-    return (
-      <Chip
-        label={label}
-        color={color}
-        size="small"
-        sx={{ fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', borderRadius: '6px' }}
-      />
-    );
+    return <Chip label={label} color={color} size="small" />;
   };
 
-  const renderVerificationBadge = (booking: Booking) => {
-    const docStatus = booking.documents?.status;
+  const renderActionButtons = (booking: Booking) => {
+    const isUnpaid = booking.status === 'RESERVED' && !booking.payment;
+    const hasNoDocs = booking.status === 'RESERVED' && !booking.documents;
+    const isDocsPending = booking.status === 'RESERVED' && booking.payment?.status === 'PENDING' && booking.documents?.status !== 'APPROVED';
+    const readyToPay = booking.status === 'RESERVED' && booking.payment?.status === 'PENDING' && booking.documents?.status === 'APPROVED';
+    const canCancel = Boolean(onCancel) && ['RESERVED', 'CONFIRMED'].includes(booking.status);
+    const canExtend = Boolean(onExtend) && (isUnpaid || hasNoDocs || isDocsPending || readyToPay);
 
-    if (!booking.documents) {
+    if (booking.status === 'RESERVED' && (isUnpaid || hasNoDocs || readyToPay)) {
       return (
-        <Chip
-          label="Identity Unverified"
-          variant="outlined"
-          color="error"
-          size="small"
-          sx={{ fontWeight: 700, fontSize: '11px', borderRadius: '6px' }}
-        />
+        <Stack direction={{ xs: 'column', sm: 'row', md: 'column' }} spacing={1}>
+          <Button
+            component={Link}
+            href={hasNoDocs ? `/booking/${booking.id}/documents` : `/booking/${booking.id}/payment`}
+            variant="contained"
+            size="small"
+            endIcon={<ArrowForwardRoundedIcon />}
+            fullWidth
+          >
+            {hasNoDocs ? t('booking.records.actions.verifyAndPay') : t('booking.records.actions.completePayment')}
+          </Button>
+          {canCancel && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteOutlineRoundedIcon />}
+              onClick={() => handleCancelClick(booking.id)}
+              disabled={loadingCancel}
+              fullWidth
+            >
+              {t('booking.records.actions.cancel')}
+            </Button>
+          )}
+          {canExtend && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<EventRoundedIcon />}
+              onClick={() => handleExtendClick(booking)}
+              disabled={loadingExtend}
+              fullWidth
+            >
+              {t('booking.records.actions.extendDates')}
+            </Button>
+          )}
+        </Stack>
       );
     }
 
-    if (docStatus === 'PENDING') {
+    if (isDocsPending) {
       return (
-        <Chip
-          label="Verification Pending"
-          variant="outlined"
-          color="warning"
-          size="small"
-          sx={{ fontWeight: 700, fontSize: '11px', borderRadius: '6px' }}
-        />
+        <Stack direction={{ xs: 'column', sm: 'row', md: 'column' }} spacing={1}>
+          {canCancel && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteOutlineRoundedIcon />}
+              onClick={() => handleCancelClick(booking.id)}
+              disabled={loadingCancel}
+              fullWidth
+            >
+              {t('booking.records.actions.cancel')}
+            </Button>
+          )}
+          {canExtend && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<EventRoundedIcon />}
+              onClick={() => handleExtendClick(booking)}
+              disabled={loadingExtend}
+              fullWidth
+            >
+              {t('booking.records.actions.extendDates')}
+            </Button>
+          )}
+        </Stack>
       );
     }
 
-    if (docStatus === 'APPROVED') {
+    if (booking.status === 'CONFIRMED') {
       return (
-        <Chip
-          label="Verified Identity"
-          variant="outlined"
-          color="success"
-          size="small"
-          sx={{ fontWeight: 700, fontSize: '11px', borderRadius: '6px' }}
-        />
+        <Stack direction={{ xs: 'column', sm: 'row', md: 'column' }} spacing={1}>
+          <Button component={Link} href={`/booking/${booking.id}/success`} variant="outlined" size="small" startIcon={<ReceiptLongRoundedIcon />} fullWidth>
+            {t('booking.records.actions.viewReceipt')}
+          </Button>
+          {canCancel && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteOutlineRoundedIcon />}
+              onClick={() => handleCancelClick(booking.id)}
+              disabled={loadingCancel}
+              fullWidth
+            >
+              {t('booking.records.actions.cancel')}
+            </Button>
+          )}
+        </Stack>
+      );
+    }
+
+    if (booking.status === 'COMPLETED') {
+      return (
+        <Button component={Link} href={`/booking/${booking.id}/success`} variant="outlined" size="small" startIcon={<ReceiptLongRoundedIcon />} fullWidth>
+          {t('booking.records.actions.viewReceipt')}
+        </Button>
       );
     }
 
     return (
-      <Chip
-        label="Documents Rejected"
-        variant="outlined"
-        color="error"
-        size="small"
-        sx={{ fontWeight: 700, fontSize: '11px', borderRadius: '6px' }}
-      />
+      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+        {t('booking.records.closed')}
+      </Typography>
     );
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 6 }}>
-      
-      <Box sx={{ mb: 5 }}>
-        <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, letterSpacing: '-1px' }}>
-          My Bookings
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '15px' }}>
-          Review your upcoming trips, active rentals, and past order history.
-        </Typography>
-      </Box>
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100%' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="h2" component="h1">
+              {t('booking.records.title')}
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 1, color: 'text.secondary', maxWidth: 680 }}>
+              {t('booking.records.subtitle')}
+            </Typography>
+          </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 4, borderRadius: '12px' }}>{error}</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
 
-      {bookings.length === 0 ? (
-        <Card variant="outlined" sx={{ p: 5, textAlign: 'center', borderRadius: '16px' }}>
-          <DirectionsCarIcon sx={{ fontSize: 48, color: 'grey.300', mb: 2 }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-            No Bookings Found
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-            You haven't reserved any vehicles yet. Explore our fleet to get started!
-          </Typography>
-          <Button variant="contained" component={Link} href="/cars" sx={{ fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}>
-            Browse Cars
-          </Button>
-        </Card>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {bookings.map((booking) => {
-            // Isolates active booking conditions [1.1.5]
-            const isUnpaid = booking.status === 'RESERVED' && !booking.payment;
-            const hasNoDocs = booking.status === 'RESERVED' && !booking.documents;
-            // Only show "Awaiting Approval" if docs are not yet approved (still pending or rejected)
-            const isDocsPending = booking.status === 'RESERVED' && booking.payment?.status === 'PENDING' && booking.documents?.status !== 'APPROVED';
-            // Ready to pay: RESERVED with authorized hold (PENDING payment) but docs are now approved
-            const readyToPay = booking.status === 'RESERVED' && booking.payment?.status === 'PENDING' && booking.documents?.status === 'APPROVED';
+          {bookings.length === 0 ? (
+            <EmptyState
+              icon={<DirectionsCarRoundedIcon />}
+              title={t('booking.records.emptyTitle')}
+              description={t('booking.records.emptySubtitle')}
+              action={
+                <Button variant="contained" component={Link} href="/cars">
+                  {t('booking.records.browseCars')}
+                </Button>
+              }
+            />
+          ) : (
+            <Stack spacing={2}>
+              {bookings.map((booking) => {
+                const carName = `${booking.car.model.brand.name} ${booking.car.model.name}`;
 
-            return (
-              <Card 
-                key={booking.id} 
-                variant="outlined" 
-                sx={{ 
-                  borderRadius: '16px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.01)',
-                  transition: '0.2s',
-                  '&:hover': { boxShadow: '0 8px 24px rgba(0,0,0,0.03)' }
-                }}
-              >
-                <CardContent sx={{ p: { xs: 2.5, md: 3 }, '&:last-child': { pb: { xs: 2.5, md: 3 } } }}>
-                  <Grid container spacing={3} alignItems="center">
-                    
-                    <Grid item xs={12} sm={3}>
-                      <Box 
-                        sx={{ 
-                          width: '100%', 
-                          aspectRatio: { xs: '16/9', sm: '4/3' }, 
-                          borderRadius: '12px', 
-                          overflow: 'hidden', 
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          bgcolor: 'grey.100'
-                        }}
-                      >
-                        <img 
-                          src={booking.car.primaryImageUrl || 'https://via.placeholder.com/200x120?text=No+Image'} 
-                          alt="Car Thumbnail" 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                        />
-                      </Box>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
-                          {renderStatusBadge(booking)}
-                          {renderVerificationBadge(booking)} 
-                        </Box>
-
-                        <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.5px', mt: 0.5 }}>
-                          {booking.car.model.brand.name} {booking.car.model.name}
-                        </Typography>
-
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: '13px', fontWeight: 500 }}>
-                          <CalendarMonthIcon sx={{ fontSize: 16 }} />
-                          <span>
-                            {new Date(booking.startDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} - {new Date(booking.endDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </span>
-                          <span>•</span>
-                          <strong>{booking.numberOfDays} Days</strong>
-                        </Box>
-                      </Box>
-                    </Grid>
-
-                    <Grid item xs={12} sm={3} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                      <Box sx={{ display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: 'space-between', alignItems: { xs: 'center', sm: 'flex-end' }, gap: 1.5 }}>
-                        
-                        <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Total Amount
-                          </Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 900, color: 'primary.main' }}>
-                            {Number(booking.totalPrice).toFixed(2)} €
-                          </Typography>
-                        </Box>
-
-                        {/* Strict context-driven actions [1.1.2, 1.1.5] */}
-                        {booking.status === 'RESERVED' && (isUnpaid || hasNoDocs) ? (
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              component={Link}
-                              href={hasNoDocs ? `/booking/${booking.id}/documents` : `/booking/${booking.id}/payment`} 
-                              variant="contained"
-                              size="small"
-                              endIcon={<ArrowForwardIcon />}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', flex: 1, minWidth: '120px' }}
-                            >
-                              {hasNoDocs ? 'Verify & Pay' : 'Complete Payment'}
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              size="small"
-                              startIcon={<DeleteIcon />}
-                              onClick={() => handleCancelClick(booking.id)}
-                              disabled={loadingCancel}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<EventIcon />}
-                              onClick={() => handleExtendClick(booking)}
-                              disabled={loadingExtend}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Extend Dates
-                            </Button>
+                return (
+                  <Card key={booking.id} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <CardContent sx={{ p: { xs: 2, md: 2.5 }, '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
+                      <Grid container spacing={2.5} alignItems="center">
+                        <Grid item xs={12} sm={4} md={2.4}>
+                          <Box sx={{ width: '100%', aspectRatio: '16 / 10', borderRadius: 1, overflow: 'hidden', border: '1px solid', borderColor: 'divider', bgcolor: 'grey.100' }}>
+                            {booking.car.primaryImageUrl ? (
+                              <img src={booking.car.primaryImageUrl} alt={carName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            ) : (
+                              <Box sx={{ display: 'grid', placeItems: 'center', height: '100%', color: 'text.secondary' }}>
+                                <DirectionsCarRoundedIcon />
+                              </Box>
+                            )}
                           </Box>
-                        ) : readyToPay ? (
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              component={Link}
-                              href={`/booking/${booking.id}/payment`}
-                              variant="contained"
-                              size="small"
-                              endIcon={<ArrowForwardIcon />}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', flex: 1, minWidth: '120px' }}
-                            >
-                              Complete Payment
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              size="small"
-                              startIcon={<DeleteIcon />}
-                              onClick={() => handleCancelClick(booking.id)}
-                              disabled={loadingCancel}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<EventIcon />}
-                              onClick={() => handleExtendClick(booking)}
-                              disabled={loadingExtend}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Extend Dates
-                            </Button>
-                          </Box>
-                        ) : isDocsPending ? (
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              size="small"
-                              startIcon={<DeleteIcon />}
-                              onClick={() => handleCancelClick(booking.id)}
-                              disabled={loadingCancel}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<EventIcon />}
-                              onClick={() => handleExtendClick(booking)}
-                              disabled={loadingExtend}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Extend Dates
-                            </Button>
-                          </Box>
-                        ) : booking.status === 'CONFIRMED' ? (
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              component={Link}
-                              href={`/booking/${booking.id}/success`} 
-                              variant="outlined"
-                              size="small"
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', flex: 1, minWidth: '120px' }}
-                            >
-                              View Receipt
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              size="small"
-                              startIcon={<DeleteIcon />}
-                              onClick={() => handleCancelClick(booking.id)}
-                              disabled={loadingCancel}
-                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                              Cancel
-                            </Button>
-                          </Box>
-                        ) : booking.status === 'COMPLETED' ? (
-                          <Button
-                            component={Link}
-                            href={`/booking/${booking.id}/success`} 
-                            variant="outlined"
-                            size="small"
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '8px', alignSelf: { xs: 'auto', sm: 'stretch' } }}
-                          >
-                            View Receipt
-                          </Button>
-                        ) : (
-                          // Display static plain label for cancelled/rejected bookings [1.1.2]
-                          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 700, py: 1, textTransform: 'uppercase', fontSize: '12px' }}>
-                            Closed Booking
-                          </Typography>
-                        )}
+                        </Grid>
 
-                      </Box>
-                    </Grid>
+                        <Grid item xs={12} sm={8} md={5}>
+                          <Stack spacing={1.25}>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                              {renderStatusBadge(booking)}
+                            </Stack>
+                            <Typography variant="h5" noWrap>
+                              {carName}
+                            </Typography>
+                            <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
+                              <CalendarMonthRoundedIcon sx={{ fontSize: 18 }} />
+                              <Typography variant="body2">
+                                {formatTripDate(booking.startDate, { day: '2-digit', month: 'short' })} - {formatTripDate(booking.endDate)}
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 750 }}>
+                                {booking.numberOfDays} {t('payment.common.days')}
+                              </Typography>
+                            </Stack>
+                          </Stack>
+                        </Grid>
 
-                  </Grid>
-                </CardContent>
-              </Card>
-            );
-          })}
+                        <Grid item xs={12} sm={6} md={2}>
+                          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: 'background.default' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700 }}>
+                              {t('booking.records.totalAmount')}
+                            </Typography>
+                            <Typography variant="h5" color="primary.main">
+                              {formatMoney(Number(booking.totalPrice))}
+                            </Typography>
+                          </Paper>
+                        </Grid>
 
-          {pageInfo && pageInfo.totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination
-                count={pageInfo.totalPages}
-                page={pageInfo.currentPage}
-                onChange={(_, page) => onPageChange(page)}
-                color="primary"
-                size="large"
-              />
-            </Box>
-          )}
-        </Box>
-      )}
+                        <Grid item xs={12} sm={6} md={2.6}>
+                          {renderActionButtons(booking)}
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
-      {/* Cancel Confirmation Dialog */}
-      <Dialog open={cancelConfirmOpen} onClose={() => setCancelConfirmOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '18px' }}>Cancel Booking</DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
-          <Typography sx={{ mb: 2, color: 'text.secondary' }}>
-            Are you sure you want to cancel this booking?
-          </Typography>
-          
-          {refundInfo && (
-            <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: '8px', mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>
-                  Refund Policy
-                </Typography>
-                <Chip
-                  label={refundInfo.policyDescription}
-                  size="small"
-                  color={refundInfo.policy === 'FULL' ? 'success' : refundInfo.policy === 'PARTIAL' ? 'warning' : 'default'}
-                  sx={{ fontWeight: 700 }}
-                />
-              </Box>
-              
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                {refundInfo.reason}
-              </Typography>
-              
-              <Divider sx={{ my: 1.5 }} />
-              
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
-                    Total Paid
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {(refundInfo.refundAmount + refundInfo.keepAmount).toFixed(2)} €
-                  </Typography>
+              {pageInfo && pageInfo.totalPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2 }}>
+                  <Pagination
+                    count={pageInfo.totalPages}
+                    page={pageInfo.currentPage}
+                    onChange={(_, page) => onPageChange(page)}
+                    color="primary"
+                    disabled={loading}
+                  />
                 </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
-                    Refund Amount
-                  </Typography>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      fontWeight: 700, 
-                      color: refundInfo.refundAmount > 0 ? 'success.main' : 'error.main' 
+              )}
+            </Stack>
+          )}
+        </Stack>
+
+        <Dialog open={cancelConfirmOpen} onClose={() => setCancelConfirmOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>{t('booking.records.cancelDialog.title')}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2.5} sx={{ pt: 0.5 }}>
+              <Typography color="text.secondary">{t('booking.records.cancelDialog.message')}</Typography>
+
+              {refundInfo && (
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+                  <Stack spacing={1.75}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                        {t('booking.records.cancelDialog.refundPolicy')}
+                      </Typography>
+                      <Chip
+                        label={refundInfo.policyDescription}
+                        size="small"
+                        color={refundInfo.policy === 'FULL' ? 'success' : refundInfo.policy === 'PARTIAL' ? 'warning' : 'default'}
+                      />
+                    </Stack>
+
+                    <Typography variant="body2" color="text.secondary">
+                      {refundInfo.reason}
+                    </Typography>
+
+                    <Divider />
+
+                    <Grid container spacing={1.5}>
+                      {[
+                        [t('booking.records.cancelDialog.totalPaid'), formatMoney(refundInfo.refundAmount + refundInfo.keepAmount)],
+                        [t('booking.records.cancelDialog.refundAmount'), formatMoney(refundInfo.refundAmount)],
+                        [t('booking.records.cancelDialog.platformFee'), formatMoney(refundInfo.keepAmount)],
+                        [t('booking.records.cancelDialog.daysUntilStart'), String(Math.round(refundInfo.hoursUntilPickup / 24))],
+                      ].map(([label, value]) => (
+                        <Grid item xs={6} key={label}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700 }}>
+                            {label}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                            {value}
+                          </Typography>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Stack>
+                </Paper>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setCancelConfirmOpen(false);
+                setRefundInfo(null);
+              }}
+              variant="outlined"
+            >
+              {t('booking.records.cancelDialog.keep')}
+            </Button>
+            <Button onClick={handleCancelConfirm} variant="contained" color="error" disabled={loadingCancel}>
+              {loadingCancel ? t('booking.records.cancelDialog.cancelling') : t('booking.records.cancelDialog.confirm')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={extendDialogOpen} onClose={() => setExtendDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>{t('booking.records.extendDialog.title')}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 0.5 }}>
+              {extendError && <Alert severity="error">{extendError}</Alert>}
+
+              {selectedBooking && (
+                <>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 700 }}>
+                      {t('booking.records.extendDialog.currentEndDate')}
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 750 }}>
+                      {formatTripDate(selectedBooking.endDate, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </Typography>
+                  </Box>
+
+                  <TextField
+                    label={t('booking.records.extendDialog.newEndDate')}
+                    type="date"
+                    value={newEndDate}
+                    onChange={(event) => setNewEndDate(event.target.value)}
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{
+                      min: new Date(selectedBooking.endDate).toISOString().split('T')[0],
                     }}
-                  >
-                    {refundInfo.refundAmount.toFixed(2)} €
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
-                    Platform Fee
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'error.main' }}>
-                    {refundInfo.keepAmount.toFixed(2)} €
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
-                    Days Until Pickup
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {Math.round(refundInfo.hoursUntilPickup / 24)} days
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button
-            onClick={() => {
-              setCancelConfirmOpen(false);
-              setRefundInfo(null);
-            }}
-            variant="outlined"
-          >
-            No, Keep It
-          </Button>
-          <Button
-            onClick={handleCancelConfirm}
-            variant="contained"
-            color="error"
-            disabled={loadingCancel}
-          >
-            {loadingCancel ? 'Cancelling...' : 'Yes, Cancel Booking'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  />
 
-      {/* Date Extension Dialog */}
-      <Dialog open={extendDialogOpen} onClose={() => setExtendDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '18px' }}>Extend Booking Dates</DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
-          {extendError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {extendError}
-            </Alert>
-          )}
-          {selectedBookingId && bookings.find((b) => b.id === selectedBookingId) && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5, fontWeight: 500 }}>
-                  Current End Date
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {new Date(bookings.find((b) => b.id === selectedBookingId)!.endDate).toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </Typography>
-              </Box>
-              <TextField
-                label="New End Date"
-                type="date"
-                value={newEndDate}
-                onChange={(e) => setNewEndDate(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                inputProps={{
-                  min: new Date(bookings.find((b) => b.id === selectedBookingId)!.endDate)
-                    .toISOString()
-                    .split('T')[0],
-                }}
-              />
-              <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: '8px' }}>
-                <Typography variant="caption" sx={{ color: 'info.dark', fontWeight: 500 }}>
-                  ℹ️ The new end date must be after your current booking end date. Your rental rate will be recalculated accordingly.
-                </Typography>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button
-            onClick={() => setExtendDialogOpen(false)}
-            variant="outlined"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleExtendConfirm}
-            variant="contained"
-            disabled={loadingExtend || !newEndDate}
-          >
-            {loadingExtend ? 'Extending...' : 'Extend Dates'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+                  <Alert severity="info">{t('booking.records.extendDialog.helper')}</Alert>
+                </>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setExtendDialogOpen(false)} variant="outlined">
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleExtendConfirm} variant="contained" disabled={loadingExtend || !newEndDate}>
+              {loadingExtend ? t('booking.records.extendDialog.extending') : t('booking.records.extendDialog.confirm')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </Box>
   );
 };

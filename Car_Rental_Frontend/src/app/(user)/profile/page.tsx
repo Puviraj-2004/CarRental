@@ -11,7 +11,7 @@ import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { useToast } from '@/lib/ToastContext';
 
 export default function ProfilePage() {

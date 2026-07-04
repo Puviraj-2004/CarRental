@@ -2,17 +2,8 @@
 
 import React, { Suspense } from 'react';
 import { useParams } from 'next/navigation';
-import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
+import { PageLoader } from '@/components/ui';
 import { DocumentUploadContainer } from '@/features/documents/components/DocumentUploadContainer';
-
-function PageLoader() {
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-      <CircularProgress />
-    </Box>
-  );
-}
 
 export default function AdminUploadBookingDocumentsPage() {
   const params = useParams();

@@ -9,20 +9,6 @@ export const REGISTER_MUTATION = gql`
   }
 `;
 
-export const LOGIN_MUTATION = gql`
-  mutation Login($input: LoginInput!) {
-    login(input: $input) {
-      accessToken
-      user {
-        id
-        email
-        phoneNumber
-        role
-      }
-    }
-  }
-`;
-
 export const LOGOUT_MUTATION = gql`
   mutation Logout($refreshToken: String!) {
     logout(refreshToken: $refreshToken)

@@ -37,7 +37,7 @@ import { usePathname } from 'next/navigation';
 import { getSession, signOut } from 'next-auth/react';
 import { useMutation } from '@apollo/client';
 import { LOGOUT_MUTATION } from '@/features/auth/graphql/mutations';
-import { CHANGE_PASSWORD_MUTATION } from '@/hooks/useProfile';
+import { CHANGE_PASSWORD_MUTATION } from '@/features/profile/hooks/useProfile';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
 import { LanguageSwitcher } from '../LanguageSwitcher';

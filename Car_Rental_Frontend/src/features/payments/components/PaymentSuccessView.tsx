@@ -12,6 +12,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import { formatMoney } from '@/lib/moneyUtils';
 
 interface PaymentSuccessViewProps {
   t: (path: string) => string;
@@ -42,12 +43,12 @@ export const PaymentSuccessView: React.FC<PaymentSuccessViewProps> = ({
   totalAmount,
   taxPercentage,
 }) => {
-  const docStatus = booking.documents?.status || 'PENDING';
   const carName = `${booking.car.model.brand.name} ${booking.car.model.name}`;
   const reference = String(booking.id).slice(0, 8).toUpperCase();
   const formattedTaxPercentage = Number.isInteger(taxPercentage) ? String(taxPercentage) : taxPercentage.toFixed(2);
 
   return (
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100%' }}>
     <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 } }}>
       <Stack spacing={3}>
         <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 2 }}>
@@ -56,7 +57,7 @@ export const PaymentSuccessView: React.FC<PaymentSuccessViewProps> = ({
               <CheckRoundedIcon />
             </Box>
             <Box>
-              <Typography variant="h3" component="h1">
+              <Typography variant="h2" component="h1">
                 {t('payment.success.title')}
               </Typography>
               <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
@@ -99,21 +100,10 @@ export const PaymentSuccessView: React.FC<PaymentSuccessViewProps> = ({
           <Stack spacing={1.5}>
             <ReceiptRow label={t('payment.success.pickupDate')} value={new Date(booking.startDate).toLocaleDateString()} />
             <ReceiptRow label={t('payment.success.returnDate')} value={new Date(booking.endDate).toLocaleDateString()} />
-            <ReceiptRow label={t('payment.common.subtotal')} value={`${subtotal.toFixed(2)} EUR`} />
-            <ReceiptRow label={`${t('payment.common.tax')} (${formattedTaxPercentage}%)`} value={`${taxAmount.toFixed(2)} EUR`} />
+            <ReceiptRow label={t('payment.common.subtotal')} value={formatMoney(subtotal)} />
+            <ReceiptRow label={`${t('payment.common.tax')} (${formattedTaxPercentage}%)`} value={formatMoney(taxAmount)} />
             <Divider />
-            <ReceiptRow label={t('payment.success.totalCharged')} value={`${totalAmount.toFixed(2)} EUR`} strong />
-            <Divider />
-            <ReceiptRow
-              label={t('payment.success.verification')}
-              value={
-                <Chip
-                  size="small"
-                  color={docStatus === 'APPROVED' ? 'success' : 'warning'}
-                  label={docStatus === 'APPROVED' ? t('payment.success.approved') : t('payment.success.pendingApproval')}
-                />
-              }
-            />
+            <ReceiptRow label={t('payment.success.totalCharged')} value={formatMoney(totalAmount)} strong />
           </Stack>
         </Paper>
 
@@ -127,5 +117,6 @@ export const PaymentSuccessView: React.FC<PaymentSuccessViewProps> = ({
         </Stack>
       </Stack>
     </Container>
+    </Box>
   );
 };

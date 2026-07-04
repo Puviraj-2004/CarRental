@@ -167,22 +167,6 @@ export class PaymentService {
     const totalPrice = Number(booking.totalPrice);
     const carLabel   = `${booking.car.model.brand.name} ${booking.car.model.name}`;
 
-    // Mock payment setup
-    if (env.mockStripe) {
-      securityLogger.info('Mock Stripe: immediate payment', { bookingId });
-
-      await paymentRepository.upsertByBookingId(bookingId, {
-        amount:   totalPrice,
-        status:   PaymentStatus.PENDING,
-        stripeId: `mock_session_${bookingId}`,
-      });
-
-      return {
-        url:       `${env.frontendUrl}/payment/mock?bookingId=${bookingId}`,
-        sessionId: `mock_session_${bookingId}`,
-      };
-    }
-
     const stripe = getStripeClient();
     if (!stripe) {
       throw new AppError(
@@ -322,36 +306,6 @@ export class PaymentService {
     return refundedPayment;
   }
 
-  // ── Mock Finalize: Simulates immediate payment capture ──────
-  async mockFinalizePayment(bookingId: string, success: boolean) {
-    if (!env.mockStripe) {
-      throw new AppError('Mock payment is only allowed in development.', ErrorCode.BAD_USER_INPUT);
-    }
-
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-    if (!booking) {
-      throw new AppError('Booking not found.', ErrorCode.NOT_FOUND);
-    }
-
-    const status = success ? PaymentStatus.PAID : PaymentStatus.FAILED;
-
-    const payment = await paymentRepository.upsertByBookingId(bookingId, {
-      amount: Number(booking.totalPrice),
-      status,
-      stripeId: `mock_charge_${success ? 'success' : 'failed'}_${bookingId}`
-    });
-
-    if (success) {
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: { status: BookingStatus.CONFIRMED }
-      });
-      securityLogger.info('Mock payment captured: booking confirmed', { bookingId });
-    }
-
-    return payment;
-  }
-
   // ── Capture Payment: Executes capture once admin approves booking [1.1.2, 1.1.5] ──
   async capturePayment(bookingId: string): Promise<PaymentWithMethod> {
     const payment = await paymentRepository.findByBookingId(bookingId);
@@ -439,22 +393,6 @@ export class PaymentService {
         return payment;
       }
 
-      if (env.mockStripe) {
-        securityLogger.info('Mock Stripe: cancellation refund', {
-          bookingId,
-          policy,
-          refundAmount,
-          userId,
-          isAdmin,
-        });
-        return paymentRepository.update(payment.id, {
-          status: getRefundStatus(Number(payment.amount), refundAmount),
-          refundedAmount: refundAmount,
-          refundPolicy: policy,
-          refundedAt: new Date(),
-        });
-      }
-
       if (!payment.stripeId && isAdmin) {
         securityLogger.info('Admin refunded locally recorded booking payment during cancellation', {
           bookingId,
@@ -523,16 +461,6 @@ export class PaymentService {
   async refundForRejection(bookingId: string): Promise<PaymentWithMethod | null> {
     const payment = await paymentRepository.findByBookingId(bookingId);
     if (!payment || payment.status !== PaymentStatus.PAID) return null;
-
-    if (env.mockStripe) {
-      securityLogger.info('Mock Stripe: rejection refund', { bookingId });
-      return paymentRepository.update(payment.id, {
-        status: PaymentStatus.REFUNDED,
-        refundedAmount: Number(payment.amount),
-        refundPolicy: 'FULL',
-        refundedAt: new Date(),
-      });
-    }
 
     const stripe = getStripeClient();
     if (!stripe) {
@@ -605,16 +533,6 @@ export class PaymentService {
         `Cannot refund a payment with status "${payment.status}".`,
         ErrorCode.BAD_USER_INPUT,
       );
-    }
-
-    if (env.mockStripe) {
-      securityLogger.info('Mock Stripe: fake refund', { paymentId });
-      return paymentRepository.update(paymentId, {
-        status: PaymentStatus.REFUNDED,
-        refundedAmount: Number(payment.amount),
-        refundPolicy: 'FULL',
-        refundedAt: new Date(),
-      });
     }
 
     const stripe = getStripeClient();

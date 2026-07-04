@@ -50,7 +50,7 @@ export const PaymentSuccessContainer: React.FC<{ bookingId: string }> = ({ booki
   if (error || !booking) {
     return (
       <Container maxWidth="sm" sx={{ py: 6 }}>
-        <Alert severity="error">Receipt details could not be loaded. Please check your Dashboard.</Alert>
+        <Alert severity="error">{t('payment.success.loadError')}</Alert>
       </Container>
     );
   }

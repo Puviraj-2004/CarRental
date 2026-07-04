@@ -20,6 +20,7 @@ export default function BookingPaymentCancelPage() {
   const { t } = useLanguage();
 
   return (
+    <Box sx={{ bgcolor: 'background.default', minHeight: '100%' }}>
     <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 } }}>
       <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 2 }}>
         <Stack spacing={3} alignItems="center" textAlign="center">
@@ -28,7 +29,7 @@ export default function BookingPaymentCancelPage() {
           </Box>
 
           <Box>
-            <Typography variant="h3" component="h1">
+            <Typography variant="h2" component="h1">
               {t('payment.cancelled.title')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
@@ -61,5 +62,6 @@ export default function BookingPaymentCancelPage() {
         </Stack>
       </Paper>
     </Container>
+    </Box>
   );
 }

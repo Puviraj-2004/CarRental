@@ -2,6 +2,10 @@ import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { securityLogger } from '../../config/logger';
 import { AppError, ErrorCode } from '../../core/errors/AppError';
 
+const OCR_MAX_ATTEMPTS = Number.parseInt(process.env.OCR_MAX_ATTEMPTS || '3', 10);
+const OCR_RETRY_BASE_DELAY_MS = Number.parseInt(process.env.OCR_RETRY_BASE_DELAY_MS || '1200', 10);
+const OCR_RETRY_MAX_DELAY_MS = Number.parseInt(process.env.OCR_RETRY_MAX_DELAY_MS || '8000', 10);
+
 export interface ExtractedDocumentData {
   firstName?: string;
   lastName?: string;
@@ -62,10 +66,14 @@ export class OCRService {
       const prompt = this.createGeminiPrompt(documentType, side);
       const safeMimeType = mimeType && mimeType.trim().length > 0 ? mimeType : 'image/jpeg';
 
-      const result = await this.model.generateContent([
-        prompt,
-        { inlineData: { data: base64Image, mimeType: safeMimeType } }
-      ]);
+      const result = await this.generateContentWithRetry(
+        [
+          prompt,
+          { inlineData: { data: base64Image, mimeType: safeMimeType } }
+        ],
+        documentType,
+        side,
+      );
 
       const response = await result.response;
       const text = response.text().replace(/```json|```/g, "").trim();
@@ -111,6 +119,58 @@ export class OCRService {
       securityLogger.error('OCR extraction failed', { documentType, side, error: errorMessage });
       return this.handleFallbackSystem(fileBuffer, documentType);
     }
+  }
+
+  private async generateContentWithRetry(
+    parts: Parameters<GenerativeModel['generateContent']>[0],
+    documentType?: 'license' | 'id' | 'address',
+    side?: 'front' | 'back',
+  ) {
+    const maxAttempts = Number.isFinite(OCR_MAX_ATTEMPTS) && OCR_MAX_ATTEMPTS > 0 ? OCR_MAX_ATTEMPTS : 3;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await this.model.generateContent(parts);
+      } catch (error: unknown) {
+        lastError = error;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const retryable = this.isRetryableGeminiError(errorMessage);
+
+        if (!retryable || attempt >= maxAttempts) {
+          throw error;
+        }
+
+        const delayMs = this.getRetryDelayMs(attempt);
+        securityLogger.warn('OCR transient failure; retrying Gemini request', {
+          documentType,
+          side,
+          attempt,
+          maxAttempts,
+          delayMs,
+          error: errorMessage,
+        });
+        await this.sleep(delayMs);
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError || 'OCR request failed'));
+  }
+
+  private isRetryableGeminiError(message: string): boolean {
+    return /503|502|504|429|Service Unavailable|Too Many Requests|high demand|fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|network|timeout/i.test(message);
+  }
+
+  private getRetryDelayMs(attempt: number): number {
+    const baseDelay = Number.isFinite(OCR_RETRY_BASE_DELAY_MS) && OCR_RETRY_BASE_DELAY_MS > 0 ? OCR_RETRY_BASE_DELAY_MS : 1200;
+    const maxDelay = Number.isFinite(OCR_RETRY_MAX_DELAY_MS) && OCR_RETRY_MAX_DELAY_MS > 0 ? OCR_RETRY_MAX_DELAY_MS : 8000;
+    const exponentialDelay = Math.min(maxDelay, baseDelay * 2 ** (attempt - 1));
+    const jitter = Math.floor(Math.random() * Math.min(750, Math.floor(exponentialDelay * 0.25)));
+    return exponentialDelay + jitter;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private createGeminiPrompt(documentType?: string, side?: 'front' | 'back'): string {

@@ -10,7 +10,6 @@ import logger                    from '../../config/logger';
 import {
   MIN_BOOKING_DAYS,
   MAX_BOOKING_DAYS,
-  CANCELLATION_WINDOW_HOURS,
 } from '../../core/constants/booking';
 import { bookingRepository }     from './booking.repository';
 import { carRepository }         from '../cars/car.repository';
@@ -270,9 +269,9 @@ export class BookingService {
     if (!isAdmin) {
       const hoursUntilStart =
         (booking.startDate.getTime() - Date.now()) / (1000 * 60 * 60);
-      if (hoursUntilStart < CANCELLATION_WINDOW_HOURS) {
+      if (hoursUntilStart <= 0) {
         throw new AppError(
-          `Cancellations must be made at least ${CANCELLATION_WINDOW_HOURS} hours before pickup.`,
+          'Bookings can only be cancelled before the rental starts.',
           ErrorCode.BAD_USER_INPUT,
         );
       }

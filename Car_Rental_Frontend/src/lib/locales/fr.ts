@@ -4,6 +4,8 @@ import { navbar } from './fr/navbar';
 import { auth } from './fr/auth';
 import { admin } from './fr/admin';
 import { payment } from './fr/payment';
+import { booking } from './fr/booking';
+import { documents } from './fr/documents';
 import { adminCars, cars } from './fr/cars';
 import { layout } from './fr/layout';
 
@@ -28,6 +30,8 @@ export const fr = {
   auth,
   admin,
   payment,
+  booking,
+  documents,
   layout,
   cars,
   adminCars,

@@ -20,7 +20,7 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useAdminUsers } from '@/hooks/useAdminUsers';
+import { useAdminUsers } from '@/features/admin/hooks/useAdminUsers';
 import { useToast } from '@/lib/ToastContext';
 
 export default function AdminUsersPage() {

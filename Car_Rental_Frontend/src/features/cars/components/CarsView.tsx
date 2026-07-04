@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { alpha, useTheme } from '@mui/material/styles';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -25,14 +26,19 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import LocalGasStationRoundedIcon from '@mui/icons-material/LocalGasStationRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import Link from 'next/link';
+import { getDateRangeDurationDays, getLocalDateInputValue, getNextDateInputValue } from '@/lib/dateUtils';
+import { formatMoney } from '@/lib/moneyUtils';
+import { replaceToken } from '@/lib/textUtils';
 import type { Brand, Car, CarFilterInput, FuelType, PageInfo } from '../hooks/useCar';
 
 interface CarsViewProps {
@@ -51,26 +57,9 @@ interface CarsViewProps {
   onPageChange: (page: number) => void;
 }
 
-const formatDateInputMin = (): string => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+type ExtendedCarFilterInput = CarFilterInput & {
+  modelId?: string;
 };
-
-const getNextDayStr = (dateStr: string): string => {
-  if (!dateStr) return formatDateInputMin();
-  const date = new Date(dateStr);
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().split('T')[0];
-};
-
-const getBookingDurationDays = (startDate: string, endDate: string): number => {
-  if (!startDate || !endDate) return 0;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-};
-
-const formatMoney = (value: number): string => `${value.toFixed(2)} EUR`;
 
 export const CarsView: React.FC<CarsViewProps> = ({
   t,
@@ -88,36 +77,164 @@ export const CarsView: React.FC<CarsViewProps> = ({
   onPageChange,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isDrawerMode = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const todayStr = formatDateInputMin();
-  const hasDates = Boolean(startDate && endDate);
-  const bookingDuration = getBookingDurationDays(startDate, endDate);
+
+  const typedFilters = filters as ExtendedCarFilterInput;
+  const todayStr = getLocalDateInputValue();
+  const bookingDuration = getDateRangeDurationDays(startDate, endDate);
+  const hasValidDates = Boolean(startDate && endDate && bookingDuration > 0);
+  const hasInvalidDates = Boolean(startDate && endDate && bookingDuration <= 0);
   const resultCount = pageInfo?.totalCount ?? cars.length;
 
+  const modelOptions = useMemo(() => {
+    const fromBrands = brands.flatMap((brand: any) => {
+      const models = brand.models || brand.carModels || [];
+      return models.map((model: any) => ({
+        id: String(model.id),
+        name: String(model.name),
+        brandId: String(brand.id),
+      }));
+    });
+
+    const fromCars = cars.map((car) => {
+      const model: any = car.model;
+      const brand: any = car.model.brand;
+
+      return {
+        id: String(model.id ?? model.name),
+        name: String(model.name),
+        brandId: String(brand.id ?? brand.name),
+      };
+    });
+
+    const map = new Map<string, { id: string; name: string; brandId?: string }>();
+
+    [...fromBrands, ...fromCars].forEach((model) => {
+      if (!model.id || !model.name) return;
+      if (typedFilters.brandId && model.brandId && model.brandId !== String(typedFilters.brandId)) return;
+      map.set(model.id, model);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [brands, cars, typedFilters.brandId]);
+
   const activeFilterCount = useMemo(() => {
-    return [filters.brandId, filters.fuelTypeId, filters.search]
-      .filter(Boolean)
-      .length;
-  }, [filters.brandId, filters.fuelTypeId, filters.search]);
+    return [
+      typedFilters.brandId,
+      typedFilters.modelId,
+      typedFilters.fuelTypeId,
+      typedFilters.search,
+      startDate,
+      endDate,
+    ].filter(Boolean).length;
+  }, [
+    typedFilters.brandId,
+    typedFilters.modelId,
+    typedFilters.fuelTypeId,
+    typedFilters.search,
+    startDate,
+    endDate,
+  ]);
+
+  const filterControlSx = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 3,
+      bgcolor: 'background.paper',
+    },
+  };
 
   const filterContent = (
-    <Stack spacing={2.5}>
+    <Stack spacing={2.25}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-          {t('cars.catalog.filters.title')}
-        </Typography>
-        <Button size="small" onClick={onClearFilters} sx={{ textTransform: 'none', fontWeight: 700 }}>
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 950 }}>
+            {t('cars.catalog.filters.title')}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {activeFilterCount > 0
+              ? replaceToken(t('cars.catalog.filters.activeCount'), '{count}', String(activeFilterCount))
+              : t('cars.catalog.filters.noActive')}
+          </Typography>
+        </Box>
+
+        <Button
+          size="small"
+          onClick={onClearFilters}
+          sx={{
+            borderRadius: 999,
+            textTransform: 'none',
+            fontWeight: 900,
+          }}
+        >
           {t('cars.catalog.filters.clear')}
         </Button>
       </Stack>
 
-      <FormControl fullWidth size="small">
+      <TextField
+        fullWidth
+        size="small"
+        label={t('cars.catalog.filters.search')}
+        placeholder={t('cars.catalog.filters.searchPlaceholder')}
+        value={typedFilters.search || ''}
+        onChange={(event) => onFilterChange('search', event.target.value || undefined)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchRoundedIcon fontSize="small" color="action" />
+            </InputAdornment>
+          ),
+        }}
+        sx={filterControlSx}
+      />
+
+      <Stack spacing={1.5}>
+        <TextField
+          fullWidth
+          size="small"
+          type="date"
+          label={t('cars.catalog.pickupDate')}
+          value={startDate}
+          inputProps={{ min: todayStr }}
+          InputLabelProps={{ shrink: true }}
+          onChange={(event) => onFilterChange('startDate', event.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <CalendarMonthRoundedIcon fontSize="small" color="action" />
+              </InputAdornment>
+            ),
+          }}
+          sx={filterControlSx}
+        />
+
+        <TextField
+          fullWidth
+          size="small"
+          type="date"
+          label={t('cars.catalog.returnDate')}
+          value={endDate}
+          inputProps={{ min: getNextDateInputValue(startDate) }}
+          InputLabelProps={{ shrink: true }}
+          onChange={(event) => onFilterChange('endDate', event.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <CalendarMonthRoundedIcon fontSize="small" color="action" />
+              </InputAdornment>
+            ),
+          }}
+          sx={filterControlSx}
+        />
+      </Stack>
+
+      <FormControl fullWidth size="small" sx={filterControlSx}>
         <InputLabel>{t('cars.catalog.filters.brand')}</InputLabel>
         <Select
           label={t('cars.catalog.filters.brand')}
-          value={filters.brandId || ''}
+          value={typedFilters.brandId || ''}
           onChange={(event) => onFilterChange('brandId', event.target.value || undefined)}
         >
           <MenuItem value="">{t('cars.catalog.filters.allBrands')}</MenuItem>
@@ -129,11 +246,27 @@ export const CarsView: React.FC<CarsViewProps> = ({
         </Select>
       </FormControl>
 
-      <FormControl fullWidth size="small">
+      <FormControl fullWidth size="small" sx={filterControlSx}>
+        <InputLabel>{t('cars.catalog.filters.model')}</InputLabel>
+        <Select
+          label={t('cars.catalog.filters.model')}
+          value={typedFilters.modelId || ''}
+          onChange={(event) => onFilterChange('modelId', event.target.value || undefined)}
+        >
+          <MenuItem value="">{t('cars.catalog.filters.allModels')}</MenuItem>
+          {modelOptions.map((model) => (
+            <MenuItem key={model.id} value={model.id}>
+              {model.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <FormControl fullWidth size="small" sx={filterControlSx}>
         <InputLabel>{t('cars.catalog.filters.fuelType')}</InputLabel>
         <Select
           label={t('cars.catalog.filters.fuelType')}
-          value={filters.fuelTypeId || ''}
+          value={typedFilters.fuelTypeId || ''}
           onChange={(event) => onFilterChange('fuelTypeId', event.target.value || undefined)}
         >
           <MenuItem value="">{t('cars.catalog.filters.allFuels')}</MenuItem>
@@ -145,284 +278,326 @@ export const CarsView: React.FC<CarsViewProps> = ({
         </Select>
       </FormControl>
 
-      {isMobile && (
+      {isDrawerMode && (
         <Button
           fullWidth
           variant="contained"
           onClick={() => setFiltersOpen(false)}
-          sx={{ mt: 1, py: 1.2, fontWeight: 800, borderRadius: '8px' }}
+          sx={{
+            mt: 1,
+            minHeight: 48,
+            borderRadius: 999,
+            fontWeight: 950,
+            textTransform: 'none',
+          }}
         >
-          {t('cars.catalog.filters.button')}
+          {t('cars.catalog.filters.apply')}
         </Button>
       )}
     </Stack>
   );
 
   return (
-    <Box sx={{ bgcolor: 'background.default', minHeight: '100%', pb: { xs: 10, md: 6 } }}>
-      {/* Sticky search bar */}
-      <Box
-        sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          py: { xs: 1.5, md: 2 },
-        }}
-      >
-        <Container maxWidth="lg">
-          <Stack spacing={1} sx={{ mb: { xs: 1.25, md: 1.5 } }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
-              {t('cars.catalog.title')}
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ display: { xs: 'none', sm: 'block' } }}
-            >
-              {t('cars.catalog.subtitle')}
-            </Typography>
-          </Stack>
-
-          <Paper
-            variant="outlined"
+    <Box
+      sx={{
+        bgcolor: 'background.default',
+        minHeight: '100%',
+        pb: { xs: 8, md: 7 },
+        overflow: 'hidden',
+      }}
+    >
+      <Container maxWidth="lg" sx={{ pt: { xs: 2.5, md: 3.5 } }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            mb: 2,
+            p: 1.25,
+            borderRadius: 3,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Button
+            fullWidth
+            variant={activeFilterCount > 0 ? 'contained' : 'outlined'}
+            onClick={() => setFiltersOpen(true)}
+            startIcon={<FilterListRoundedIcon fontSize="small" />}
             sx={{
-              borderRadius: '8px',
-              p: { xs: 1.25, md: 1.5 },
-              bgcolor: 'background.paper',
-              boxShadow: 1,
+              minHeight: 46,
+              borderRadius: 2,
+              fontWeight: 950,
+              textTransform: 'none',
+              justifyContent: 'center',
             }}
           >
-            <Grid container spacing={1} alignItems="center">
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('cars.catalog.pickupDate')}
-                  value={startDate}
-                  inputProps={{ min: todayStr }}
-                  InputLabelProps={{ shrink: true }}
-                  onChange={(event) => onFilterChange('startDate', event.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CalendarMonthRoundedIcon fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('cars.catalog.returnDate')}
-                  value={endDate}
-                  inputProps={{ min: getNextDayStr(startDate) }}
-                  InputLabelProps={{ shrink: true }}
-                  onChange={(event) => onFilterChange('endDate', event.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CalendarMonthRoundedIcon fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={9} sm={9} md={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('cars.catalog.search')}
-                  placeholder={t('cars.catalog.filters.searchPlaceholder')}
-                  value={filters.search || ''}
-                  onChange={(event) => onFilterChange('search', event.target.value || undefined)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                      <SearchRoundedIcon fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={3} sm={3} md={2}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={() => setFiltersOpen(true)}
-                  sx={{
-                    minWidth: 0,
-                    py: 0.95,
-                    borderRadius: '8px',
-                    fontWeight: 800,
-                    display: { md: 'none' },
-                  }}
-                >
-                  <FilterListRoundedIcon fontSize="small" />
-                  {activeFilterCount > 0 && (
-                    <Chip
-                      label={activeFilterCount}
-                      size="small"
-                      color="primary"
-                      sx={{ ml: 0.5, height: 18, '& .MuiChip-label': { px: 0.6, fontSize: 11, fontWeight: 800 } }}
-                    />
-                  )}
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Container>
-      </Box>
+            {t('cars.catalog.filters.button')}
+            {activeFilterCount > 0 && (
+              <Chip
+                label={activeFilterCount}
+                size="small"
+                sx={{
+                  ml: 1,
+                  height: 22,
+                  bgcolor: 'background.paper',
+                  color: 'primary.main',
+                  '& .MuiChip-label': { px: 0.8, fontSize: 11, fontWeight: 950 },
+                }}
+              />
+            )}
+          </Button>
+        </Paper>
 
-      <Container maxWidth="lg" sx={{ pt: { xs: 2, md: 3 } }}>
-        {!hasDates && (
-          <Alert severity="info" sx={{ mb: 2, borderRadius: '8px' }}>
+        {!hasValidDates && !hasInvalidDates && (
+          <Alert severity="info" sx={{ mb: 2.5, borderRadius: 3 }}>
             {t('cars.catalog.availabilityHint')}
           </Alert>
         )}
 
+        {hasInvalidDates && (
+          <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 3 }}>
+            {t('cars.catalog.invalidDateHint')}
+          </Alert>
+        )}
+
         {error && (
-          <Alert severity="error" sx={{ mb: 2, borderRadius: '8px' }}>
+          <Alert severity="error" sx={{ mb: 2.5, borderRadius: 3 }}>
             {error}
           </Alert>
         )}
 
-        <Grid container spacing={2.5} alignItems="flex-start">
-          {/* Desktop filter sidebar */}
+        <Grid container spacing={3} alignItems="flex-start">
+          {/* DESKTOP FILTER SIDEBAR */}
           <Grid item md={3} sx={{ display: { xs: 'none', md: 'block' } }}>
             <Paper
               variant="outlined"
               sx={{
-                borderRadius: '8px',
-                p: 2,
+                borderRadius: 4,
+                p: 2.5,
                 position: 'sticky',
-                top: 140,
+                top: 96,
                 bgcolor: 'background.paper',
-                boxShadow: 1,
+                boxShadow: (theme) => `0 18px 50px ${alpha(theme.palette.common.black, 0.08)}`,
               }}
             >
               {filterContent}
             </Paper>
           </Grid>
 
+          {/* CATALOG GRID */}
           <Grid item xs={12} md={9}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
-              spacing={1}
+              spacing={1.5}
               alignItems={{ xs: 'flex-start', sm: 'center' }}
               justifyContent="space-between"
-              sx={{ mb: 1.5 }}
+              sx={{ mb: 2.5 }}
             >
               <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                  {t('cars.catalog.vehicleCount').replace('{count}', String(resultCount))}
+                <Typography variant="subtitle1" sx={{ fontWeight: 950 }}>
+                  {replaceToken(t('cars.catalog.vehicleCount'), '{count}', String(resultCount))}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                  {hasDates ? t('cars.catalog.liveAvailability') : t('cars.catalog.noDatesCta')}
+
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 650 }}>
+                  {hasValidDates ? t('cars.catalog.liveAvailability') : t('cars.catalog.noDatesCta')}
                 </Typography>
               </Box>
-              {hasDates && (
-                <Chip
-                  icon={<CalendarMonthRoundedIcon />}
-                  label={t('cars.catalog.tripSelected').replace('{days}', String(bookingDuration))}
-                  variant="outlined"
-                  size="small"
-                  sx={{ bgcolor: 'background.paper', fontWeight: 700 }}
-                />
-              )}
+
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {hasValidDates && (
+                  <Chip
+                    icon={<CalendarMonthRoundedIcon />}
+                    label={replaceToken(t('cars.catalog.tripSelected'), '{days}', String(bookingDuration))}
+                    variant="outlined"
+                    sx={{ bgcolor: 'background.paper', fontWeight: 850, borderRadius: 999 }}
+                  />
+                )}
+
+                {activeFilterCount > 0 && (
+                  <Chip
+                    icon={<TuneRoundedIcon />}
+                    label={replaceToken(t('cars.catalog.filters.activeCount'), '{count}', String(activeFilterCount))}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ bgcolor: 'background.paper', fontWeight: 850, borderRadius: 999 }}
+                  />
+                )}
+              </Stack>
             </Stack>
 
             {loading ? (
-              <Paper variant="outlined" sx={{ borderRadius: '8px', p: 5, display: 'flex', justifyContent: 'center' }}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  borderRadius: 4,
+                  p: 6,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  bgcolor: 'background.paper',
+                }}
+              >
                 <CircularProgress />
               </Paper>
             ) : cars.length === 0 ? (
-              <Alert severity="info" sx={{ borderRadius: '8px' }}>
-                {t('cars.catalog.emptyState')}
-              </Alert>
+              <Paper
+                variant="outlined"
+                sx={{
+                  borderRadius: 4,
+                  p: { xs: 3, md: 5 },
+                  textAlign: 'center',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <DirectionsCarRoundedIcon color="disabled" sx={{ fontSize: 58, mb: 2 }} />
+                <Typography variant="h6" sx={{ fontWeight: 950, mb: 1 }}>
+                  {t('cars.catalog.emptyTitle')}
+                </Typography>
+                <Typography color="text.secondary">{t('cars.catalog.emptyState')}</Typography>
+              </Paper>
             ) : (
-              <Stack spacing={2}>
-                <Grid container spacing={2}>
+              <Stack spacing={3}>
+                <Grid container spacing={2.5}>
                   {cars.map((car) => {
-                    const detailsUrl = hasDates
+                    const detailsUrl = hasValidDates
                       ? `/viewDetails/${car.id}?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
                       : `/viewDetails/${car.id}`;
+
                     const basePrice = Number(car.basePrice);
-                    const totalPrice = hasDates ? basePrice * bookingDuration : null;
+                    const totalPrice = hasValidDates ? basePrice * bookingDuration : null;
 
                     return (
-                      <Grid item xs={12} sm={6} md={6} lg={4} key={car.id}>
+                      <Grid item xs={12} sm={6} lg={4} key={car.id}>
                         <Card
                           variant="outlined"
                           sx={{
                             height: '100%',
                             display: 'flex',
                             flexDirection: 'column',
-                            borderRadius: '8px',
+                            borderRadius: 4,
                             overflow: 'hidden',
-                            transition: 'box-shadow 160ms ease, border-color 160ms ease',
+                            bgcolor: 'background.paper',
+                            transition: 'transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease',
+                            willChange: 'transform',
                             '&:hover': {
-                              borderColor: 'primary.light',
-                              boxShadow: 4,
+                              transform: 'translateY(-8px) scale(1.015)',
+                              borderColor: 'primary.main',
+                              boxShadow: (theme) => `0 24px 70px ${alpha(theme.palette.common.black, 0.14)}`,
                             },
                           }}
                         >
-                          <Box>
-                            <CardMedia
-                              component="img"
-                              src={car.primaryImageUrl || 'https://via.placeholder.com/640x360?text=Vehicle'}
-                              alt={`${car.model.brand.name} ${car.model.name}`}
-                              sx={{ width: '100%', height: 176, objectFit: 'cover', bgcolor: 'grey.100' }}
-                            />
+                          <Box sx={{ position: 'relative', height: 196, overflow: 'hidden', bgcolor: 'grey.100' }}>
+                            {car.primaryImageUrl ? (
+                              <CardMedia
+                                component="img"
+                                image={car.primaryImageUrl}
+                                alt={`${car.model.brand.name} ${car.model.name}`}
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  transition: 'transform 450ms ease',
+                                  '.MuiCard-root:hover &': {
+                                    transform: 'scale(1.06)',
+                                  },
+                                }}
+                              />
+                            ) : (
+                              <Box
+                                sx={{
+                                  height: '100%',
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  color: 'text.secondary',
+                                }}
+                              >
+                                <Stack spacing={1} alignItems="center">
+                                  <DirectionsCarRoundedIcon />
+                                  <Typography variant="caption">{t('cars.catalog.imageUnavailable')}</Typography>
+                                </Stack>
+                              </Box>
+                            )}
+
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              sx={{
+                                position: 'absolute',
+                                top: 12,
+                                left: 12,
+                                right: 12,
+                                justifyContent: 'space-between',
+                              }}
+                            >
+                              <Chip
+                                icon={<VerifiedRoundedIcon />}
+                                label={t('cars.catalog.verifiedVehicle')}
+                                size="small"
+                                sx={{
+                                  fontWeight: 900,
+                                  bgcolor: 'rgba(255,255,255,0.92)',
+                                  backdropFilter: 'blur(12px)',
+                                  '& .MuiChip-icon': { color: 'primary.main' },
+                                }}
+                              />
+
+                              {hasValidDates && (
+                                <Chip
+                                  label={t('cars.catalog.priceNote')}
+                                  size="small"
+                                  color="primary"
+                                  sx={{ fontWeight: 900 }}
+                                />
+                              )}
+                            </Stack>
                           </Box>
 
-                          <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.25, mb: 0.75 }}>
+                          <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 2.5 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 950, lineHeight: 1.22, mb: 0.75 }}>
                               {car.model.brand.name} {car.model.name}
                             </Typography>
 
-                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, mb: 1.5 }}>
+                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, mb: 2 }}>
                               <Chip
                                 icon={<LocalGasStationRoundedIcon />}
-                                label={car.fuelType?.name || '-'}
+                                label={car.fuelType?.name || t('cars.catalog.notAvailable')}
                                 size="small"
                                 variant="outlined"
+                                sx={{ fontWeight: 750 }}
                               />
                             </Stack>
 
-                            <Divider sx={{ mb: 1.5 }} />
+                            <Divider sx={{ mb: 2 }} />
 
-                            <Stack direction="row" alignItems="flex-end" justifyContent="space-between" sx={{ mb: 1.5 }}>
-                              <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
-                                  {hasDates ? t('cars.catalog.tripTotal') : t('cars.catalog.dailyRate')}
-                                </Typography>
-                                <Typography variant="h6" color="primary.main" sx={{ fontWeight: 850, lineHeight: 1.2 }}>
-                                  {totalPrice != null ? formatMoney(totalPrice) : formatMoney(basePrice)}
-                                </Typography>
-                                {!hasDates && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                    {t('cars.catalog.selectDatesForTotal')}
-                                  </Typography>
-                                )}
-                              </Box>
+                            <Stack spacing={0.4} sx={{ mb: 2 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 850 }}>
+                                {hasValidDates ? t('cars.catalog.tripTotal') : t('cars.catalog.dailyRate')}
+                              </Typography>
+
+                              <Typography variant="h5" color="primary.main" sx={{ fontWeight: 950, lineHeight: 1.15 }}>
+                                {totalPrice != null ? formatMoney(totalPrice) : formatMoney(basePrice)}
+                              </Typography>
+
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 650 }}>
+                                {hasValidDates
+                                  ? t('cars.catalog.selectedDates')
+                                  : t('cars.catalog.selectDatesForTotal')}
+                              </Typography>
                             </Stack>
 
                             <Button
                               fullWidth
-                              variant={hasDates ? 'contained' : 'outlined'}
+                              variant={hasValidDates ? 'contained' : 'outlined'}
                               component={Link}
                               href={detailsUrl}
                               endIcon={<ArrowForwardRoundedIcon />}
-                              sx={{ mt: 'auto', textTransform: 'none', fontWeight: 800, borderRadius: '8px' }}
+                              sx={{
+                                mt: 'auto',
+                                minHeight: 44,
+                                textTransform: 'none',
+                                fontWeight: 950,
+                                borderRadius: 999,
+                              }}
                             >
-                              {hasDates ? t('cars.catalog.continueBooking') : t('cars.catalog.viewDetails')}
+                              {hasValidDates ? t('cars.catalog.continueBooking') : t('cars.catalog.viewDetails')}
                             </Button>
                           </CardContent>
                         </Card>
@@ -432,13 +607,14 @@ export const CarsView: React.FC<CarsViewProps> = ({
                 </Grid>
 
                 {pageInfo && pageInfo.totalPages > 1 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
                     <Pagination
                       count={pageInfo.totalPages}
                       page={pageInfo.currentPage}
                       onChange={(_, page) => onPageChange(page)}
                       color="primary"
-                      size={isMobile ? 'small' : 'medium'}
+                      size={isSmallMobile ? 'small' : 'medium'}
+                      shape="rounded"
                     />
                   </Box>
                 )}
@@ -448,39 +624,74 @@ export const CarsView: React.FC<CarsViewProps> = ({
         </Grid>
       </Container>
 
-      {/* Filters: bottom sheet on mobile, right drawer on larger screens */}
+      {/* MOBILE / TABLET FILTER DRAWER */}
       <Drawer
-        anchor={isMobile ? 'bottom' : 'right'}
+        anchor={isDrawerMode ? 'bottom' : 'right'}
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
         PaperProps={{
-          sx: isMobile
-            ? { width: '100%', borderTopLeftRadius: '8px', borderTopRightRadius: '8px', p: 2.5, maxHeight: '85vh' }
-            : { width: 'min(360px, 92vw)', p: 2.5, borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px' },
+          sx: isDrawerMode
+            ? {
+                width: '100%',
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                p: 2.5,
+                maxHeight: '88vh',
+                overflowY: 'auto',
+              }
+            : {
+                width: 'min(390px, 92vw)',
+                p: 2.5,
+                borderTopLeftRadius: 24,
+                borderBottomLeftRadius: 24,
+                overflowY: 'auto',
+              },
         }}
       >
+        {isDrawerMode && (
+          <Box
+            sx={{
+              width: 44,
+              height: 5,
+              borderRadius: 99,
+              bgcolor: 'divider',
+              mx: 'auto',
+              mb: 2,
+            }}
+          />
+        )}
+
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-          {isMobile && (
+          <Stack direction="row" spacing={1.2} alignItems="center">
             <Box
               sx={{
-                position: 'absolute',
-                top: 8,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 36,
-                height: 4,
-                borderRadius: 2,
-                bgcolor: 'divider',
+                width: 38,
+                height: 38,
+                borderRadius: 2.5,
+                display: 'grid',
+                placeItems: 'center',
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                color: 'primary.main',
               }}
-            />
-          )}
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            {t('cars.catalog.filters.title')}
-          </Typography>
+            >
+              <TuneRoundedIcon fontSize="small" />
+            </Box>
+
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 950, lineHeight: 1.1 }}>
+                {t('cars.catalog.filters.title')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t('cars.catalog.filters.drawerSubtitle')}
+              </Typography>
+            </Box>
+          </Stack>
+
           <IconButton onClick={() => setFiltersOpen(false)} aria-label={t('cars.catalog.filters.close')}>
             <CloseRoundedIcon />
           </IconButton>
         </Stack>
+
         {filterContent}
       </Drawer>
     </Box>

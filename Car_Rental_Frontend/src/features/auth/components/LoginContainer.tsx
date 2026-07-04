@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { getSession, signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
-import { useIsNativeApp } from '@/hooks/useIsNativeApp';
+import { useIsNativeApp } from '@/features/native/hooks/useIsNativeApp';
 import { LoginView } from './LoginView';
 
 export const LoginContainer: React.FC = () => {

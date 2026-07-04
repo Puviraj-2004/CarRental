@@ -117,11 +117,9 @@ export const documentResolvers: any = {
         downloadFileBuffer(addressProofUrl),
       ]);
 
-      const [licFrontData, idFrontData, addressData] = await Promise.all([
-        ocrService.extractDocumentData(licFrontBuf, 'license', 'front'),
-        ocrService.extractDocumentData(idFrontBuf, 'id', 'front'),
-        ocrService.extractDocumentData(addressBuf, 'address'),
-      ]);
+      const licFrontData = await ocrService.extractDocumentData(licFrontBuf, 'license', 'front');
+      const idFrontData = await ocrService.extractDocumentData(idFrontBuf, 'id', 'front');
+      const addressData = await ocrService.extractDocumentData(addressBuf, 'address');
 
       return {
         licenseNumber: licFrontData.licenseNumber || '',

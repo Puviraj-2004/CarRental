@@ -6,6 +6,7 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
+import LinearProgress from '@mui/material/LinearProgress';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
@@ -109,6 +110,7 @@ interface DocumentUploadViewProps {
   onSubmit: (e: React.FormEvent) => void;
   error: string | null;
   loading: boolean;
+  scanInProgress: boolean;
   phase: 'upload' | 'review';
   setPhase: (val: 'upload' | 'review') => void;
   licFront: File | null;
@@ -153,6 +155,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
   onSubmit,
   error,
   loading,
+  scanInProgress,
   phase,
   setPhase,
   licFront,
@@ -191,6 +194,7 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
   hasExistingProfileDoc,
   adminMode = false,
 }) => {
+  const [scanProgress, setScanProgress] = useState(0);
   const [licFrontPreview, setLicFrontPreview] = useState<string | null>(null);
   const [licBackPreview, setLicBackPreview] = useState<string | null>(null);
   const [idFrontPreview, setIdFrontPreview] = useState<string | null>(null);
@@ -202,6 +206,27 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
   const idFrontRef = useRef<HTMLInputElement>(null);
   const idBackRef = useRef<HTMLInputElement>(null);
   const addrProofRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!scanInProgress) {
+      setScanProgress(0);
+      return;
+    }
+
+    setScanProgress(8);
+    const milestones = [18, 32, 48, 62, 76, 88, 94];
+    let index = 0;
+
+    const timer = window.setInterval(() => {
+      setScanProgress((current) => {
+        const next = milestones[Math.min(index, milestones.length - 1)];
+        index += 1;
+        return Math.max(current, next);
+      });
+    }, 2400);
+
+    return () => window.clearInterval(timer);
+  }, [scanInProgress]);
 
   useEffect(() => {
     if (!licFront) return setLicFrontPreview(null);
@@ -535,6 +560,31 @@ export const DocumentUploadView: React.FC<DocumentUploadViewProps> = ({
                 • Maximum file size allowed is 10 MB per file.
               </Typography>
             </Card>
+
+            {phase === 'upload' && scanInProgress && (
+              <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: 'background.paper', mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {t('documents.scan.title')}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                    {Math.round(scanProgress)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={scanProgress}
+                  sx={{ height: 8, borderRadius: 999, bgcolor: 'primary.light' }}
+                />
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.25, fontWeight: 600 }}>
+                  {scanProgress < 45
+                    ? t('documents.scan.uploading')
+                    : scanProgress < 88
+                      ? t('documents.scan.extracting')
+                      : t('documents.scan.finishing')}
+                </Typography>
+              </Card>
+            )}
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               

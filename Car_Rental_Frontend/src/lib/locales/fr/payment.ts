@@ -26,6 +26,9 @@ export const payment: DeepStringify<typeof enPayment> = {
     payNow: "Payer en securite",
     redirecting: "Redirection...",
     payLater: "Retour aux reservations",
+    missingReference: "Reference de reservation manquante. Redirection vers la flotte...",
+    redirectStarted: "Tunnel de paiement securise initialise. Redirection...",
+    loadError: "Les details de reservation n ont pas pu etre charges. Verifiez votre lien.",
   },
   success: {
     title: "Paiement reussi",
@@ -39,6 +42,7 @@ export const payment: DeepStringify<typeof enPayment> = {
     approved: "Approuve",
     goBookings: "Voir les reservations",
     bookAnother: "Reserver une autre voiture",
+    loadError: "Le recu n a pas pu etre charge. Veuillez verifier vos reservations.",
   },
   cancelled: {
     title: "Paiement annule",

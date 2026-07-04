@@ -31,6 +31,7 @@ export const DocumentUploadContainer: React.FC<{
   } = useDocuments({ skipApprovedDocuments: adminMode });
 
   const [error, setError] = useState<string | null>(null);
+  const [scanInProgress, setScanInProgress] = useState(false);
 
   // Modal / Selection Dialog States
   const [showReuseModal, setShowReuseModal] = useState(false);
@@ -98,6 +99,7 @@ export const DocumentUploadContainer: React.FC<{
     }
 
     try {
+      setScanInProgress(true);
       const res = await executeOCR({
         licenseFront: licFront,
         licenseBack:  licBack,
@@ -119,7 +121,11 @@ export const DocumentUploadContainer: React.FC<{
       setPhase('review');
       showToast('AI analysis completed. Please verify the details below.', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'));
+      const message = err instanceof Error ? err.message : '';
+      const isTemporaryOcrIssue = /503|Service Unavailable|high demand|try again later|generativelanguage|gemini/i.test(message);
+      setError(isTemporaryOcrIssue ? t('documents.scan.temporaryUnavailable') : message || t('common.error'));
+    } finally {
+      setScanInProgress(false);
     }
   };
 
@@ -232,7 +238,8 @@ export const DocumentUploadContainer: React.FC<{
       t={t}
       onSubmit={phase === 'upload' ? handleExtractDetails : handleValidateFormAndPrompt}
       error={error}
-      loading={loadingOCR || loadingSaveBooking || loadingReuse}
+      loading={scanInProgress || loadingOCR || loadingSaveBooking || loadingReuse}
+      scanInProgress={scanInProgress || loadingOCR}
       phase={phase}
       setPhase={setPhase}
       
