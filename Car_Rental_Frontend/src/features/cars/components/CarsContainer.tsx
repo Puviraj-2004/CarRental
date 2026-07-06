@@ -42,7 +42,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
   const hasDates = !!(urlStartDate && urlEndDate);
 
   const [filters, setFilters] = useState<CarFilterInput>({
-    status: 'AVAILABLE',
+    statusNot: 'UNAVAILABLE',
     brandId: undefined,
     modelId: undefined,
     fuelTypeId: undefined,
@@ -60,7 +60,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
       brandId,
       modelId,
       fuelTypeId,
-      status: 'AVAILABLE',
+      statusNot: 'UNAVAILABLE',
       search,
     }));
   }, [searchParams]);
@@ -100,7 +100,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
     variables: {
       pagination: { page: currentPage, pageSize: 6 },
       filter: {
-        status: filters.status || 'AVAILABLE',
+        statusNot: 'UNAVAILABLE',
         brandId: filters.brandId,
         modelId: filters.modelId,
         fuelTypeId: filters.fuelTypeId,
@@ -137,7 +137,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
         if (filters.search && !`${car.model.brand.name} ${car.model.name}`.toLowerCase().includes(filters.search.toLowerCase())) {
           return false;
         }
-        if (filters.status && car.status !== filters.status) {
+        if (car.status === 'UNAVAILABLE') {
           return false;
         }
         if (filters.brandId && car.model.brand.id !== filters.brandId) {
@@ -185,7 +185,7 @@ export const CarsContainer: React.FC<CarsContainerProps> = ({
     setCurrentPage(1);
     router.replace(pathname, { scroll: false });
     setFilters({
-      status: 'AVAILABLE',
+      statusNot: 'UNAVAILABLE',
       brandId: undefined,
       modelId: undefined,
       fuelTypeId: undefined,

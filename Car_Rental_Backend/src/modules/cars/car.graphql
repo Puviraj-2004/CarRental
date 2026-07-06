@@ -74,6 +74,7 @@ input UpdateCarInput {
 
 input CarFilterInput {
   status:     CarStatus
+  statusNot:  CarStatus
   brandId:    ID
   modelId:    ID
   fuelTypeId: ID

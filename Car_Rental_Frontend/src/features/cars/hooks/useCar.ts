@@ -50,6 +50,7 @@ export interface PaginationInput {
 
 export interface CarFilterInput {
   status?:     'AVAILABLE' | 'RESERVED' | 'RENTED' | 'UNAVAILABLE';
+  statusNot?:  'AVAILABLE' | 'RESERVED' | 'RENTED' | 'UNAVAILABLE';
   brandId?:    string;
   modelId?:    string;
   fuelTypeId?: string;

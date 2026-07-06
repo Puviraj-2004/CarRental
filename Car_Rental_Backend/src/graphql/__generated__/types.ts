@@ -203,6 +203,7 @@ export type CarFilterInput = {
   modelId?: InputMaybe<Scalars['ID']['input']>;
   search?: InputMaybe<Scalars['String']['input']>;
   status?: InputMaybe<CarStatus>;
+  statusNot?: InputMaybe<CarStatus>;
 };
 
 export type CarImage = {

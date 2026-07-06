@@ -203,6 +203,7 @@ export default function AdminBookingDetailsPage() {
   const [paymentLink, setPaymentLink] = React.useState('');
   const [refundDialogOpen, setRefundDialogOpen] = React.useState(false);
   const [cancelStatusDialogOpen, setCancelStatusDialogOpen] = React.useState(false);
+  const [completeStatusDialogOpen, setCompleteStatusDialogOpen] = React.useState(false);
 
   const { data, loading, error, refetch } = useQuery(GET_ADMIN_BOOKING_DETAILS_QUERY, {
     variables: { id: bookingId },
@@ -242,6 +243,10 @@ export default function AdminBookingDetailsPage() {
       setCancelStatusDialogOpen(true);
       return;
     }
+    if (status === 'COMPLETED') {
+      setCompleteStatusDialogOpen(true);
+      return;
+    }
     try {
       await updateStatus({ variables: { id: booking.id, status } });
       showToast(`Booking status updated to ${status}.`, 'success');
@@ -258,6 +263,17 @@ export default function AdminBookingDetailsPage() {
       showToast('Booking cancelled.', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to cancel booking.', 'error');
+    }
+  };
+
+  const handleConfirmCompleteStatus = async () => {
+    if (!booking) return;
+    try {
+      await updateStatus({ variables: { id: booking.id, status: 'COMPLETED' } });
+      setCompleteStatusDialogOpen(false);
+      showToast('Trip completed successfully.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to complete trip.', 'error');
     }
   };
 
@@ -691,6 +707,38 @@ export default function AdminBookingDetailsPage() {
             sx={{ textTransform: 'none', fontWeight: 800 }}
           >
             {updatingStatus ? <CircularProgress size={20} color="inherit" /> : 'Yes, cancel'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={completeStatusDialogOpen}
+        onClose={updatingStatus ? undefined : () => setCompleteStatusDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Complete trip?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will mark the trip as completed and return the vehicle to the available fleet.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            disabled={updatingStatus}
+            onClick={() => setCompleteStatusDialogOpen(false)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            No
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={updatingStatus}
+            onClick={handleConfirmCompleteStatus}
+            sx={{ textTransform: 'none', fontWeight: 800 }}
+          >
+            {updatingStatus ? <CircularProgress size={20} color="inherit" /> : 'Yes, complete'}
           </Button>
         </DialogActions>
       </Dialog>

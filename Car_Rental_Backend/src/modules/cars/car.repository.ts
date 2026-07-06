@@ -34,6 +34,7 @@ export class CarRepository {
     p: NormalizedPagination,
     filter?: {
       status?:     CarStatus;
+      statusNot?:  CarStatus;
       brandId?:    string;
       modelId?:    string;
       fuelTypeId?: string;
@@ -45,6 +46,7 @@ export class CarRepository {
     const where: Prisma.CarWhereInput = {};
 
     if (filter?.status)    where.status    = filter.status;
+    if (filter?.statusNot) where.status    = { not: filter.statusNot };
     if (filter?.modelId)   where.modelId   = filter.modelId;
     if (filter?.fuelTypeId) where.fuelTypeId = filter.fuelTypeId;
     if (filter?.brandId)   where.model     = { brandId: filter.brandId };
@@ -96,7 +98,7 @@ export class CarRepository {
 
     const excludedIds = booked.map(b => b.carId);
     const where: Prisma.CarWhereInput = {
-      status: CarStatus.AVAILABLE,
+      status: { not: CarStatus.UNAVAILABLE },
       id:     { notIn: excludedIds },
     };
 

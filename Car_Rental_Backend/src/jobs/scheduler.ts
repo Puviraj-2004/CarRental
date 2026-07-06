@@ -11,6 +11,11 @@ const BOOKING_EXPIRATION = 'booking-expiration';
 const PAYMENT_CLEANUP    = 'payment-cleanup';
 const REMINDER           = 'reminder';
 
+async function resetRepeatableJobs(queue: Queue): Promise<void> {
+  const jobs = await queue.getRepeatableJobs();
+  await Promise.all(jobs.map((job) => queue.removeRepeatableByKey(job.key)));
+}
+
 export async function startScheduler(): Promise<void> {
   const redis = getRedisClient();
 
@@ -32,6 +37,12 @@ export async function startScheduler(): Promise<void> {
   const bookingExpirationQueue = new Queue(BOOKING_EXPIRATION, { connection });
   const paymentCleanupQueue    = new Queue(PAYMENT_CLEANUP,    { connection });
   const reminderQueue          = new Queue(REMINDER,           { connection });
+
+  await Promise.all([
+    resetRepeatableJobs(bookingExpirationQueue),
+    resetRepeatableJobs(paymentCleanupQueue),
+    resetRepeatableJobs(reminderQueue),
+  ]);
 
   // ── 2. Register Queue Error Listeners (Prevents uncaught crashes) ─────────
   bookingExpirationQueue.on('error', (err) => {

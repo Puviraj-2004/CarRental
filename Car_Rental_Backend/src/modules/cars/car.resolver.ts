@@ -50,6 +50,7 @@ export const carResolvers: Partial<Resolvers> = {
         filter != null
           ? {
               status:     (filter.status     ?? undefined) as CarStatus | undefined,
+              statusNot:  (filter.statusNot  ?? undefined) as CarStatus | undefined,
               brandId:    filter.brandId    ?? undefined,
               modelId:    filter.modelId    ?? undefined,
               fuelTypeId: filter.fuelTypeId ?? undefined,

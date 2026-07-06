@@ -19,6 +19,8 @@ export interface Booking {
   notes?:         string | null;
   status:         'RESERVED' | 'CONFIRMED' | 'ONGOING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED' | 'REJECTED';
   type:           'RENTAL' | 'COURTESY';
+  documentRejectedAt?: string | null;
+  documentReuploadDeadline?: string | null;
   reminderSentAt?: string | null;
   createdAt:      string;
   updatedAt?:     string;

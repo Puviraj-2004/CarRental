@@ -37,6 +37,7 @@ export const booking = {
     closed: 'Closed booking',
     actions: {
       verifyAndPay: 'Verify and pay',
+      reuploadDocuments: 'Reupload documents',
       completePayment: 'Complete payment',
       cancel: 'Cancel',
       extendDates: 'Extend dates',
@@ -55,6 +56,9 @@ export const booking = {
       pending: 'Verification pending',
       approved: 'Verified identity',
       rejected: 'Documents rejected',
+    },
+    documents: {
+      reuploadRequired: 'Documents were rejected. Reupload before',
     },
     cancelDialog: {
       title: 'Cancel booking',

@@ -178,7 +178,7 @@ export class BookingService {
     if (!car) {
       throw new AppError('Car not found.', ErrorCode.NOT_FOUND);
     }
-    if (car.status !== CarStatus.AVAILABLE) {
+    if (car.status === CarStatus.UNAVAILABLE) {
       throw new AppError(
         'This car is not available for booking.',
         ErrorCode.BAD_USER_INPUT,

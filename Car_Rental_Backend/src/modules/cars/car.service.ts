@@ -131,6 +131,7 @@ export class CarService {
     pagination?: { page?: number; pageSize?: number },
     filter?: {
       status?:     CarStatus;
+      statusNot?:  CarStatus;
       brandId?:    string;
       modelId?:    string;
       fuelTypeId?: string;
@@ -301,7 +302,7 @@ export class CarService {
 
       result.push({
         date:      dateStr,
-        available: !booking && car.status === CarStatus.AVAILABLE,
+        available: !booking && car.status !== CarStatus.UNAVAILABLE,
         bookingId: booking?.id ?? null,
       });
     }

@@ -41,11 +41,11 @@ export async function runBookingExpirationJob(): Promise<void> {
         { documents: { status: { not: 'APPROVED' } } },
       ],
     },
-    data: { status: BookingStatus.CANCELLED },
+    data: { status: BookingStatus.EXPIRED },
   });
 
   if (incompleteReservations.count > 0) {
-    logger.info('BookingExpiration: cancelled incomplete rental reservations', {
+    logger.info('BookingExpiration: expired incomplete rental reservations', {
       count:       incompleteReservations.count,
       holdMinutes: RESERVATION_HOLD_MINUTES,
     });
@@ -54,16 +54,17 @@ export async function runBookingExpirationJob(): Promise<void> {
   // ── Condition 2b — rejected documents not reuploaded before deadline ───────
   const expiredDocumentReuploads = await prisma.booking.updateMany({
     where: {
-      status: BookingStatus.RESERVED,
+      status: { in: [BookingStatus.RESERVED, BookingStatus.CONFIRMED] },
       type: BookingType.RENTAL,
       documentId: null,
+      documentRejectedAt: { not: null },
       documentReuploadDeadline: { lt: now },
     },
-    data: { status: BookingStatus.CANCELLED },
+    data: { status: BookingStatus.EXPIRED },
   });
 
   if (expiredDocumentReuploads.count > 0) {
-    logger.info('BookingExpiration: cancelled bookings after document reupload deadline', {
+    logger.info('BookingExpiration: expired bookings after document reupload deadline', {
       count: expiredDocumentReuploads.count,
     });
   }

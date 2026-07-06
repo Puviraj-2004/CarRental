@@ -53,6 +53,8 @@ export const GET_MY_BOOKINGS_QUERY = gql`
         totalPrice
         status
         type
+        documentRejectedAt
+        documentReuploadDeadline
         createdAt
         documents {
           id

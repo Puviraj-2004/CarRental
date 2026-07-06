@@ -40,6 +40,7 @@ export const booking: DeepStringify<typeof enBooking> = {
     closed: 'Reservation fermee',
     actions: {
       verifyAndPay: 'Verifier et payer',
+      reuploadDocuments: 'Televerser a nouveau',
       completePayment: 'Finaliser le paiement',
       cancel: 'Annuler',
       extendDates: 'Prolonger les dates',
@@ -58,6 +59,9 @@ export const booking: DeepStringify<typeof enBooking> = {
       pending: 'Verification en attente',
       approved: 'Identite verifiee',
       rejected: 'Documents rejetes',
+    },
+    documents: {
+      reuploadRequired: 'Les documents ont ete rejetes. Televersez-les avant le',
     },
     cancelDialog: {
       title: 'Annuler la reservation',

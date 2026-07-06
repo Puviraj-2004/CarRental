@@ -168,23 +168,24 @@ export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
   const renderActionButtons = (booking: Booking) => {
     const isUnpaid = booking.status === 'RESERVED' && !booking.payment;
     const hasNoDocs = booking.status === 'RESERVED' && !booking.documents;
+    const needsDocumentReupload = ['RESERVED', 'CONFIRMED'].includes(booking.status) && !booking.documents && Boolean(booking.documentReuploadDeadline);
     const isDocsPending = booking.status === 'RESERVED' && booking.payment?.status === 'PENDING' && booking.documents?.status !== 'APPROVED';
     const readyToPay = booking.status === 'RESERVED' && booking.payment?.status === 'PENDING' && booking.documents?.status === 'APPROVED';
     const canCancel = Boolean(onCancel) && ['RESERVED', 'CONFIRMED'].includes(booking.status);
     const canExtend = Boolean(onExtend) && (isUnpaid || hasNoDocs || isDocsPending || readyToPay);
 
-    if (booking.status === 'RESERVED' && (isUnpaid || hasNoDocs || readyToPay)) {
+    if ((booking.status === 'RESERVED' && (isUnpaid || hasNoDocs || readyToPay)) || needsDocumentReupload) {
       return (
         <Stack direction={{ xs: 'column', sm: 'row', md: 'column' }} spacing={1}>
           <Button
             component={Link}
-            href={hasNoDocs ? `/booking/${booking.id}/documents` : `/booking/${booking.id}/payment`}
+            href={needsDocumentReupload || hasNoDocs ? `/booking/${booking.id}/documents` : `/booking/${booking.id}/payment`}
             variant="contained"
             size="small"
             endIcon={<ArrowForwardRoundedIcon />}
             fullWidth
           >
-            {hasNoDocs ? t('booking.records.actions.verifyAndPay') : t('booking.records.actions.completePayment')}
+            {needsDocumentReupload ? t('booking.records.actions.reuploadDocuments') : hasNoDocs ? t('booking.records.actions.verifyAndPay') : t('booking.records.actions.completePayment')}
           </Button>
           {canCancel && (
             <Button
@@ -337,6 +338,11 @@ export const BookingRecordsView: React.FC<BookingRecordsViewProps> = ({
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                               {renderStatusBadge(booking)}
                             </Stack>
+                            {['RESERVED', 'CONFIRMED'].includes(booking.status) && booking.documentReuploadDeadline && !booking.documents && (
+                              <Alert severity="warning" sx={{ py: 0.75 }}>
+                                {t('booking.records.documents.reuploadRequired')} {formatTripDate(booking.documentReuploadDeadline, { day: '2-digit', month: 'short', year: 'numeric' })}.
+                              </Alert>
+                            )}
                             <Typography variant="h5" noWrap>
                               {carName}
                             </Typography>
